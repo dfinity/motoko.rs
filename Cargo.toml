@@ -1,0 +1,34 @@
+[package]
+name = "motoko"
+version = "0.1.0"
+authors = ["Matthew Hammer", "Ryan Vandersmith"]
+edition = "2018"
+build = "build.rs"
+
+[build-dependencies]
+lalrpop = "0.19.7"
+
+[dependencies]
+lalrpop-util = "0.19.7"
+regex = "1"
+env_logger = "0.6"
+log = "0.4"
+structopt = "0.3.16"
+
+[lib]
+name = "motoko"
+path = "src/lib/mod.rs"
+test = true            # Is tested by default.
+doctest = true         # Documentation examples are tested by default.
+bench = true           # Is benchmarked by default.
+doc = true             # Is documented by default.
+plugin = false         # Used as a compiler plugin (deprecated).
+proc-macro = false     # Set to `true` for a proc-macro library.
+harness = true         # Use libtest harness.
+edition = "2018"       # The edition of the target.
+crate-type = ["lib"]   # The crate types to generate.
+required-features = [] # Features required to build this target (N/A for lib).
+
+[[bin]]
+name = "mo-rs"
+path = "src/bin/mo.rs"

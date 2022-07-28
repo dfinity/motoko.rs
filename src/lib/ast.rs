@@ -1,7 +1,7 @@
 use num_bigint::{BigInt, BigUint};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Value {
+pub enum Literal {
     Null,
     Bool,
     Unit,
@@ -20,8 +20,6 @@ pub enum Value {
     Text(String),
     Blob(String),
     Pre(String, () /* Type.prim? */),
-    Tuple(Vec<Value>),
-    Record(Vec<(String, Value)>),
 }
 
 // type lit =
@@ -101,22 +99,24 @@ type TypeRef = Box<Type>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Exp {
-    Literal(Value),
+    Literal(Literal),
 
     Hole,
 }
-
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Pat {
     Wild(),
     Var(String),
-    Lit(Value),
+    Lit(Literal),
     Sign(), // signed literal?
     Tuple(Vec<(String, Pat)>),
     Object(Vec<(String, Pat)>),
     Optional(PatRef),
-
+    Tag(String, PatRef),
+    Alt(PatRef, PatRef),
+    Annot(PatRef, Type),
+    Parenthesis(Pat),
 }
 type PatRef = Box<Pat>;
 

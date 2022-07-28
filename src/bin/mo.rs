@@ -6,8 +6,15 @@ use structopt::{clap, clap::Shell};
 
 pub type OurResult<X> = Result<X, OurError>;
 
+impl From<()> for OurError {
+    fn from(_unit: ()) -> Self {
+        OurError::Unit
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum OurError {
+    Unit,
     String(String),
 }
 
@@ -43,7 +50,10 @@ pub enum CliCommand {
     },
     Check {
         input: String,
-    }
+    },
+    Echo {
+        input: String,
+    },
 }
 
 fn init_log(level_filter: log::LevelFilter) {
@@ -73,6 +83,14 @@ fn main() -> OurResult<()> {
             // see also: https://clap.rs/effortless-auto-completion/
             CliOpt::clap().gen_completions_to("caniput", s, &mut io::stdout());
             info!("done");
+        }
+        CliCommand::Check { input } => {
+            let _ = motoko::check::parse(&input, None)?;
+            println!("check::parse: okay.");
+        }
+        CliCommand::Echo { input } => {
+            let p = motoko::check::parse(&input, None)?;
+            println!("{}", p);
         }
     };
     Ok(())

@@ -4,7 +4,11 @@ use crate::ast::{Id, Exp};
 
 grammar;
 
-Num: i32 = {
+pub Exp: Exp = {
+    "_?_" => Exp::Hole
+};
+
+pub Num: i32 = {
     r"[0-9]+" => i32::from_str(<>).unwrap()
 };
 

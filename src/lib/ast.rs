@@ -1,8 +1,7 @@
 use num_bigint::{BigInt, BigUint};
-use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Value {
+pub enum Literal {
     Null,
     Bool,
     Unit,
@@ -61,6 +60,95 @@ pub enum PrimType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ObjSort {
+    Object,
+    Actor,
+    Module,
+}
+
+pub type TypId = Id;
+
+pub type Decs = Vec<Dec>;
+pub type Cases = Vec<Case>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Dec {
+    Exp(Exp),
+    Let(Pat, Exp),
+    Var(Id, Exp),
+    Typ(TypId, TypBinds, Type),
+    Class(SortPat, TypId, TypBinds, Pat, Option<Type>, ObjSort, Id, DecFields)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SortPat {
+    Local,
+    Shared(SharedSort, Pat),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SharedSort {
+    Query,
+    Update,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BindSort {
+    Scope,
+    Type
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypBind {
+    var: Id,
+    sort: BindSort,
+    bound: Type,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Mut {
+    Const,
+    Var
+}
+
+pub type TypBinds = Vec<TypBind>;
+pub type DecFields = Vec<DecField>;
+pub type ExpFields = Vec<ExpField>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Case {
+    pat: Pat,
+    exp: Exp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExpField {
+    mut_: Mut,
+    id: Id,
+    exp: Exp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecField {
+    dec: Dec,
+    vis: Vis,
+    stab: Option<Stab>
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Vis {
+    Public(Option<String>),
+    Private,
+    System
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Stab {
+    Stable,
+    Flexible
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     // Path (type path)?
     Prim(PrimType),
@@ -81,7 +169,9 @@ pub enum Type {
     Parenthesized(TypeRef),
     Named(String, TypeRef),
 }
-type TypeRef = Arc<Type>;
+type TypeRef = Box<Type>;
+
+pub type Inst = Vec<Type>;
 
 // and typ' =
 //   | PathT of path * typ list                       (* type path *)
@@ -98,67 +188,108 @@ type TypeRef = Arc<Type>;
 //   | ParT of typ                                    (* parentheses, used to control function arity only *)
 //   | NamedT of id * typ                             (* parenthesized single element named "tuple" *)
 
+pub type Exp = Box<Exp_>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Exp<E> {
+pub enum Exp_ {
     Prim(String),
     Var(Id),
     Literal(Literal),
-    ActorUrl(E),
-    Un(UnOp, E),
-    Bin(BinOp, E),
-    Rel(RelOp, E),
-    Show(E),
-    ToCandid(Vec<E>),
-    FromCandid(E),
-    Tup(Vec<E>),
-    Proj(E, uint),
-    Opt(E),
-    DoOpt(E),
-    Bang(E),
+    ActorUrl(Exp),
+    Un(UnOp, Exp),
+    Bin(BinOp, Exp),
+    Rel(RelOp, Exp),
+    Show(Exp),
+    ToCandid(Vec<Exp>),
+    FromCandid(Exp),
+    Tup(Vec<Exp>),
+    Proj(Exp, usize),
+    Opt(Exp),
+    DoOpt(Exp),
+    Bang(Exp),
     ObjBlock(ObjSort, DecFields),
-    Obj(ExpFields),
-    Tag(Id, E),
-    Dot(E, Id),
-    Assign(E, E),
-    Array(Mut, Vec<E>),
-    Idx(E, E),
-    Func(String, SortPat, TypBinds, Pat, Option<Typ>, E),
-    Call(E, Inst, E),
+    Obj(ExpxpFields),
+    Tag(Id, Exp),
+    Dot(Exp, Id),
+    Assign(Exp, Exp),
+    Array(Mut, Vec<Exp>),
+    Idx(Exp, Exp),
+    Func(String, SortPat, TypBinds, Pat, Option<Type>, Exp),
+    Call(Exp, Inst, Exp),
     Block(Decs),
-    Not(E),
-    And(E, E),
-    Or(E, E),
-    Of(E, E, E),
-    Switch(E, Cases),
-    While(E, E),
-    Loop(E, Option<E>),
-    For(Pat, E, E),
-    Label(Id, Typ, E),
-    Break(Id, E),
-    Ret(E),
-    Debug(E),
-    Async(TypBind, E),
-    Await(E),
-    Assert(E),
-    Annot(E, Typ),
+    Not(Exp),
+    And(Exp, Exp),
+    Or(Exp, Exp),
+    Of(Exp, Exp, Exp),
+    Switch(Exp, Cases),
+    While(Exp, Exp),
+    Loop(Exp, Option<Exp>),
+    For(Pat, Exp, Exp),
+    Label(Id, Type, Exp),
+    Break(Id, Exp),
+    Ret(Exp),
+    Debug(Exp),
+    Async(TypBind, Exp),
+    Await(Exp),
+    Assert(Exp),
+    Annot(Exp, Type),
     Import(String),
-    Throw(E),
-    Try(E, Cases),
-    Ignore(E)
+    Throw(Exp),
+    Try(Exp, Cases),
+    Ignore(Exp)
 }
-
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Pat {
     Wild(),
     Var(String),
-    Lit(Value),
+    Lit(Literal),
     Sign(), // signed literal?
     Tuple(Vec<(String, Pat)>),
     Object(Vec<(String, Pat)>),
     Optional(PatRef),
+    Tag(String, PatRef),
+    Alt(PatRef, PatRef),
+    Annot(PatRef, Type),
+    Parenthesis(Pat),
 }
-type PatRef = Arc<Pat>;
+type PatRef = Box<Pat>;
+
+pub enum UnOp{
+    Pos,
+    Neg,
+    Not,
+}
+
+pub enum BinOp{
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Pow,
+    And,
+    Or,
+    Xor,
+    ShL,
+    ShR,
+    RotL,
+    RotR,
+    WAdd,
+    WSub,
+    WMul,
+    WPow,
+    Cat,
+}
+
+pub enum RelOp {
+    Eq,
+    Neq,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+}
 
 // type pat = (pat', Type.typ) Source.annotated_phrase
 // and pat' =

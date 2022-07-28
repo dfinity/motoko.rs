@@ -1,5 +1,4 @@
 use num_bigint::{BigInt, BigUint};
-use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
@@ -21,6 +20,8 @@ pub enum Value {
     Text(String),
     Blob(String),
     Pre(String, () /* Type.prim? */),
+    Tuple(Vec<Value>),
+    Record(Vec<(String, Value)>),
 }
 
 // type lit =
@@ -81,7 +82,7 @@ pub enum Type {
     Parenthesized(TypeRef),
     Named(String, TypeRef),
 }
-type TypeRef = Arc<Type>;
+type TypeRef = Box<Type>;
 
 // and typ' =
 //   | PathT of path * typ list                       (* type path *)
@@ -115,8 +116,9 @@ pub enum Pat {
     Tuple(Vec<(String, Pat)>),
     Object(Vec<(String, Pat)>),
     Optional(PatRef),
+
 }
-type PatRef = Arc<Pat>;
+type PatRef = Box<Pat>;
 
 // type pat = (pat', Type.typ) Source.annotated_phrase
 // and pat' =

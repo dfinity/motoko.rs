@@ -99,10 +99,52 @@ type TypeRef = Arc<Type>;
 //   | NamedT of id * typ                             (* parenthesized single element named "tuple" *)
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Exp {
-    Literal(Value),
-
-    Hole,
+pub enum Exp<E> {
+    Prim(String),
+    Var(Id),
+    Literal(Literal),
+    ActorUrl(E),
+    Un(UnOp, E),
+    Bin(BinOp, E),
+    Rel(RelOp, E),
+    Show(E),
+    ToCandid(Vec<E>),
+    FromCandid(E),
+    Tup(Vec<E>),
+    Proj(E, uint),
+    Opt(E),
+    DoOpt(E),
+    Bang(E),
+    ObjBlock(ObjSort, DecFields),
+    Obj(ExpFields),
+    Tag(Id, E),
+    Dot(E, Id),
+    Assign(E, E),
+    Array(Mut, Vec<E>),
+    Idx(E, E),
+    Func(String, SortPat, TypBinds, Pat, Option<Typ>, E),
+    Call(E, Inst, E),
+    Block(Decs),
+    Not(E),
+    And(E, E),
+    Or(E, E),
+    Of(E, E, E),
+    Switch(E, Cases),
+    While(E, E),
+    Loop(E, Option<E>),
+    For(Pat, E, E),
+    Label(Id, Typ, E),
+    Break(Id, E),
+    Ret(E),
+    Debug(E),
+    Async(TypBind, E),
+    Await(E),
+    Assert(E),
+    Annot(E, Typ),
+    Import(String),
+    Throw(E),
+    Try(E, Cases),
+    Ignore(E)
 }
 
 

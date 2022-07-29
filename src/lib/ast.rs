@@ -105,7 +105,7 @@ pub type TypBinds = Vec<TypBind>;
 pub type DecFields = Vec<DecField>;
 pub type ExpFields = Vec<ExpField>;
 
-#[Derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
     pat: Pat,
     exp: Exp,

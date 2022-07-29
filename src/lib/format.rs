@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use crate::ast::Exp_ as Exp;
+use crate::ast::Exp;
 
 use std::fmt;
 

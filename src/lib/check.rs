@@ -1,4 +1,4 @@
-use crate::ast::Exp_ as Exp;
+use crate::ast::Exp;
 
 pub fn parse_exp(input: &str) -> Result<Exp, ()> {
     crate::parser::ExpParser::new().parse(input).map_err(|_| ())

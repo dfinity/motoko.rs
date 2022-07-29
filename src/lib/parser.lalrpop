@@ -1,15 +1,19 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::ast::{Id, Exp_ as Exp}; // Maybe we could use `type Exp_ = Box<Exp>; enum Exp = { ... }` to simplify imports?
+use crate::ast::{Id, Exp, Exp_, Literal};
 
 grammar;
 
-pub Exp: Exp = {
-    "_?_" => Exp::Hole,
-    "return" <e:Exp> => Exp::Return(e),
+pub Exp_: Exp_ = {
+    Exp => Box::new(<>)
 };
 
-pub Num: i32 = {
+pub Exp: Exp = {
+    "return" <e:Exp_> => Exp::Return(e),
+    Int32 => Exp::Literal(Literal::Int32(<>)),
+};
+
+pub Int32: i32 = {
     r"[0-9]+" => i32::from_str(<>).unwrap()
 };
 

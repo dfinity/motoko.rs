@@ -1,5 +1,6 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
+use num_bigint::{BigInt, BigUint};
 use crate::ast::{Id, Exp, Exp_, Literal};
 
 grammar;
@@ -10,12 +11,25 @@ pub Exp_: Exp_ = {
 
 pub Exp: Exp = {
     "return" <e:Exp_> => Exp::Return(e),
-    Int32 => Exp::Literal(Literal::Int32(<>)),
+    Literal => Exp::Literal(<>),
 };
 
-pub Int32: i32 = {
-    r"[0-9]+" => i32::from_str(<>).unwrap()
-};
+pub Literal: Literal = {
+    "null" => Literal::Null,
+    "true" => Literal::Bool(true),
+    "false" => Literal::Bool(false),
+    "()" => Literal::Unit,
+    r"-?[0-9]+\.[0-9]+" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
+    r"[0-9]+" => Literal::Nat(BigUint::from_str(<>).unwrap()), // maybe refactor to use Nat parser?
+    r"-[0-9]+" => Literal::Int(BigInt::from_str(<>).unwrap()),
+    r"'([^']|')'" => Literal::Char(<>[1..<>.len() - 2]), // TODO: more test cases
+    // TODO: Blob?
+    // TODO: Pre?
+}
+
+pub Nat: usize = {
+    r"[0-9]+" => <>.parse::<usize>().unwrap(),
+}
 
 pub Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()

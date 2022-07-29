@@ -34,8 +34,10 @@ pub Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
 
+pub Pat_: Pat_ = {
+    Pat => Box::new(<>)
+}
 
-// ----- Matthew's work space
 
 pub ExpPlain_: Exp_ = {
     ExpPlain => Box::new(<>),
@@ -135,7 +137,7 @@ pub BinOp: BinOp = {
     "|" => BinOp::Or,
     "^" => BinOp::Xor,
     "<<" => BinOp::ShL,
-//    " >>" => BinOp::Shr,
+    " >>" => BinOp::ShR,
     "<<>" => BinOp::RotL,
     "<>>" => BinOp::RotR,
     "#" => BinOp::Cat,

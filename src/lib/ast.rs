@@ -22,25 +22,6 @@ pub enum Literal {
     Pre(String, () /* Type.prim? */),
 }
 
-// type lit =
-//   | NullLit
-//   | BoolLit of bool
-//   | NatLit of Numerics.Nat.t
-//   | Nat8Lit of Numerics.Nat8.t
-//   | Nat16Lit of Numerics.Nat16.t
-//   | Nat32Lit of Numerics.Nat32.t
-//   | Nat64Lit of Numerics.Nat64.t
-//   | IntLit of Numerics.Int.t
-//   | Int8Lit of Numerics.Int_8.t
-//   | Int16Lit of Numerics.Int_16.t
-//   | Int32Lit of Numerics.Int_32.t
-//   | Int64Lit of Numerics.Int_64.t
-//   | FloatLit of Numerics.Float.t
-//   | CharLit of Value.unicode
-//   | TextLit of string
-//   | BlobLit of string
-//   | PreLit of string * Type.prim
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrimType {
     Unit,
@@ -77,7 +58,16 @@ pub enum Dec {
     Let(Pat, Exp),
     Var(Id, Exp),
     Typ(TypId, TypBinds, Type),
-    Class(SortPat, TypId, TypBinds, Pat, Option<Type>, ObjSort, Id, DecFields)
+    Class(
+        SortPat,
+        TypId,
+        TypBinds,
+        Pat,
+        Option<Type_>,
+        ObjSort,
+        Id,
+        DecFields,
+    ),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +85,7 @@ pub enum SharedSort {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BindSort {
     Scope,
-    Type
+    Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,7 +98,7 @@ pub struct TypBind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mut {
     Const,
-    Var
+    Var,
 }
 
 pub type TypBinds = Vec<TypBind>;
@@ -132,61 +122,47 @@ pub struct ExpField {
 pub struct DecField {
     dec: Dec,
     vis: Vis,
-    stab: Option<Stab>
+    stab: Option<Stab>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Vis {
-    Public(Option<String>),
+    Public(Option<Id>),
     Private,
-    System
+    System,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stab {
     Stable,
-    Flexible
+    Flexible,
 }
 
+type Type = Box<Type_>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type {
+pub enum Type_ {
     // Path (type path)?
     Prim(PrimType),
-    Object(Vec<(String, Type)>),
-    Array(Vec<Type>),
-    Optional(TypeRef),
+    Object(Vec<(Id, Type_)>),
+    Array(Vec<Type_>),
+    Optional(Type),
     // Variant(Vec<>),
-    Tuple(Vec<Type>),
+    Tuple(Vec<Type_>),
     Function(
         (),      /* FuncSort */
         Vec<()>, /* TypeBind */
-        TypeRef,
-        TypeRef,
+        Type,
+        Type,
     ),
-    Async(TypeRef),
-    And(TypeRef, TypeRef),
-    Or(TypeRef, TypeRef),
-    Parenthesized(TypeRef),
-    Named(String, TypeRef),
+    Async(Type),
+    And(Type, Type),
+    Or(Type, Type),
+    Parenthesized(Type),
+    Named(Id, Type),
 }
-type TypeRef = Box<Type>;
 
-pub type Inst = Vec<Type>;
-
-// and typ' =
-//   | PathT of path * typ list                       (* type path *)
-//   | PrimT of string                                (* primitive *)
-//   | ObjT of obj_sort * typ_field list              (* object *)
-//   | ArrayT of mut * typ                            (* array *)
-//   | OptT of typ                                    (* option *)
-//   | VariantT of typ_tag list                       (* variant *)
-//   | TupT of typ_item list                          (* tuple *)
-//   | FuncT of func_sort * typ_bind list * typ * typ (* function *)
-//   | AsyncT of scope * typ                          (* future *)
-//   | AndT of typ * typ                              (* intersection *)
-//   | OrT of typ * typ                               (* union *)
-//   | ParT of typ                                    (* parentheses, used to control function arity only *)
-//   | NamedT of id * typ                             (* parenthesized single element named "tuple" *)
+pub type Inst = Vec<Type_>;
 
 pub type Exp_ = Box<Exp>;
 
@@ -216,6 +192,34 @@ pub enum Exp {
     Idx(Exp_, Exp_),
     Func(String, SortPat, TypBinds, Pat, Option<Type>, Exp_),
     Call(Exp_, Inst, Exp_),
+=======
+pub enum Exp_ {
+    Hole,
+    Prim(Id),
+    Var(Id),
+    Literal(Literal),
+    ActorUrl(Exp),
+    Un(UnOp, Exp),
+    Bin(BinOp, Exp),
+    Rel(RelOp, Exp),
+    Show(Exp),
+    ToCandid(Vec<Exp_>),
+    FromCandid(Exp),
+    Tup(Vec<Exp_>),
+    Proj(Exp, usize),
+    Opt(Exp),
+    DoOpt(Exp),
+    Bang(Exp),
+    ObjBlock(ObjSort, DecFields),
+    Obj(ExpFields),
+    Tag(Id, Exp),
+    Dot(Exp, Id),
+    Assign(Exp, Exp),
+    Array(Mut, Vec<Exp_>),
+    Idx(Exp, Exp),
+    Func(Id, SortPat, TypBinds, Pat, Option<Type>, Exp),
+    Call(Exp, Inst, Exp),
+>>>>>>> 26c698e234e5b5f21f20cf7ff51e10550f883681
     Block(Decs),
     Not(Exp_),
     And(Exp_, Exp_),
@@ -239,29 +243,32 @@ pub enum Exp {
     Ignore(Exp_)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Pat {
-    Wild(),
-    Var(String),
-    Lit(Literal),
-    Sign(), // signed literal?
-    Tuple(Vec<(String, Pat)>),
-    Object(Vec<(String, Pat)>),
-    Optional(PatRef),
-    Tag(String, PatRef),
-    Alt(PatRef, PatRef),
-    Annot(PatRef, Type),
-    Parenthesis(PatRef),
-}
-type PatRef = Box<Pat>;
+pub type Pat = Box<Pat_>;
 
-pub enum UnOp{
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Pat_ {
+    Wild,
+    Var(Id),
+    Lit(Literal),
+    Sign(Vec<UnOp>, Pat), // signed literal?
+    Tuple(Vec<Pat_>),
+    Object(Vec<(Id, Pat_)>),
+    Optional(Pat),
+    Tag(Id, Pat),
+    Alt(Pat, Pat),
+    Annot(Pat, Type),
+    Parenthesized(Pat),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UnOp {
     Pos,
     Neg,
     Not,
 }
 
-pub enum BinOp{
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BinOp {
     Add,
     Sub,
     Mul,
@@ -282,6 +289,7 @@ pub enum BinOp{
     Cat,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelOp {
     Eq,
     Neq,
@@ -290,19 +298,5 @@ pub enum RelOp {
     Le,
     Ge,
 }
-
-// type pat = (pat', Type.typ) Source.annotated_phrase
-// and pat' =
-//   | WildP                                      (* wildcard *)
-//   | VarP of id                                 (* variable *)
-//   | LitP of lit ref                            (* literal *)
-//   | SignP of unop * lit ref                    (* signed literal *)
-//   | TupP of pat list                           (* tuple *)
-//   | ObjP of pat_field list                     (* object *)
-//   | OptP of pat                                (* option *)
-//   | TagP of id * pat                           (* tagged variant *)
-//   | AltP of pat * pat                          (* disjunctive *)
-//   | AnnotP of pat * typ                        (* type annotation *)
-//   | ParP of pat                                (* parenthesis *)
 
 pub type Id = String;

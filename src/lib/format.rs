@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use crate::ast::Exp;
+use crate::ast::Exp_ as Exp;
 
 use std::fmt;
 
@@ -8,6 +8,7 @@ impl fmt::Display for Exp {
         use Exp::*;
         match self {
             Hole => write!(f, "_?_"),
+            _ => write!(f, "(UNIMPLEMENTED)"),
         }
     }
 }

@@ -5,7 +5,8 @@ use crate::ast::{Id, Exp};
 grammar;
 
 pub Exp: Exp = {
-    "_?_" => Exp::Hole
+    "_?_" => Exp::Hole,
+    "return" <e:Exp> => Exp::Return(e),
 };
 
 pub Num: i32 = {

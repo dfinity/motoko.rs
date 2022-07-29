@@ -115,7 +115,7 @@ pub type TypBinds = Vec<TypBind>;
 pub type DecFields = Vec<DecField>;
 pub type ExpFields = Vec<ExpField>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[Derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
     pat: Pat,
     exp: Exp,
@@ -188,55 +188,55 @@ pub type Inst = Vec<Type>;
 //   | ParT of typ                                    (* parentheses, used to control function arity only *)
 //   | NamedT of id * typ                             (* parenthesized single element named "tuple" *)
 
-pub type Exp = Box<Exp_>;
+pub type Exp_ = Box<Exp>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Exp_ {
+pub enum Exp {
     Prim(String),
     Var(Id),
     Literal(Literal),
-    ActorUrl(Exp),
-    Un(UnOp, Exp),
-    Bin(BinOp, Exp),
-    Rel(RelOp, Exp),
-    Show(Exp),
-    ToCandid(Vec<Exp>),
-    FromCandid(Exp),
-    Tup(Vec<Exp>),
-    Proj(Exp, usize),
-    Opt(Exp),
-    DoOpt(Exp),
-    Bang(Exp),
+    ActorUrl(Exp_),
+    Un(UnOp, Exp_),
+    Bin(BinOp, Exp_),
+    Rel(RelOp, Exp_),
+    Show(Exp_),
+    ToCandid(Vec<Exp_>),
+    FromCandid(Exp_),
+    Tup(Vec<Exp_>),
+    Proj(Exp_, usize),
+    Opt(Exp_),
+    DoOpt(Exp_),
+    Bang(Exp_),
     ObjBlock(ObjSort, DecFields),
-    Obj(ExpxpFields),
-    Tag(Id, Exp),
-    Dot(Exp, Id),
-    Assign(Exp, Exp),
-    Array(Mut, Vec<Exp>),
-    Idx(Exp, Exp),
-    Func(String, SortPat, TypBinds, Pat, Option<Type>, Exp),
-    Call(Exp, Inst, Exp),
+    Obj(ExpFields),
+    Tag(Id, Exp_),
+    Dot(Exp_, Id),
+    Assign(Exp_, Exp_),
+    Array(Mut, Vec<Exp_>),
+    Idx(Exp_, Exp_),
+    Func(String, SortPat, TypBinds, Pat, Option<Type>, Exp_),
+    Call(Exp_, Inst, Exp_),
     Block(Decs),
-    Not(Exp),
-    And(Exp, Exp),
-    Or(Exp, Exp),
-    Of(Exp, Exp, Exp),
-    Switch(Exp, Cases),
-    While(Exp, Exp),
-    Loop(Exp, Option<Exp>),
-    For(Pat, Exp, Exp),
-    Label(Id, Type, Exp),
-    Break(Id, Exp),
-    Ret(Exp),
-    Debug(Exp),
-    Async(TypBind, Exp),
-    Await(Exp),
-    Assert(Exp),
-    Annot(Exp, Type),
+    Not(Exp_),
+    And(Exp_, Exp_),
+    Or(Exp_, Exp_),
+    Of(Exp_, Exp_, Exp_),
+    Switch(Exp_, Cases),
+    While(Exp_, Exp_),
+    Loop(Exp_, Option<Exp_>),
+    For(Pat, Exp_, Exp_),
+    Label(Id, Type, Exp_),
+    Break(Id, Exp_),
+    Return(Exp_),
+    Debug(Exp_),
+    Async(TypBind, Exp_),
+    Await(Exp_),
+    Assert(Exp_),
+    Annot(Exp_, Type),
     Import(String),
-    Throw(Exp),
-    Try(Exp, Cases),
-    Ignore(Exp)
+    Throw(Exp_),
+    Try(Exp_, Cases),
+    Ignore(Exp_)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -251,7 +251,7 @@ pub enum Pat {
     Tag(String, PatRef),
     Alt(PatRef, PatRef),
     Annot(PatRef, Type),
-    Parenthesis(Pat),
+    Parenthesis(PatRef),
 }
 type PatRef = Box<Pat>;
 

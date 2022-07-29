@@ -85,11 +85,11 @@ fn main() -> OurResult<()> {
             info!("done");
         }
         CliCommand::Check { input } => {
-            let _ = motoko::check::parse(&input, None)?;
+            let _ = motoko::check::parse_exp(&input)?;
             println!("check::parse: okay.");
         }
         CliCommand::Echo { input } => {
-            let p = motoko::check::parse(&input, None)?;
+            let p = motoko::check::parse_exp(&input)?;
             println!("{}", p);
         }
     };

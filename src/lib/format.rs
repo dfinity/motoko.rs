@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use crate::ast::Exp_ as Exp; // Maybe we could use `type Exp_ = Box<Exp>; enum Exp = { ... }` to simplify imports?
+use crate::ast::Exp_ as Exp;
 
 use std::fmt;
 

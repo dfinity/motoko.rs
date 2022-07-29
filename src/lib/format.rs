@@ -23,6 +23,8 @@ impl fmt::Display for Literal {
         use Literal::*;
         match self {
             Null => write!(f, "null"),
+            Bool(true) => write!(f, "true"),
+            Bool(false) => write!(f, "false"),
             Unit => write!(f, "()"),
             Nat(n) => write!(f, "{}", n),
             Int(i) => write!(f, "{}", i),

@@ -102,9 +102,9 @@ fn test_nested_block() {
 
 #[test]
 fn test_variant() {
-    assert_("#banana")
-    assert_("#banana(0)")
-    assert_("#banana(#apple)")
+    assert_("#banana");
+    assert_("#banana(0)");
+    assert_("#banana(#apple)");
 }
 
 #[test]

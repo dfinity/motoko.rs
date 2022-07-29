@@ -164,11 +164,15 @@ pub enum Type_ {
 
 pub type Inst = Vec<Type_>;
 
+// Convention: Foo_ = Box<Foo>
+// where Foo is an enum for an AST subsort, like Exp.
+
 pub type Exp_ = Box<Exp>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Exp {
-    Prim(String),
+    Hole,
+    Prim(Id),
     Var(Id),
     Literal(Literal),
     ActorUrl(Exp_),
@@ -190,36 +194,8 @@ pub enum Exp {
     Assign(Exp_, Exp_),
     Array(Mut, Vec<Exp_>),
     Idx(Exp_, Exp_),
-    Func(String, SortPat, TypBinds, Pat, Option<Type>, Exp_),
+    Func(Id, SortPat, TypBinds, Pat, Option<Type>, Exp_),
     Call(Exp_, Inst, Exp_),
-=======
-pub enum Exp_ {
-    Hole,
-    Prim(Id),
-    Var(Id),
-    Literal(Literal),
-    ActorUrl(Exp),
-    Un(UnOp, Exp),
-    Bin(BinOp, Exp),
-    Rel(RelOp, Exp),
-    Show(Exp),
-    ToCandid(Vec<Exp_>),
-    FromCandid(Exp),
-    Tup(Vec<Exp_>),
-    Proj(Exp, usize),
-    Opt(Exp),
-    DoOpt(Exp),
-    Bang(Exp),
-    ObjBlock(ObjSort, DecFields),
-    Obj(ExpFields),
-    Tag(Id, Exp),
-    Dot(Exp, Id),
-    Assign(Exp, Exp),
-    Array(Mut, Vec<Exp_>),
-    Idx(Exp, Exp),
-    Func(Id, SortPat, TypBinds, Pat, Option<Type>, Exp),
-    Call(Exp, Inst, Exp),
->>>>>>> 26c698e234e5b5f21f20cf7ff51e10550f883681
     Block(Decs),
     Not(Exp_),
     And(Exp_, Exp_),

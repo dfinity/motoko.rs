@@ -1,6 +1,6 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use num_bigint::{BigInt, BigUint};
+//use num_bigint::{BigInt, BigUint};
 use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Literal, Case, Cases, Decs, Dec, BinOp, UnOp};
 
 grammar;
@@ -19,8 +19,8 @@ pub Literal: Literal = {
     "false" => Literal::Bool(false),
     "()" => Literal::Unit,
     r"-?[0-9]+\.[0-9]+" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
-    r"[0-9]+" => Literal::Nat(BigUint::from_str(<>).unwrap()), // maybe refactor to use Nat parser?
-    r"-[0-9]+" => Literal::Int(BigInt::from_str(<>).unwrap()),
+    r"[0-9]+" => Literal::Nat(<>.to_string()),
+    r"-[0-9]+" => Literal::Int(<>.to_string()),
     r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
     r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
 }

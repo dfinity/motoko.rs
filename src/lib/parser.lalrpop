@@ -34,10 +34,6 @@ pub Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
 
-pub Pat_: Pat_ = {
-    Pat => Box::new(<>)
-}
-
 
 pub ExpPlain_: Exp_ = {
     ExpPlain => Box::new(<>),

@@ -13,7 +13,7 @@ fn test_strings() {
 #[test]
 fn test_tuples() {
     assert_("()");
-    assert_("(1,)");
+    assert_("(1, )");
     assert_("(1, 2)");
     assert_("(1, 2, 3)");
 }
@@ -46,11 +46,14 @@ fn test_bools() {
 }
 
 #[test]
-fn test_operators() {
-    assert_("+0");
+fn test_unary_operators() {
     assert_("-0");
+    assert_("+0");
     assert_("not true");
+}
 
+#[test]
+fn test_binary_operators() {
     assert_("0 + 0");
     assert_("0 - 0");
     assert_("0 / 0");
@@ -150,5 +153,3 @@ fn test_tuple_proj() {
 fn test_array_index() {
     assert_("x[0]");
 }
-
-

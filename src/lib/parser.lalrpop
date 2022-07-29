@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use num_bigint::{BigInt, BigUint};
-use crate::ast::{Id, Exp, Exp_, Literal, Case, Dec};
+use crate::ast::{Id, Pat, Exp, Exp_, Literal, Case, Cases, Decs, Dec, BinOp};
 
 grammar;
 
@@ -48,12 +48,12 @@ pub ExpPlain_: Exp_ = {
 
 pub ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
-    "(" <es:Exps> ")" => { es.reverse(); Exp::Tup(es) },
+    "(" <mut es:Exps> ")" => { es.reverse(); Exp::Tup(es) },
 };
 
 pub Exps: Vec<Exp> = {
     Exp => vec!(<>),
-    <e:Exp> "," <es:Exps> => { es.push(e); es },
+    <e:Exp> "," <mut es:Exps> => { es.push(e); es },
 }
 
 pub ExpNullary_: Exp_ = {
@@ -62,7 +62,7 @@ pub ExpNullary_: Exp_ = {
 
 pub ExpNullary: Exp = {
     ExpPlain => <>,
-    Id => Exp::Id(<>),
+    Id => Exp::Var(<>),
 };
 
 pub ExpPost_: Exp_ = {
@@ -71,8 +71,8 @@ pub ExpPost_: Exp_ = {
 
 pub ExpPost: Exp = {
     ExpNullary => <>,
-    <e1:ExpPost_> "[" <e2:Exp_> "]" => Exp::Index(e1, e2),
-    <e1:ExpPost_> "." <i:Nat32> => Exp::Proj(e1, i),
+    <e1:ExpPost_> "[" <e2:Exp_> "]" => Exp::Idx(e1, e2),
+    <e1:ExpPost_> "." <i:NatIndex> => Exp::Proj(e1, i),
     <e1:ExpPost_> "." <i:Id> => Exp::Dot(e1, i),
     <e:ExpPost_> "!" => Exp::Bang(e),
 };
@@ -82,8 +82,25 @@ pub ExpNonDec: Exp = {
     <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_> => Exp::Return(e),
-    "switch" <e:ExpNullary_> "{" <cs:Cases> "}" => { cs.reverse(); Exp::Switch(e, cs) },
+    "switch" <e:ExpNullary_> "{" <mut cs:Cases> "}" => { cs.reverse(); Exp::Switch(e, cs) },
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
+}
+
+pub ExpNest_: Exp_ = {
+    ExpBin => Box::new(<>),
+};
+
+pub ExpNest: Exp = {
+    // to do -- Block
+    Exp => <>,
+};
+
+pub ExpBin_: Exp_ = {
+    ExpBin => Box::new(<>),
+};
+
+pub ExpBin: Exp = {
+    <e1:Exp_> <b:BinOp> <e2:ExpBin_> => Exp::Bin(e1, b, e2),
 }
 
 pub TextId: String = {
@@ -101,9 +118,30 @@ pub Decs: Decs = {
 };
 
 pub Dec: Dec = {
-    "let" <i:Id> "=" <e:Exp_> => { Dec::Let(Pat::Var(i), e) },s
+    "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
 };
 
 pub Case: Case = {
-    "case" <pat:Pat> <exp:ExpNest> => Exp::Case(Case{pat, exp}),
+    "case" <i:Id> <exp:ExpNest> => Case{pat:Pat::Var(i), exp},
+};
+
+pub BinOp: BinOp = { 
+    "+" => BinOp::Add,
+    "-" => BinOp::Sub,
+    "*" => BinOp::Mul,
+    "/" => BinOp::Div,
+    "%" => BinOp::Mod,
+    "**" => BinOp::Pow,
+    "+%" => BinOp::WAdd,
+    "-%" => BinOp::WSub,
+    "*%" => BinOp::WMul,
+    "**%" => BinOp::WPow,
+    "&" => BinOp::And,
+    "|" => BinOp::Or,
+    "^" => BinOp::Xor,
+    "<<" => BinOp::ShL,
+//    " >>" => BinOp::Shr,
+    "<<>" => BinOp::RotL,
+    "<>>" => BinOp::RotR,
+    "#" => BinOp::Cat,
 };

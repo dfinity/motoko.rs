@@ -55,7 +55,7 @@ pub type Cases = Vec<Case>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Dec {
     Exp(Exp),
-    Let(Pat_, Exp),
+    Let(Pat, Exp),
     Var(Id, Exp),
     Typ(TypId, TypBinds, Type_),
     Class(
@@ -90,9 +90,9 @@ pub enum BindSort {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypBind {
-    var: Id,
-    sort: BindSort,
-    bound: Type_,
+    pub var: Id,
+    pub sort: BindSort,
+    pub bound: Type_,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,22 +107,22 @@ pub type ExpFields = Vec<ExpField>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
-    pat: Pat_,
-    exp: Exp,
+    pub pat: Pat,
+    pub exp: Exp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpField {
-    mut_: Mut,
-    id: Id,
-    exp: Exp,
+    pub mut_: Mut,
+    pub id: Id,
+    pub exp: Exp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecField {
-    dec: Dec,
-    vis: Vis,
-    stab: Option<Stab>,
+    pub dec: Dec,
+    pub vis: Vis,
+    pub stab: Option<Stab>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -177,12 +177,12 @@ pub enum Exp {
     Literal(Literal),
     ActorUrl(Exp_),
     Un(UnOp, Exp_),
-    Bin(BinOp, Exp_),
+    Bin(Exp_, BinOp, Exp_),
     Rel(RelOp, Exp_),
     Show(Exp_),
     ToCandid(Vec<Exp_>),
     FromCandid(Exp_),
-    Tup(Vec<Exp_>),
+    Tup(Vec<Exp>),
     Proj(Exp_, usize),
     Opt(Exp_),
     DoOpt(Exp_),
@@ -192,7 +192,7 @@ pub enum Exp {
     Tag(Id, Exp_),
     Dot(Exp_, Id),
     Assign(Exp_, Exp_),
-    Array(Mut, Vec<Exp_>),
+    Array(Mut, Vec<Exp>),
     Idx(Exp_, Exp_),
     Func(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
     Call(Exp_, Inst, Exp_),

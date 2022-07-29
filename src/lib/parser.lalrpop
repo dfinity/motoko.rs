@@ -28,7 +28,7 @@ pub Literal: Literal = {
     // TODO: Pre?
 }
 
-pub Nat: usize = {
+pub NatIndex: usize = {
     r"[0-9]+" => <>.parse::<usize>().unwrap(),
 }
 

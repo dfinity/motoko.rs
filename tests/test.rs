@@ -1,6 +1,6 @@
-use motoko::check::assert_parse;
+use motoko::check::assert_roundtrip;
 
 #[test]
-fn test_let() {
-    assert_parse("let a = 0; a;", "TODO");
+fn test_examples() {
+    assert_roundtrip("return 0");
 }

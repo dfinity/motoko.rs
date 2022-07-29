@@ -3,7 +3,7 @@ use num_bigint::{BigInt, BigUint};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal {
     Null,
-    Bool,
+    Bool(bool),
     Unit,
     Nat(BigUint),
     Nat8(u8),

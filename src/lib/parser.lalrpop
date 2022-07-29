@@ -1,6 +1,6 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::ast::{Id, Exp};
+use crate::ast::{Id, Exp_ as Exp};
 
 grammar;
 

@@ -58,7 +58,16 @@ pub enum Dec {
     Let(Pat, Exp),
     Var(Id, Exp),
     Typ(TypId, TypBinds, Type),
-    Class(SortPat, TypId, TypBinds, Pat, Option<Type>, ObjSort, Id, DecFields)
+    Class(
+        SortPat,
+        TypId,
+        TypBinds,
+        Pat,
+        Option<Type_>,
+        ObjSort,
+        Id,
+        DecFields,
+    ),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,7 +85,7 @@ pub enum SharedSort {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BindSort {
     Scope,
-    Type
+    Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,7 +98,7 @@ pub struct TypBind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mut {
     Const,
-    Var
+    Var,
 }
 
 pub type TypBinds = Vec<TypBind>;
@@ -113,52 +122,54 @@ pub struct ExpField {
 pub struct DecField {
     dec: Dec,
     vis: Vis,
-    stab: Option<Stab>
+    stab: Option<Stab>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Vis {
-    Public(Option<String>),
+    Public(Option<Id>),
     Private,
-    System
+    System,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stab {
     Stable,
-    Flexible
+    Flexible,
 }
 
+type Type = Box<Type_>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type {
+pub enum Type_ {
     // Path (type path)?
     Prim(PrimType),
-    Object(Vec<(String, Type)>),
-    Array(Vec<Type>),
-    Optional(TypeRef),
+    Object(Vec<(Id, Type_)>),
+    Array(Vec<Type_>),
+    Optional(Type),
     // Variant(Vec<>),
-    Tuple(Vec<Type>),
+    Tuple(Vec<Type_>),
     Function(
         (),      /* FuncSort */
         Vec<()>, /* TypeBind */
-        TypeRef,
-        TypeRef,
+        Type,
+        Type,
     ),
-    Async(TypeRef),
-    And(TypeRef, TypeRef),
-    Or(TypeRef, TypeRef),
-    Parenthesized(TypeRef),
-    Named(String, TypeRef),
+    Async(Type),
+    And(Type, Type),
+    Or(Type, Type),
+    Parenthesized(Type),
+    Named(Id, Type),
 }
-type TypeRef = Box<Type>;
 
-pub type Inst = Vec<Type>;
+pub type Inst = Vec<Type_>;
 
 pub type Exp = Box<Exp_>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Exp_ {
-    Prim(String),
+    Hole,
+    Prim(Id),
     Var(Id),
     Literal(Literal),
     ActorUrl(Exp),
@@ -166,21 +177,21 @@ pub enum Exp_ {
     Bin(BinOp, Exp),
     Rel(RelOp, Exp),
     Show(Exp),
-    ToCandid(Vec<Exp>),
+    ToCandid(Vec<Exp_>),
     FromCandid(Exp),
-    Tup(Vec<Exp>),
+    Tup(Vec<Exp_>),
     Proj(Exp, usize),
     Opt(Exp),
     DoOpt(Exp),
     Bang(Exp),
     ObjBlock(ObjSort, DecFields),
-    Obj(ExpxpFields),
+    Obj(ExpFields),
     Tag(Id, Exp),
     Dot(Exp, Id),
     Assign(Exp, Exp),
-    Array(Mut, Vec<Exp>),
+    Array(Mut, Vec<Exp_>),
     Idx(Exp, Exp),
-    Func(String, SortPat, TypBinds, Pat, Option<Type>, Exp),
+    Func(Id, SortPat, TypBinds, Pat, Option<Type>, Exp),
     Call(Exp, Inst, Exp),
     Block(Decs),
     Not(Exp),
@@ -202,32 +213,35 @@ pub enum Exp_ {
     Import(String),
     Throw(Exp),
     Try(Exp, Cases),
-    Ignore(Exp)
+    Ignore(Exp),
+}
+
+pub type Pat = Box<Pat_>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Pat_ {
+    Wild,
+    Var(Id),
+    Lit(Literal),
+    Sign(Vec<UnOp>, Pat), // signed literal?
+    Tuple(Vec<Pat_>),
+    Object(Vec<(Id, Pat_)>),
+    Optional(Pat),
+    Tag(Id, Pat),
+    Alt(Pat, Pat),
+    Annot(Pat, Type),
+    Parenthesized(Pat),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Pat {
-    Wild(),
-    Var(String),
-    Lit(Literal),
-    Sign(), // signed literal?
-    Tuple(Vec<(String, Pat)>),
-    Object(Vec<(String, Pat)>),
-    Optional(PatRef),
-    Tag(String, PatRef),
-    Alt(PatRef, PatRef),
-    Annot(PatRef, Type),
-    Parenthesis(Pat),
-}
-type PatRef = Box<Pat>;
-
-pub enum UnOp{
+pub enum UnOp {
     Pos,
     Neg,
     Not,
 }
 
-pub enum BinOp{
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BinOp {
     Add,
     Sub,
     Mul,
@@ -248,6 +262,7 @@ pub enum BinOp{
     Cat,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelOp {
     Eq,
     Neq,

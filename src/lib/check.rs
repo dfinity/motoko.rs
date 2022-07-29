@@ -1,4 +1,4 @@
-use crate::ast::Exp;
+use crate::ast::Exp_ as Exp;
 
 pub fn parse(input: &str, parse_ast: Option<&str>) -> Result<Exp, ()> {
     let expr = crate::parser::ExpParser::new().parse(input).unwrap();

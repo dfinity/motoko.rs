@@ -24,12 +24,10 @@ pub Literal: Literal = {
     r"-[0-9]+" => Literal::Int(BigInt::from_str(<>).unwrap()),
     r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
     r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
-    // TODO: Blob?
-    // TODO: Pre?
 }
 
 pub NatIndex: usize = {
-    r"[0-9]+" => <>.parse::<usize>().unwrap(),
+    r"[0-9]+" => <>.parse().unwrap(),
 }
 
 pub Id: Id = {

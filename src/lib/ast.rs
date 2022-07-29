@@ -1,3 +1,4 @@
+
 use num_bigint::{BigInt, BigUint};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5,7 +6,7 @@ pub enum Literal {
     Null,
     Bool(bool),
     Unit,
-    Nat(BigUint),
+    Nat(BigUint), // TODO: String?
     Nat8(u8),
     Nat16(u16),
     Nat32(u32),
@@ -18,8 +19,7 @@ pub enum Literal {
     Float(String),
     Char(char),
     Text(String),
-    Blob(String),
-    Pre(String, () /* Type.prim? */),
+    Blob(Vec<u8>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

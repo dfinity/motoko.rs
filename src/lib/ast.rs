@@ -57,13 +57,13 @@ pub enum Dec {
     Exp(Exp),
     Let(Pat, Exp),
     Var(Id, Exp),
-    Typ(TypId, TypBinds, Type),
+    Typ(TypId, TypBinds, Type_),
     Class(
         SortPat,
         TypId,
         TypBinds,
         Pat,
-        Option<Type_>,
+        Option<Type>,
         ObjSort,
         Id,
         DecFields,
@@ -92,7 +92,7 @@ pub enum BindSort {
 pub struct TypBind {
     var: Id,
     sort: BindSort,
-    bound: Type,
+    bound: Type_,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -138,31 +138,31 @@ pub enum Stab {
     Flexible,
 }
 
-type Type = Box<Type_>;
+type Type_ = Box<Type>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type_ {
+pub enum Type {
     // Path (type path)?
     Prim(PrimType),
-    Object(Vec<(Id, Type_)>),
-    Array(Vec<Type_>),
-    Optional(Type),
+    Object(Vec<(Id, Type)>),
+    Array(Vec<Type>),
+    Optional(Type_),
     // Variant(Vec<>),
-    Tuple(Vec<Type_>),
+    Tuple(Vec<Type>),
     Function(
         (),      /* FuncSort */
         Vec<()>, /* TypeBind */
-        Type,
-        Type,
+        Type_,
+        Type_,
     ),
-    Async(Type),
-    And(Type, Type),
-    Or(Type, Type),
-    Parenthesized(Type),
-    Named(Id, Type),
+    Async(Type_),
+    And(Type_, Type_),
+    Or(Type_, Type_),
+    Parenthesized(Type_),
+    Named(Id, Type_),
 }
 
-pub type Inst = Vec<Type_>;
+pub type Inst = Vec<Type>;
 
 // Convention: Foo_ = Box<Foo>
 // where Foo is an enum for an AST subsort, like Exp.
@@ -194,7 +194,7 @@ pub enum Exp {
     Assign(Exp_, Exp_),
     Array(Mut, Vec<Exp_>),
     Idx(Exp_, Exp_),
-    Func(Id, SortPat, TypBinds, Pat, Option<Type>, Exp_),
+    Func(Id, SortPat, TypBinds, Pat, Option<Type_>, Exp_),
     Call(Exp_, Inst, Exp_),
     Block(Decs),
     Not(Exp_),
@@ -205,14 +205,14 @@ pub enum Exp {
     While(Exp_, Exp_),
     Loop(Exp_, Option<Exp_>),
     For(Pat, Exp_, Exp_),
-    Label(Id, Type, Exp_),
+    Label(Id, Type_, Exp_),
     Break(Id, Exp_),
     Return(Exp_),
     Debug(Exp_),
     Async(TypBind, Exp_),
     Await(Exp_),
     Assert(Exp_),
-    Annot(Exp_, Type),
+    Annot(Exp_, Type_),
     Import(String),
     Throw(Exp_),
     Try(Exp_, Cases),
@@ -232,7 +232,7 @@ pub enum Pat_ {
     Optional(Pat),
     Tag(Id, Pat),
     Alt(Pat, Pat),
-    Annot(Pat, Type),
+    Annot(Pat, Type_),
     Parenthesized(Pat),
 }
 

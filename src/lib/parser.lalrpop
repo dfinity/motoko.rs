@@ -22,7 +22,8 @@ pub Literal: Literal = {
     r"-?[0-9]+\.[0-9]+" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
     r"[0-9]+" => Literal::Nat(BigUint::from_str(<>).unwrap()), // maybe refactor to use Nat parser?
     r"-[0-9]+" => Literal::Int(BigInt::from_str(<>).unwrap()),
-    r"'([^']|')'" => Literal::Char(<>[1..<>.len() - 2]), // TODO: more test cases
+    r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
+    r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
     // TODO: Blob?
     // TODO: Pre?
 }

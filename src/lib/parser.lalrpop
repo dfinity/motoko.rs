@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use num_bigint::{BigInt, BigUint};
-use crate::ast::{Id, Pat, Exp, Exp_, Literal, Case, Cases, Decs, Dec, BinOp};
+use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Literal, Case, Cases, Decs, Dec, BinOp};
 
 grammar;
 
@@ -34,7 +34,22 @@ pub Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
 
+pub Pat_: Pat_ = {
+    Pat => Box::new(<>)
+}
 
+pub Pat: Pat = {
+    "_" => Pat::Wild,
+    Id => Pat::Var(<>),
+    Literal => Lit(<>),
+    // TODO: Sign(ops, p)
+    "(" <p:Pat> "," <mut ps:Pats> ")" => { ps.push(p); }
+}
+
+pub Pats: Vec<Pat> = {
+    Pat => vec!(<>),
+    <p:Pat> "," <mut ps:Pats> => { ps.push(e); ps },
+}
 
 
 

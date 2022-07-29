@@ -216,7 +216,7 @@ pub enum Exp {
     Import(String),
     Throw(Exp_),
     Try(Exp_, Cases),
-    Ignore(Exp_)
+    Ignore(Exp_),
 }
 
 pub type Pat = Box<Pat_>;

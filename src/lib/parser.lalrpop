@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use num_bigint::{BigInt, BigUint};
-use crate::ast::{Id, Exp, Exp_, Literal};
+use crate::ast::{Id, Exp, Exp_, Literal, Case, Dec};
 
 grammar;
 
@@ -36,3 +36,74 @@ pub Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
 
+
+
+
+
+// ----- Matthew's work space
+
+pub ExpPlain_: Exp_ = {
+    ExpPlain => Box::new(<>),
+};
+
+pub ExpPlain: Exp = {
+    Literal => Exp::Literal(<>),
+    "(" <es:Exps> ")" => { es.reverse(); Exp::Tup(es) },
+};
+
+pub Exps: Vec<Exp> = {
+    Exp => vec!(<>),
+    <e:Exp> "," <es:Exps> => { es.push(e); es },
+}
+
+pub ExpNullary_: Exp_ = {
+    ExpNullary => Box::new(<>),
+};
+
+pub ExpNullary: Exp = {
+    ExpPlain => <>,
+    Id => Exp::Id(<>),
+};
+
+pub ExpPost_: Exp_ = {
+    ExpPost => Box::new(<>),
+};
+
+pub ExpPost: Exp = {
+    ExpNullary => <>,
+    <e1:ExpPost_> "[" <e2:Exp_> "]" => Exp::Index(e1, e2),
+    <e1:ExpPost_> "." <i:Nat32> => Exp::Proj(e1, i),
+    <e1:ExpPost_> "." <i:Id> => Exp::Dot(e1, i),
+    <e:ExpPost_> "!" => Exp::Bang(e),
+};
+
+pub ExpNonDec: Exp = {
+    ExpBin => <>,
+    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
+    "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
+    "return" <e:Exp_> => Exp::Return(e),
+    "switch" <e:ExpNullary_> "{" <cs:Cases> "}" => { cs.reverse(); Exp::Switch(e, cs) },
+    "ignore" <e:ExpNest_> => Exp::Ignore(e),
+}
+
+pub TextId: String = {
+   r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
+}
+
+pub Cases: Cases = {
+    Case => vec!(<>),
+    <c:Case> ";" <mut cs:Cases> => { cs.push(c); cs }
+}
+
+pub Decs: Decs = {
+    Dec => vec!(<>),
+    <d:Dec> ";" <mut ds: Decs> => { ds.push(d); ds }
+};
+
+pub Dec: Dec = {
+    "let" <i:Id> "=" <e:Exp_> => { Dec::Let(Pat::Var(i), e) },s
+};
+
+pub Case: Case = {
+    "case" <pat:Pat> <exp:ExpNest> => Exp::Case(Case{pat, exp}),
+};

@@ -1,7 +1,8 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use num_bigint::{BigInt, BigUint};
-use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Literal, Case, Cases, Decs, Dec, BinOp};
+use crate::util::get_one;
+use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, BinOp};
 
 grammar;
 
@@ -34,6 +35,71 @@ pub Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
 
+// TODO: change to convention
+pub PatBeforeType: Pat = {
+    "_" => Pat::Wild,
+    Id => Pat::Var(<>),
+    Literal => Pat::Literal(<>),
+    // TODO: Signed(Vec<UnOp>, Pat_)
+    "(" <ps:Pats> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
+    // TODO: Object(Vec<(Id, Pat)>)
+    // "?" Pat_ => Pat::Optional(<>), //TODO!
+    "#" <s:Id> <p:PatBeforeType> => Pat::Variant(s, Box::new(p)), // should we allow whitespace after '#' symbol?
+}
+
+pub PatBeforeAlt: Pat = {
+    PatBeforeType,
+    <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(Box::new(p), t),
+}
+
+pub PatsBeforeAlt: Vec<Pat> = {
+    PatBeforeAlt => vec!(<>),
+     <p:PatBeforeAlt> "|" <mut ps:PatsBeforeAlt> => { ps.push(p); ps }
+}
+
+pub Pats: Vec<Pat> = {
+    Pat => vec!(<>),
+    <p:Pat> "," <mut ps:Pats> => { ps.push(p); ps },
+}
+
+pub Pat_: Pat_ = {
+    Pat => Box::new(<>),
+}
+
+pub Pat: Pat = {
+    <mut ps:PatsBeforeAlt> => { ps.reverse(); Pat::Alt(ps) },
+}
+
+pub TypeAnnot: Type = {
+    ":" <t:Type> => t,
+}
+
+pub PrimType: PrimType = {
+    "()" => PrimType::Unit,
+    "Bool" => PrimType::Bool,
+    "Nat" => PrimType::Nat,
+    "Nat8" => PrimType::Nat8,
+    "Nat16" => PrimType::Nat16,
+    "Nat32" => PrimType::Nat32,
+    "Nat64" => PrimType::Nat64,
+    "Int" => PrimType::Int,
+    "Int8" => PrimType::Int8,
+    "Int16" => PrimType::Int16,
+    "Int32" => PrimType::Int32,
+    "Int64" => PrimType::Int64,
+    "Principal" => PrimType::Principal,
+    "Text" => PrimType::Text,
+}
+
+pub Type_: Type_ = {
+    Type => Box::new(<>),
+}
+
+pub Type: Type = {
+   PrimType => Type::Prim(<>),
+}
+
+// ----- Matthew's work space
 
 pub ExpPlain_: Exp_ = {
     ExpPlain => Box::new(<>),
@@ -133,7 +199,7 @@ pub BinOp: BinOp = {
     "|" => BinOp::Or,
     "^" => BinOp::Xor,
     "<<" => BinOp::ShL,
-    " >>" => BinOp::ShR,
+//    " >>" => BinOp::Shr,
     "<<>" => BinOp::RotL,
     "<>>" => BinOp::RotR,
     "#" => BinOp::Cat,

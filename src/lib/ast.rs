@@ -23,24 +23,6 @@ pub enum Literal {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PrimType {
-    Unit,
-    Bool,
-    Nat,
-    Nat8,
-    Nat16,
-    Nat32,
-    Nat64,
-    Int,
-    Int8,
-    Int16,
-    Int32,
-    Int64,
-    Principal,
-    Text,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ObjSort {
     Object,
     Actor,
@@ -138,7 +120,25 @@ pub enum Stab {
     Flexible,
 }
 
-type Type_ = Box<Type>;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PrimType {
+    Unit,
+    Bool,
+    Nat,
+    Nat8,
+    Nat16,
+    Nat32,
+    Nat64,
+    Int,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    Principal,
+    Text,
+}
+
+pub type Type_ = Box<Type>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -158,7 +158,7 @@ pub enum Type {
     Async(Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
-    Parenthesized(Type_),
+    // Parenthesized(Type_),
     Named(Id, Type_),
 }
 
@@ -189,7 +189,7 @@ pub enum Exp {
     Bang(Exp_),
     ObjBlock(ObjSort, DecFields),
     Obj(ExpFields),
-    Tag(Id, Exp_),
+    Variant(Id, Exp_),
     Dot(Exp_, Id),
     Assign(Exp_, Exp_),
     Array(Mut, Vec<Exp>),
@@ -225,15 +225,15 @@ pub type Pat_ = Box<Pat>;
 pub enum Pat {
     Wild,
     Var(Id),
-    Lit(Literal),
-    Sign(Vec<UnOp>, Pat_), // signed literal?
+    Literal(Literal),
+    Signed(Vec<UnOp>, Pat_),
     Tuple(Vec<Pat>),
     Object(Vec<(Id, Pat)>),
     Optional(Pat_),
-    Tag(Id, Pat_),
-    Alt(Pat_, Pat_),
-    Annot(Pat_, Type_),
-    Parenthesized(Pat_),
+    Variant(Id, Pat_),
+    Alt(Vec<Pat>),
+    Annot(Pat_, Type),
+    // Parenthesized(Pat_),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

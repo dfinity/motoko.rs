@@ -1,17 +1,16 @@
-
-use num_bigint::{BigInt, BigUint};
+//use num_bigint::{BigInt, BigUint};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal {
     Null,
     Bool(bool),
     Unit,
-    Nat(BigUint), // TODO: String?
+    Nat(String),
     Nat8(u8),
     Nat16(u16),
     Nat32(u32),
     Nat64(u64),
-    Int(BigInt),
+    Int(String),
     Int8(i8),
     Int16(i16),
     Int32(i32),

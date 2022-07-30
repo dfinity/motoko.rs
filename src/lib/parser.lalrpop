@@ -2,7 +2,7 @@ use std::str::FromStr;
 //use std::collections::HashMap;
 use num_bigint::{BigInt, BigUint};
 use crate::util::get_one;
-use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, BinOp};
+use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp};
 
 grammar;
 
@@ -11,8 +11,7 @@ pub Exp_: Exp_ = {
 };
 
 pub Exp: Exp = {
-    "return" <e:Exp_> => Exp::Return(e),
-    Literal => Exp::Literal(<>),
+    ExpPlain => <>,
 };
 
 pub Literal: Literal = {
@@ -21,8 +20,8 @@ pub Literal: Literal = {
     "false" => Literal::Bool(false),
     "()" => Literal::Unit,
     r"-?[0-9]+\.[0-9]+" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
-    r"[0-9]+" => Literal::Nat(BigUint::from_str(<>).unwrap()), // maybe refactor to use Nat parser?
-    r"-[0-9]+" => Literal::Int(BigInt::from_str(<>).unwrap()),
+    r"[0-9]+" => Literal::Nat(<>.to_string()),
+    r"-[0-9]+" => Literal::Int(<>.to_string()),
     r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
     r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
 }
@@ -111,6 +110,7 @@ pub ExpPlain: Exp = {
 };
 
 pub Exps: Vec<Exp> = {
+     => vec!(),
     Exp => vec!(<>),
     <e:Exp> "," <mut es:Exps> => { es.push(e); es },
 }
@@ -137,8 +137,9 @@ pub ExpPost: Exp = {
 };
 
 pub ExpNonDec: Exp = {
-    ExpBin => <>,
-    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
+//    ExpUn => <>,
+//    ExpBin => <>,
+//    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_> => Exp::Return(e),
     "switch" <e:ExpNullary_> "{" <mut cs:Cases> "}" => { cs.reverse(); Exp::Switch(e, cs) },
@@ -152,6 +153,16 @@ pub ExpNest_: Exp_ = {
 pub ExpNest: Exp = {
     // to do -- Block
     Exp => <>,
+};
+
+pub ExpUn_: Exp_ = {
+    ExpUn => Box::new(<>),
+};
+
+pub ExpUn: Exp = {
+    ExpPost => <>,
+    <u:UnOp> <e:ExpUn_> => Exp::Un(u, e),
+    "not" <e:ExpUn_> => Exp::Not(e),
 };
 
 pub ExpBin_: Exp_ = {
@@ -184,7 +195,13 @@ pub Case: Case = {
     "case" <i:Id> <exp:ExpNest> => Case{pat:Pat::Var(i), exp},
 };
 
-pub BinOp: BinOp = { 
+pub UnOp: UnOp = {
+    "+" => UnOp::Neg,
+    "-" => UnOp::Pos,
+    "^" => UnOp::Not,
+};
+
+pub BinOp: BinOp = {
     "+" => BinOp::Add,
     "-" => BinOp::Sub,
     "*" => BinOp::Mul,

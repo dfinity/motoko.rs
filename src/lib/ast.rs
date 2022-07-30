@@ -151,7 +151,7 @@ pub enum Type {
     Function(
         (),      /* FuncSort */
         Vec<()>, /* TypeBind */
-        Type_,
+        Vec<Type_>,
         Type_,
     ),
     Async(Type_),
@@ -193,7 +193,7 @@ pub enum Exp {
     Assign(Exp_, Exp_),
     Array(Mut, Vec<Exp>),
     Idx(Exp_, Exp_),
-    Func(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
+    Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
     Call(Exp_, Inst, Exp_),
     Block(Decs),
     Not(Exp_),

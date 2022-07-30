@@ -110,7 +110,7 @@ impl fmt::Display for Exp {
             Assign(_, _) => todo!(),
             Array(_, _) => todo!(),
             Idx(_, _) => todo!(),
-            Func(_, _, _, _, _, _) => todo!(),
+            Function(_, _, _, _, _, _) => todo!(),
             Call(_, _, _) => todo!(),
             Block(_) => todo!(),
             Not(_) => todo!(),

@@ -1,6 +1,5 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use num_bigint::{BigInt, BigUint};
 use crate::util::get_one;
 use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp};
 
@@ -18,7 +17,7 @@ pub Id: Id = {
 
 // --- Helper Functions --- //
 
-// repeat R (separated by S)
+// repeat R (separated by S) or empty
 #[inline]
 Sep0<R, S>: Vec<R> = {
     => vec!(),
@@ -72,7 +71,6 @@ pub Literal: Literal = {
 
 // --- Patterns --- //
 
-// TODO: change to convention
 pub PatBeforeType: Pat = {
     "_" => Pat::Wild,
     Id => Pat::Var(<>),
@@ -80,8 +78,8 @@ pub PatBeforeType: Pat = {
     // TODO: Signed(Vec<UnOp>, Pat_)
     "(" <ps:Sep1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
     // TODO: Object(Vec<(Id, Pat)>)
-    // "?" Pat_ => Pat::Optional(<>), //TODO!
-    "#" <s:Id> <p:PatBeforeType> => Pat::Variant(s, Box::new(p)), // should we allow whitespace after '#' symbol?
+    "?" <p:PatBeforeType> => Pat::Optional(Box::new(p)),
+    "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, Box::new(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
 }
 
 pub PatBeforeAlt: Pat = {

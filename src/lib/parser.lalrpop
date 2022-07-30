@@ -6,25 +6,7 @@ use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case,
 
 grammar;
 
-pub Exp_: Exp_ = {
-    Exp => Box::new(<>)
-};
-
-pub Exp: Exp = {
-    ExpPlain => <>,
-};
-
-pub Literal: Literal = {
-    "null" => Literal::Null,
-    "true" => Literal::Bool(true),
-    "false" => Literal::Bool(false),
-    "()" => Literal::Unit,
-    r"-?[0-9]+\.[0-9]+" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
-    r"[0-9]+" => Literal::Nat(<>.to_string()),
-    r"-[0-9]+" => Literal::Int(<>.to_string()),
-    r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
-    r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
-}
+// Terminals
 
 pub NatIndex: usize = {
     r"[0-9]+" => <>.parse().unwrap(),
@@ -34,13 +16,69 @@ pub Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
 
+// --- Helper Functions --- //
+
+// repeat R (separated by S)
+#[inline]
+Sep0<R, S>: Vec<R> = {
+    => vec!(),
+    Sep1<R, S>
+}
+
+// repeat R (separated by S) at least once
+#[inline]
+Sep1<R, S>: Vec<R> = {
+    <mut rs:Sep1Reversed<R, S>> => { rs.reverse(); rs }
+}
+
+Sep1Reversed<R, S>: Vec<R> = {
+    R => vec!(<>),
+    <r:R> S <mut rs:Sep1Reversed<R, S>> => { rs.push(r); rs },
+}
+
+#[inline]
+Surround<L, T, R>: T = {
+    L <t:T> R => t,
+}
+
+#[inline]
+Parens<T>: T = {
+    Surround<"(", T, ")">
+}
+
+#[inline]
+CurlyBraces<T>: T = {
+    Surround<"{", T, "}">
+}
+
+#[inline]
+SquareBrackets<T>: T = {
+    Surround<"[", T, "]">
+}
+
+// --- Literals --- //
+
+pub Literal: Literal = {
+    "null" => Literal::Null,
+    "true" => Literal::Bool(true),
+    "false" => Literal::Bool(false),
+    "(" ")" => Literal::Unit,
+    r"-?[0-9]+\.[0-9]+" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
+    r"[0-9]+" => Literal::Nat(<>.to_string()),
+    r"-[0-9]+" => Literal::Int(<>.to_string()),
+    r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
+    r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
+}
+
+// --- Patterns --- //
+
 // TODO: change to convention
 pub PatBeforeType: Pat = {
     "_" => Pat::Wild,
     Id => Pat::Var(<>),
     Literal => Pat::Literal(<>),
     // TODO: Signed(Vec<UnOp>, Pat_)
-    "(" <ps:Pats> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
+    "(" <ps:Sep1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
     // TODO: Object(Vec<(Id, Pat)>)
     // "?" Pat_ => Pat::Optional(<>), //TODO!
     "#" <s:Id> <p:PatBeforeType> => Pat::Variant(s, Box::new(p)), // should we allow whitespace after '#' symbol?
@@ -51,30 +89,22 @@ pub PatBeforeAlt: Pat = {
     <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(Box::new(p), t),
 }
 
-pub PatsBeforeAlt: Vec<Pat> = {
-    PatBeforeAlt => vec!(<>),
-     <p:PatBeforeAlt> "|" <mut ps:PatsBeforeAlt> => { ps.push(p); ps }
-}
-
-pub Pats: Vec<Pat> = {
-    Pat => vec!(<>),
-    <p:Pat> "," <mut ps:Pats> => { ps.push(p); ps },
-}
-
 pub Pat_: Pat_ = {
     Pat => Box::new(<>),
 }
 
 pub Pat: Pat = {
-    <mut ps:PatsBeforeAlt> => { ps.reverse(); Pat::Alt(ps) },
+    <ps:Sep1<PatBeforeAlt, "|">> => Pat::Alt(ps),
 }
+
+// --- Types --- //
 
 pub TypeAnnot: Type = {
     ":" <t:Type> => t,
 }
 
 pub PrimType: PrimType = {
-    "()" => PrimType::Unit,
+    "(" ")" => PrimType::Unit,
     "Bool" => PrimType::Bool,
     "Nat" => PrimType::Nat,
     "Nat8" => PrimType::Nat8,
@@ -98,7 +128,15 @@ pub Type: Type = {
    PrimType => Type::Prim(<>),
 }
 
-// ----- Matthew's work space
+// --- Expressions --- //
+
+pub Exp_: Exp_ = {
+    Exp => Box::new(<>)
+};
+
+pub Exp: Exp = {
+    ExpPlain,
+};
 
 pub ExpPlain_: Exp_ = {
     ExpPlain => Box::new(<>),
@@ -106,14 +144,8 @@ pub ExpPlain_: Exp_ = {
 
 pub ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
-    "(" <mut es:Exps> ")" => { es.reverse(); Exp::Tup(es) },
+    "(" <es:Sep1<Exp, ",">> ")" => Exp::Tuple(es),
 };
-
-pub Exps: Vec<Exp> = {
-     => vec!(),
-    Exp => vec!(<>),
-    <e:Exp> "," <mut es:Exps> => { es.push(e); es },
-}
 
 pub ExpNullary_: Exp_ = {
     ExpNullary => Box::new(<>),

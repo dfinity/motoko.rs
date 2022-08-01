@@ -1,6 +1,12 @@
 //use num_bigint::{BigInt, BigUint};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Delim<X> {
+    pub vec: Vec<X>,
+    pub has_trailing: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal {
     Null,
     Bool(bool),
@@ -181,7 +187,7 @@ pub enum Exp {
     Show(Exp_),
     ToCandid(Vec<Exp_>),
     FromCandid(Exp_),
-    Tuple(Vec<Exp>),
+    Tuple(Delim<Exp>),
     Proj(Exp_, usize),
     Opt(Exp_),
     DoOpt(Exp_),
@@ -226,11 +232,11 @@ pub enum Pat {
     Var(Id),
     Literal(Literal),
     Signed(Vec<UnOp>, Pat_),
-    Tuple(Vec<Pat>),
+    Tuple(Delim<Pat>),
     Object(Vec<(Id, Pat)>),
     Optional(Pat_),
     Variant(Id, Pat_),
-    Alt(Vec<Pat>),
+    Alt(Delim<Pat>),
     Annot(Pat_, Type),
     // Parenthesized(Pat_),
 }

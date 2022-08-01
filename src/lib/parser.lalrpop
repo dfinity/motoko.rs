@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use crate::util::get_one;
-use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp};
+use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim};
 
 grammar;
 
@@ -17,22 +17,16 @@ pub Id: Id = {
 
 // --- Helper Functions --- //
 
-Delim0<T, S>: Vec<T> = { // (1)
-    <mut v:(<T> S)*> <e:T?> => match e { // (2)
-        None => v,
-        Some(e) => {
-            v.push(e);
-            v
-        }
-    }
-};
-
-Delim1<T, S>: Vec<T> = { // (1)
+Delim1<T, S>: Delim<T> = { // (1)
     <mut v:(<T> S)+> <e:T?> => match e { // (2)
-        None => v,
+        None => {
+            println!("None v={:?} e={:?}", v, e);
+            Delim{ vec:v, has_trailing: true }
+        },
         Some(e) => {
+            println!("Some v={:?} e={:?}", v, e);
             v.push(e);
-            v
+            Delim{ vec:v, has_trailing: false }
         }
     }
 };

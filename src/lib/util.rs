@@ -1,9 +1,11 @@
 // TODO: move this into the lalrpop file?
 
-pub fn get_one<T>(vec: Vec<T>) -> Result<T, Vec<T>> {
-    if vec.len() == 1 {
-        Ok(vec.into_iter().nth(0).unwrap())
+use crate::ast::Delim;
+
+pub fn get_one<T>(d: Delim<T>) -> Result<T, Delim<T>> {
+    if d.vec.len() == 1 && !d.has_trailing {
+        Ok(d.vec.into_iter().nth(0).unwrap())
     } else {
-        Err(vec)
+        Err(d)
     }
 }

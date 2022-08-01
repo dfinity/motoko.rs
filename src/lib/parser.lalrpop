@@ -17,14 +17,26 @@ pub Id: Id = {
 
 // --- Helper Functions --- //
 
-Delim1<T, S>: Delim<T> = { // (1)
-    <mut v:(<T> S)+> <e:T?> => match e { // (2)
+/// One or more `T`s, delimited by interposed separator `S`.
+Delim1<T, S>: Delim<T> = {
+    <mut v:(<T> S)+> <e:T?> => match e {
         None => {
-            println!("None v={:?} e={:?}", v, e);
             Delim{ vec:v, has_trailing: true }
         },
         Some(e) => {
-            println!("Some v={:?} e={:?}", v, e);
+            v.push(e);
+            Delim{ vec:v, has_trailing: false }
+        }
+    }
+};
+
+/// Zero or more `T`s, delimited by interposed separator `S`.
+Delim0<T, S>: Delim<T> = {
+    <mut v:(<T> S)*> <e:T?> => match e {
+        None => {
+            Delim{ vec:v, has_trailing: true }
+        },
+        Some(e) => {
             v.push(e);
             Delim{ vec:v, has_trailing: false }
         }
@@ -148,7 +160,7 @@ pub ExpNonDec: Exp = {
 //    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_> => Exp::Return(e),
-    "switch" <e:ExpNullary_> "{" <mut cs:Cases> "}" => { cs.reverse(); Exp::Switch(e, cs) },
+    "switch" <e:ExpNullary_> "{" <cs:Cases> "}" => { Exp::Switch(e, cs) },
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
 }
 
@@ -184,21 +196,19 @@ pub TextId: String = {
 }
 
 pub Cases: Cases = {
-    Case => vec!(<>),
-    <c:Case> ";" <mut cs:Cases> => { cs.push(c); cs }
+    Delim0<Case, ";"> => <>,
 }
 
+pub Case: Case = {
+    "case" <i:Id> <exp:ExpNest> => Case{pat:Pat::Var(i), exp},
+};
+
 pub Decs: Decs = {
-    Dec => vec!(<>),
-    <d:Dec> ";" <mut ds: Decs> => { ds.push(d); ds }
+    Delim0<Dec, ";"> => <>
 };
 
 pub Dec: Dec = {
     "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
-};
-
-pub Case: Case = {
-    "case" <i:Id> <exp:ExpNest> => Case{pat:Pat::Var(i), exp},
 };
 
 pub UnOp: UnOp = {

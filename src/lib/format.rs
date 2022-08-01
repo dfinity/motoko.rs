@@ -1,16 +1,16 @@
 #![allow(unused_imports)]
-use crate::ast::{BinOp, Exp, Literal, UnOp};
+use crate::ast::{BinOp, Exp, Literal, UnOp, Delim};
 
 use std::fmt;
 
-struct Commas<'a, X>(&'a Vec<X>);
+struct Commas<'a, X>(&'a Delim<X>);
 
 impl<'a, X: fmt::Display> fmt::Display for Commas<'a, X> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut it = self.0.iter().peekable();
+        let mut it = self.0.vec.iter().peekable();
         while let Some(elm) = it.next() {
             write!(f, "{}", elm)?;
-            if self.0.len() == 1 || !it.peek().is_none() {
+            if self.0.vec.len() == 1 || self.0.has_trailing {
                 write!(f, ", ")?;
             };
         }

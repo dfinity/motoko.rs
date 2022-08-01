@@ -59,29 +59,52 @@ pub Literal: Literal = {
 
 // --- Patterns --- //
 
-pub PatBeforeType: Pat = {
+pub PatPlain: Pat = {
     "_" => Pat::Wild,
     Id => Pat::Var(<>),
     Literal => Pat::Literal(<>),
-    // TODO: Signed(Vec<UnOp>, Pat_)
-    "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
-    // TODO: Object(Vec<(Id, Pat)>)
-    "?" <p:PatBeforeType> => Pat::Optional(Box::new(p)),
-    "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, Box::new(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
+    "(" <ps:Delim1<PatBin, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
 }
 
-pub PatBeforeAlt: Pat = {
-    PatBeforeType,
-    <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(Box::new(p), t),
+pub PatNullary: Pat = {
+    PatPlain,
+    // to do -- copy more cases from parser.mly
 }
 
-pub Pat_: Pat_ = {
-    Pat => Box::new(<>),
+pub PatBin: Pat = {
+    PatUn,
+    // to do -- copy more cases from parser.mly
 }
 
-pub Pat: Pat = {
-    <ps:Delim1<PatBeforeAlt, "|">> => Pat::Alt(ps),
+pub PatUn: Pat = {
+    PatNullary,
+    "#" <s:Id> => Pat::Variant(s, Box::new(Pat::Tuple(Delim{vec:vec![], has_trailing:false}))),
+    "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Box::new(p)),
 }
+
+// pub Pat_: Pat_ = {
+//     Pat => Box::new(<>),
+// }
+
+// pub Pat: Pat = {
+//     <ps:Delim1<PatBeforeAlt, "|">> => Pat::Alt(ps),
+// }
+
+// pub PatBeforeType: Pat = {
+//     "_" => Pat::Wild,
+//     Id => Pat::Var(<>),
+//     Literal => Pat::Literal(<>),
+//     // TODO: Signed(Vec<UnOp>, Pat_)
+//     "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
+//     // TODO: Object(Vec<(Id, Pat)>)
+//     "?" <p:PatBeforeType> => Pat::Optional(Box::new(p)),
+//     "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, Box::new(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
+// }
+
+// pub PatBeforeAlt: Pat = {
+//     PatBeforeType,
+//     <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(Box::new(p), t),
+// }
 
 // --- Types --- //
 
@@ -118,33 +141,34 @@ pub Type: Type = {
 
 pub Exp_: Exp_ = {
     Exp => Box::new(<>)
-};
+}
 
 pub Exp: Exp = {
     ExpPlain,
-};
+    ExpNonDec,
+}
 
 pub ExpPlain_: Exp_ = {
     ExpPlain => Box::new(<>),
-};
+}
 
 pub ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
     "(" <es:Delim1<Exp, ",">> ")" => Exp::Tuple(es),
-};
+}
 
 pub ExpNullary_: Exp_ = {
     ExpNullary => Box::new(<>),
-};
+}
 
 pub ExpNullary: Exp = {
     ExpPlain => <>,
     Id => Exp::Var(<>),
-};
+}
 
 pub ExpPost_: Exp_ = {
     ExpPost => Box::new(<>),
-};
+}
 
 pub ExpPost: Exp = {
     ExpNullary => <>,
@@ -152,7 +176,7 @@ pub ExpPost: Exp = {
     <e1:ExpPost_> "." <i:NatIndex> => Exp::Proj(e1, i),
     <e1:ExpPost_> "." <i:Id> => Exp::Dot(e1, i),
     <e:ExpPost_> "!" => Exp::Bang(e),
-};
+}
 
 pub ExpNonDec: Exp = {
 //    ExpUn => <>,
@@ -166,26 +190,26 @@ pub ExpNonDec: Exp = {
 
 pub ExpNest_: Exp_ = {
     ExpBin => Box::new(<>),
-};
+}
 
 pub ExpNest: Exp = {
     // to do -- Block
     Exp => <>,
-};
+}
 
 pub ExpUn_: Exp_ = {
     ExpUn => Box::new(<>),
-};
+}
 
 pub ExpUn: Exp = {
     ExpPost => <>,
     <u:UnOp> <e:ExpUn_> => Exp::Un(u, e),
     "not" <e:ExpUn_> => Exp::Not(e),
-};
+}
 
 pub ExpBin_: Exp_ = {
     ExpBin => Box::new(<>),
-};
+}
 
 pub ExpBin: Exp = {
     <e1:Exp_> <b:BinOp> <e2:ExpBin_> => Exp::Bin(e1, b, e2),
@@ -196,26 +220,26 @@ pub TextId: String = {
 }
 
 pub Cases: Cases = {
-    Delim0<Case, ";"> => <>,
+    Delim0<Case, ";">
 }
 
 pub Case: Case = {
-    "case" <i:Id> <exp:ExpNest> => Case{pat:Pat::Var(i), exp},
-};
+    "case" <pat:PatNullary> <exp:ExpNest> => Case{pat, exp},
+}
 
 pub Decs: Decs = {
-    Delim0<Dec, ";"> => <>
-};
+    Delim0<Dec, ";">
+}
 
 pub Dec: Dec = {
     "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
-};
+}
 
 pub UnOp: UnOp = {
     "+" => UnOp::Neg,
     "-" => UnOp::Pos,
     "^" => UnOp::Not,
-};
+}
 
 pub BinOp: BinOp = {
     "+" => BinOp::Add,
@@ -236,4 +260,4 @@ pub BinOp: BinOp = {
     "<<>" => BinOp::RotL,
     "<>>" => BinOp::RotR,
     "#" => BinOp::Cat,
-};
+}

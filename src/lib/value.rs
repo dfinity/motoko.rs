@@ -1,6 +1,6 @@
-use num_bigint::{BigInt, BigUint};
-use eq_float::F64;
 use crate::ast::Literal;
+use eq_float::F64;
+use num_bigint::{BigInt, BigUint};
 
 #[derive(Debug, Clone)] // , PartialEq, Eq
 pub enum Value {

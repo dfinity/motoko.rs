@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use crate::ast::{BinOp, Exp, Literal, UnOp, Delim};
+use crate::ast::{BinOp, Delim, Exp, Literal, UnOp};
 
 use std::fmt;
 

@@ -17,43 +17,25 @@ pub Id: Id = {
 
 // --- Helper Functions --- //
 
-// repeat R (separated by S) or empty
-#[inline]
-Sep0<R, S>: Vec<R> = {
-    => vec!(),
-    Sep1<R, S>
-}
+Delim0<T, S>: Vec<T> = { // (1)
+    <mut v:(<T> S)*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
 
-// repeat R (separated by S) at least once
-#[inline]
-Sep1<R, S>: Vec<R> = {
-    <mut rs:Sep1Reversed<R, S>> => { rs.reverse(); rs }
-}
-
-Sep1Reversed<R, S>: Vec<R> = {
-    R => vec!(<>),
-    <r:R> S <mut rs:Sep1Reversed<R, S>> => { rs.push(r); rs },
-}
-
-#[inline]
-Surround<L, T, R>: T = {
-    L <t:T> R => t,
-}
-
-#[inline]
-Parens<T>: T = {
-    Surround<"(", T, ")">
-}
-
-#[inline]
-CurlyBraces<T>: T = {
-    Surround<"{", T, "}">
-}
-
-#[inline]
-SquareBrackets<T>: T = {
-    Surround<"[", T, "]">
-}
+Delim1<T, S>: Vec<T> = { // (1)
+    <mut v:(<T> S)+> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
 
 // --- Literals --- //
 
@@ -76,7 +58,7 @@ pub PatBeforeType: Pat = {
     Id => Pat::Var(<>),
     Literal => Pat::Literal(<>),
     // TODO: Signed(Vec<UnOp>, Pat_)
-    "(" <ps:Sep1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
+    "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
     // TODO: Object(Vec<(Id, Pat)>)
     "?" <p:PatBeforeType> => Pat::Optional(Box::new(p)),
     "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, Box::new(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
@@ -92,7 +74,7 @@ pub Pat_: Pat_ = {
 }
 
 pub Pat: Pat = {
-    <ps:Sep1<PatBeforeAlt, "|">> => Pat::Alt(ps),
+    <ps:Delim1<PatBeforeAlt, "|">> => Pat::Alt(ps),
 }
 
 // --- Types --- //
@@ -142,7 +124,7 @@ pub ExpPlain_: Exp_ = {
 
 pub ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
-    "(" <es:Sep1<Exp, ",">> ")" => Exp::Tuple(es),
+    "(" <es:Delim1<Exp, ",">> ")" => Exp::Tuple(es),
 };
 
 pub ExpNullary_: Exp_ = {

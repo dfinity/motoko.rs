@@ -13,9 +13,13 @@ fn test_strings() {
 #[test]
 fn test_tuples() {
     assert_("()");
-    assert_("(1, )");
+    assert_("(1, )")
+;
     assert_("(1, 2)");
+    assert_("(1, 2, )");
+
     assert_("(1, 2, 3)");
+    assert_("(1, 2, 3, )");
 }
 
 // to do -- test single-tuple function-type interaction in parsing:
@@ -126,6 +130,12 @@ fn test_assign() {
 fn test_if() {
     assert_("if true { 1 } else { 2 }");
     assert_("if true { () };");
+}
+
+#[test]
+fn test_seq() {
+    assert_("ignore 0; ignore 1; 0");
+    assert_("ignore 0; ignore 1; 0;");
 }
 
 #[test]

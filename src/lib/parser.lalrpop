@@ -19,6 +19,9 @@ pub Id: Id = {
 
 /// One or more `T`s, delimited by interposed separator `S`.
 Delim1<T, S>: Delim<T> = {
+    T => {
+        Delim{ vec:vec!(<>), has_trailing: false }
+    },
     <mut v:(<T> S)+> <e:T?> => match e {
         None => {
             Delim{ vec:v, has_trailing: true }

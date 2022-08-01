@@ -1,23 +1,235 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::ast::{Id, Exp, Exp_, Literal};
+use crate::util::get_one;
+use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp};
 
 grammar;
+
+// Terminals
+
+pub NatIndex: usize = {
+    r"[0-9]+" => <>.parse().unwrap(),
+}
+
+pub Id: Id = {
+    r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
+};
+
+// --- Helper Functions --- //
+
+Delim0<T, S>: Vec<T> = { // (1)
+    <mut v:(<T> S)*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+Delim1<T, S>: Vec<T> = { // (1)
+    <mut v:(<T> S)+> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+// --- Literals --- //
+
+pub Literal: Literal = {
+    "null" => Literal::Null,
+    "true" => Literal::Bool(true),
+    "false" => Literal::Bool(false),
+    "(" ")" => Literal::Unit,
+    r"-?[0-9]+\.[0-9]+" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
+    r"[0-9]+" => Literal::Nat(<>.to_string()),
+    r"-[0-9]+" => Literal::Int(<>.to_string()),
+    r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
+    r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
+}
+
+// --- Patterns --- //
+
+pub PatBeforeType: Pat = {
+    "_" => Pat::Wild,
+    Id => Pat::Var(<>),
+    Literal => Pat::Literal(<>),
+    // TODO: Signed(Vec<UnOp>, Pat_)
+    "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
+    // TODO: Object(Vec<(Id, Pat)>)
+    "?" <p:PatBeforeType> => Pat::Optional(Box::new(p)),
+    "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, Box::new(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
+}
+
+pub PatBeforeAlt: Pat = {
+    PatBeforeType,
+    <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(Box::new(p), t),
+}
+
+pub Pat_: Pat_ = {
+    Pat => Box::new(<>),
+}
+
+pub Pat: Pat = {
+    <ps:Delim1<PatBeforeAlt, "|">> => Pat::Alt(ps),
+}
+
+// --- Types --- //
+
+pub TypeAnnot: Type = {
+    ":" <t:Type> => t,
+}
+
+pub PrimType: PrimType = {
+    "(" ")" => PrimType::Unit,
+    "Bool" => PrimType::Bool,
+    "Nat" => PrimType::Nat,
+    "Nat8" => PrimType::Nat8,
+    "Nat16" => PrimType::Nat16,
+    "Nat32" => PrimType::Nat32,
+    "Nat64" => PrimType::Nat64,
+    "Int" => PrimType::Int,
+    "Int8" => PrimType::Int8,
+    "Int16" => PrimType::Int16,
+    "Int32" => PrimType::Int32,
+    "Int64" => PrimType::Int64,
+    "Principal" => PrimType::Principal,
+    "Text" => PrimType::Text,
+}
+
+pub Type_: Type_ = {
+    Type => Box::new(<>),
+}
+
+pub Type: Type = {
+   PrimType => Type::Prim(<>),
+}
+
+// --- Expressions --- //
 
 pub Exp_: Exp_ = {
     Exp => Box::new(<>)
 };
 
 pub Exp: Exp = {
+    ExpPlain,
+};
+
+pub ExpPlain_: Exp_ = {
+    ExpPlain => Box::new(<>),
+};
+
+pub ExpPlain: Exp = {
+    Literal => Exp::Literal(<>),
+    "(" <es:Delim1<Exp, ",">> ")" => Exp::Tuple(es),
+};
+
+pub ExpNullary_: Exp_ = {
+    ExpNullary => Box::new(<>),
+};
+
+pub ExpNullary: Exp = {
+    ExpPlain => <>,
+    Id => Exp::Var(<>),
+};
+
+pub ExpPost_: Exp_ = {
+    ExpPost => Box::new(<>),
+};
+
+pub ExpPost: Exp = {
+    ExpNullary => <>,
+    <e1:ExpPost_> "[" <e2:Exp_> "]" => Exp::Idx(e1, e2),
+    <e1:ExpPost_> "." <i:NatIndex> => Exp::Proj(e1, i),
+    <e1:ExpPost_> "." <i:Id> => Exp::Dot(e1, i),
+    <e:ExpPost_> "!" => Exp::Bang(e),
+};
+
+pub ExpNonDec: Exp = {
+//    ExpUn => <>,
+//    ExpBin => <>,
+//    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
+    "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_> => Exp::Return(e),
-    Int32 => Exp::Literal(Literal::Int32(<>)),
+    "switch" <e:ExpNullary_> "{" <mut cs:Cases> "}" => { cs.reverse(); Exp::Switch(e, cs) },
+    "ignore" <e:ExpNest_> => Exp::Ignore(e),
+}
+
+pub ExpNest_: Exp_ = {
+    ExpBin => Box::new(<>),
 };
 
-pub Int32: i32 = {
-    r"[0-9]+" => i32::from_str(<>).unwrap()
+pub ExpNest: Exp = {
+    // to do -- Block
+    Exp => <>,
 };
 
-pub Id: Id = {
-    r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
+pub ExpUn_: Exp_ = {
+    ExpUn => Box::new(<>),
 };
 
+pub ExpUn: Exp = {
+    ExpPost => <>,
+    <u:UnOp> <e:ExpUn_> => Exp::Un(u, e),
+    "not" <e:ExpUn_> => Exp::Not(e),
+};
+
+pub ExpBin_: Exp_ = {
+    ExpBin => Box::new(<>),
+};
+
+pub ExpBin: Exp = {
+    <e1:Exp_> <b:BinOp> <e2:ExpBin_> => Exp::Bin(e1, b, e2),
+}
+
+pub TextId: String = {
+   r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
+}
+
+pub Cases: Cases = {
+    Case => vec!(<>),
+    <c:Case> ";" <mut cs:Cases> => { cs.push(c); cs }
+}
+
+pub Decs: Decs = {
+    Dec => vec!(<>),
+    <d:Dec> ";" <mut ds: Decs> => { ds.push(d); ds }
+};
+
+pub Dec: Dec = {
+    "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
+};
+
+pub Case: Case = {
+    "case" <i:Id> <exp:ExpNest> => Case{pat:Pat::Var(i), exp},
+};
+
+pub UnOp: UnOp = {
+    "+" => UnOp::Neg,
+    "-" => UnOp::Pos,
+    "^" => UnOp::Not,
+};
+
+pub BinOp: BinOp = {
+    "+" => BinOp::Add,
+    "-" => BinOp::Sub,
+    "*" => BinOp::Mul,
+    "/" => BinOp::Div,
+    "%" => BinOp::Mod,
+    "**" => BinOp::Pow,
+    "+%" => BinOp::WAdd,
+    "-%" => BinOp::WSub,
+    "*%" => BinOp::WMul,
+    "**%" => BinOp::WPow,
+    "&" => BinOp::And,
+    "|" => BinOp::Or,
+    "^" => BinOp::Xor,
+    "<<" => BinOp::ShL,
+//    " >>" => BinOp::Shr,
+    "<<>" => BinOp::RotL,
+    "<>>" => BinOp::RotR,
+    "#" => BinOp::Cat,
+};

@@ -6,8 +6,15 @@ pub fn parse_exp(input: &str) -> Result<Exp, ()> {
 
 // Feel free to completely change how this works again (using this in `tests/` directory for now)
 
-pub fn assert_parse(input: &str, expected: &str) -> Exp {
+pub fn assert_parse_(input: &str, expected: &str) -> Exp {
+    println!("testing {}", input);
     let expr = parse_exp(input).unwrap();
-    assert_eq!(&format!("{:?}", expr), expected);
+    println!(" * parsed {}", input);
+    assert_eq!(&format!("{}", expr), expected);
+    println!(" * formatted {}", input);
     expr
+}
+
+pub fn assert_roundtrip(input: &str) {
+    let _ = assert_parse_(input, input);
 }

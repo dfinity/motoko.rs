@@ -1,9 +1,11 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
-use crate::ast::{BinOp, Dec, Delim, Exp, Literal, Mut, Pat, Type, UnOp, TypeBind, PrimType};
+use crate::ast::{
+    BinOp, Dec, Delim, Exp, Literal, Mut, ObjSort, Pat, PrimType, Type, TypeBind,
+    UnOp, TypeField,
+};
 use crate::pretty::*;
 use pretty::RcDoc;
-use std::fmt;
 
 pub fn format_pretty(to_doc: &dyn ToDoc, width: usize) -> String {
     let mut w = Vec::new();
@@ -51,6 +53,10 @@ fn block<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
 
 fn tuple<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
     enclose("(", delim(d, ","), ")")
+}
+
+fn field_block<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
+    enclose("{", delim(d, ","), "}")
 }
 
 fn array<'a, T: ToDoc>(m: &'a Mut, d: &'a Delim<T>) -> RcDoc<'a> {
@@ -234,17 +240,28 @@ impl ToDoc for Dec {
     }
 }
 
+impl ToDoc for ObjSort {
+    fn doc(&self) -> RcDoc {
+        str(match self {
+            ObjSort::Object => "object",
+            ObjSort::Actor => "actor",
+            ObjSort::Module => "module",
+        })
+    }
+}
+
 impl ToDoc for Type {
     fn doc(&self) -> RcDoc {
         use Type::*;
         match self {
             Prim(p) => p.doc(),
-            Object(_) => todo!(),
+            Object(s, fs) => s.doc().append(RcDoc::space()).append(field_block(fs)),
             Array(m, d) => array(m, d),
             Optional(t) => str("?").append(t.doc()),
             Tuple(d) => tuple(d),
             Function(_, _, _, _) => todo!(),
-            Async(t) => kwd("async").append(t.doc()),
+            // Async(s, t) => kwd("async").append(t.doc()),
+            Async(s, t) => unimplemented!(), // scope?
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),
@@ -278,7 +295,7 @@ impl ToDoc for PrimType {
 impl ToDoc for TypeBind {
     fn doc(&self) -> RcDoc {
         unimplemented!() // type vs. scope bindings?
-        // str(self.var).append("")
+                         // str(self.var).append("")
     }
 }
 
@@ -289,7 +306,7 @@ impl ToDoc for Pat {
             Wild => str("_"),
             Var(s) => str(s),
             Literal(l) => l.doc(),
-            Signed(us, p) => RcDoc::intersperse(us.iter().map(|u| u.doc()), "").append(p.doc()),
+            Signed(u, p) => u.doc().append(p.doc()),
             Tuple(ps) => tuple(ps),
             Object(_) => todo!(),
             Optional(p) => str("?").append(p.doc()),
@@ -300,5 +317,15 @@ impl ToDoc for Pat {
             Annot(p, t) => p.doc().append(" : ").append(t.doc()),
             Paren(p) => enclose("(", p.doc(), ")"),
         }
+    }
+}
+
+trait FieldValue {
+    fn sep<'a>() -> &'a str;
+}
+
+impl ToDoc for TypeField {
+    fn doc(&self) -> RcDoc {
+        str(&self.id).append(" = ").append(self.typ.doc())
     }
 }

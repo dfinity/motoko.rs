@@ -26,6 +26,14 @@ pub enum ObjSort {
     Module,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Shared<T /*: std::fmt::Debug + Clone + PartialEq + Eq*/> {
+    Local,
+    Shared(T),
+}
+
+pub type FuncSort = Shared<SharedSort>;
+
 pub type TypId = Id;
 
 pub type Decs = Delim<Dec>;
@@ -53,7 +61,7 @@ pub enum Dec {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SortPat {
     Local,
-    Shared(SharedSort, Pat_),
+    Shared(SharedSort, Pat),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,6 +92,8 @@ pub enum Mut {
 pub type TypBinds = Delim<TypeBind>;
 pub type DecFields = Delim<DecField>;
 pub type ExpFields = Delim<ExpField>;
+pub type PatFields = Delim<PatField>;
+pub type TypeFields = Delim<TypeField>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
@@ -103,6 +113,19 @@ pub struct DecField {
     pub dec: Dec,
     pub vis: Vis,
     pub stab: Option<Stab>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PatField {
+    pub id: Id,
+    pub pat: Pat,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeField {
+    pub mut_: Mut,
+    pub id: Id,
+    pub typ: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -145,18 +168,13 @@ pub type Type_ = Box<Type>;
 pub enum Type {
     // Path (type path)?
     Prim(PrimType),
-    Object(Vec<(Id, Type)>),
+    Object(ObjSort, TypeFields),
     Array(Mut, Delim<Type>),
     Optional(Type_),
     // Variant(Vec<>),
     Tuple(Delim<Type>),
-    Function(
-        (),      /* FuncSort */
-        Vec<()>, /* TypeBind */
-        Delim<Type_>,
-        Type_,
-    ),
-    Async(Type_),
+    Function(FuncSort, Delim<TypeBind>, Delim<Type>, Type_),
+    Async(Type_, Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
     Paren(Type_),
@@ -228,9 +246,9 @@ pub enum Pat {
     Wild,
     Var(Id),
     Literal(Literal),
-    Signed(Vec<UnOp>, Pat_),
+    Signed(UnOp, Pat_),
     Tuple(Delim<Pat>),
-    Object(Delim<(Id, Pat)>),
+    Object(Delim<PatFields>),
     Optional(Pat_),
     Variant(Id, Option<Pat_>),
     Alt(Delim<Pat>),

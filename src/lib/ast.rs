@@ -37,7 +37,7 @@ pub enum Dec {
     Exp(Exp),
     Let(Pat, Exp),
     Var(Id, Exp),
-    Typ(TypId, TypBinds, Type_),
+    Typ(TypId, TypBinds, Type),
     Class(
         SortPat,
         TypId,
@@ -119,6 +119,9 @@ pub enum Stab {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Sugar(bool);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrimType {
     Unit,
     Bool,
@@ -160,7 +163,7 @@ pub enum Type {
     Named(Id, Type_),
 }
 
-pub type Inst = Vec<Type>;
+pub type Inst = Delim<Type>;
 
 // Convention: Foo_ = Box<Foo>
 // where Foo is an enum for an AST subsort, like Exp.
@@ -192,13 +195,12 @@ pub enum Exp {
     Assign(Exp_, Exp_),
     Array(Mut, Delim<Exp>),
     Idx(Exp_, Exp_),
-    Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
+    Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Sugar, Exp_),
     Call(Exp_, Inst, Exp_),
     Block(Delim<Dec>),
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),
-    Of(Exp_, Exp_, Exp_),
     Switch(Exp_, Cases),
     While(Exp_, Exp_),
     Loop(Exp_, Option<Exp_>),

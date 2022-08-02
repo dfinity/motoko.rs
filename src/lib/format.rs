@@ -51,6 +51,14 @@ fn array<'a, T: ToDoc>(m: &'a Mut, d: &'a Delim<T>) -> RcDoc<'a> {
     enclose("[", m_doc.append(delim(d, ",")), "]")
 }
 
+fn bind<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
+    if d.vec.len() == 0 {
+        RcDoc::nil()
+    } else {
+        enclose("<", delim(d, ","), ">")
+    }
+}
+
 fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
     e1.doc()
         .append(RcDoc::space())
@@ -152,14 +160,14 @@ impl ToDoc for Exp {
             Dot(e, s) => e.doc().append(".").append(s), // TODO parentheses
             Assign(_, _) => todo!(),
             Array(m, es) => array(m, es),
-            Idx(_, _) => todo!(),
-            Function(_, _, _, _, _, _) => todo!(),
-            Call(_, _, _) => todo!(),
+            Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
+            Function(_, _, _, _, _, _, _) => todo!(),
+            Call(e, b, a) => e.doc().append(bind(b)).append(enclose("(", a.doc(), ")")),
             Block(decs) => block(decs),
+            DoBlock(decs) => kwd("do").append(block(decs)),
             Not(e) => kwd("not").append(e.doc()),
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
-            Of(_, _, _) => todo!(),
             Switch(_, _) => todo!(),
             While(c, e) => kwd("while")
                 .append(c.doc())
@@ -205,7 +213,11 @@ impl ToDoc for Dec {
                 .append(str(" = "))
                 .append(e.doc()),
             Var(s, e) => kwd("var").append(kwd(s)).append(str(" = ")).append(e.doc()),
-            Typ(_, _, _) => todo!(),
+            Typ(i, b, t) => kwd("type")
+                .append(i)
+                .append(bind(b))
+                .append(" = ")
+                .append(t.doc()),
             Class(_, _, _, _, _, _, _, _) => todo!(),
         }
     }
@@ -244,7 +256,7 @@ impl ToDoc for Pat {
             Variant(s, p) => str("#")
                 .append(kwd(s))
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
-            Alt(_) => todo!(),
+            Alt(d) => delim(),
             Annot(p, t) => p.doc().append(" : ").append(t.doc()),
             Paren(p) => enclose("(", p.doc(), ")"),
         }

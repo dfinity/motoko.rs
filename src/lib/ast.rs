@@ -1,6 +1,12 @@
 //use num_bigint::{BigInt, BigUint};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Delim<X> {
+    pub vec: Vec<X>,
+    pub has_trailing: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal {
     Null,
     Bool(bool),
@@ -30,8 +36,8 @@ pub enum ObjSort {
 
 pub type TypId = Id;
 
-pub type Decs = Vec<Dec>;
-pub type Cases = Vec<Case>;
+pub type Decs = Delim<Dec>;
+pub type Cases = Delim<Case>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Dec {
@@ -82,9 +88,9 @@ pub enum Mut {
     Var,
 }
 
-pub type TypBinds = Vec<TypBind>;
-pub type DecFields = Vec<DecField>;
-pub type ExpFields = Vec<ExpField>;
+pub type TypBinds = Delim<TypBind>;
+pub type DecFields = Delim<DecField>;
+pub type ExpFields = Delim<ExpField>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
@@ -144,20 +150,20 @@ pub enum Type {
     // Path (type path)?
     Prim(PrimType),
     Object(Vec<(Id, Type)>),
-    Array(Vec<Type>),
+    Array(Delim<Type>),
     Optional(Type_),
     // Variant(Vec<>),
-    Tuple(Vec<Type>),
+    Tuple(Delim<Type>),
     Function(
         (),      /* FuncSort */
         Vec<()>, /* TypeBind */
-        Vec<Type_>,
+        Delim<Type_>,
         Type_,
     ),
     Async(Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
-    // Parenthesized(Type_),
+    Paren(Type_),
     Named(Id, Type_),
 }
 
@@ -181,7 +187,7 @@ pub enum Exp {
     Show(Exp_),
     ToCandid(Vec<Exp_>),
     FromCandid(Exp_),
-    Tuple(Vec<Exp>),
+    Tuple(Delim<Exp>),
     Proj(Exp_, usize),
     Opt(Exp_),
     DoOpt(Exp_),
@@ -191,11 +197,11 @@ pub enum Exp {
     Variant(Id, Exp_),
     Dot(Exp_, Id),
     Assign(Exp_, Exp_),
-    Array(Mut, Vec<Exp>),
+    Array(Mut, Delim<Exp>),
     Idx(Exp_, Exp_),
     Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
     Call(Exp_, Inst, Exp_),
-    Block(Decs),
+    Block(Delim<Dec>),
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),
@@ -203,7 +209,7 @@ pub enum Exp {
     Switch(Exp_, Cases),
     While(Exp_, Exp_),
     Loop(Exp_, Option<Exp_>),
-    For(Pat_, Exp_, Exp_),
+    For(Pat, Exp_, Exp_),
     Label(Id, Type_, Exp_),
     Break(Id, Exp_),
     Return(Exp_),
@@ -216,6 +222,7 @@ pub enum Exp {
     Throw(Exp_),
     Try(Exp_, Cases),
     Ignore(Exp_),
+    Paren(Exp_),
 }
 
 pub type Pat_ = Box<Pat>;
@@ -226,13 +233,13 @@ pub enum Pat {
     Var(Id),
     Literal(Literal),
     Signed(Vec<UnOp>, Pat_),
-    Tuple(Vec<Pat>),
-    Object(Vec<(Id, Pat)>),
+    Tuple(Delim<Pat>),
+    Object(Delim<(Id, Pat)>),
     Optional(Pat_),
-    Variant(Id, Pat_),
-    Alt(Vec<Pat>),
+    Variant(Id, Option<Pat_>),
+    Alt(Delim<Pat>),
     Annot(Pat_, Type),
-    // Parenthesized(Pat_),
+    Paren(Pat_),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

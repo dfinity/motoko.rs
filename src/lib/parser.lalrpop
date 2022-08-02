@@ -146,8 +146,7 @@ pub Exp_: Exp_ = {
 }
 
 pub Exp: Exp = {
-    ExpPlain,
-    ExpNonDec,
+    ExpNullary,
 }
 
 pub ExpPlain_: Exp_ = {
@@ -242,7 +241,7 @@ pub Decs: Decs = {
 
 pub Dec: Dec = {
 //    "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
-//    ExpPlain => Dec::Exp(<>),
+    Exp => Dec::Exp(<>),
 }
 
 pub UnOp: UnOp = {

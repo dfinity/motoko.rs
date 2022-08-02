@@ -1,6 +1,17 @@
 use motoko::check::assert_roundtrip as assert_;
 
 #[test]
+fn test_ids() {
+    assert_("x");
+    assert_("xxx_");
+    assert_("xXx_01");
+    assert_("xxx_01_xxX");
+
+    // 'let' as a variable -- this is not a legal program, but we want a good parse error, so parse it as a variable.
+    assert_("let");
+}
+
+#[test]
 fn test_chars() {
     assert_("'h'");
 }

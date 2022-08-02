@@ -195,6 +195,7 @@ pub enum Exp {
     Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
     Call(Exp_, Inst, Exp_),
     Block(Delim<Dec>),
+    DoBlock(Delim<Dec>),
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),

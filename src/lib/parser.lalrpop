@@ -179,6 +179,22 @@ pub ExpPost: Exp = {
     <e:ExpPost_> "!" => Exp::Bang(e),
 }
 
+pub ExpNest_: Exp_ = {
+    ExpNest => Box::new(<>),
+  // | e=block
+  //   { e }
+  // | e=exp(bl)         ????????
+  //   { e }
+}
+
+pub ExpNest: Exp = {
+    Block,
+}
+
+pub Block: Exp = {
+    "{" <ds:Decs> "}" => Exp::Block(ds)
+}
+
 pub ExpNonDec: Exp = {
 //    ExpUn => <>,
 //    ExpBin => <>,
@@ -187,15 +203,6 @@ pub ExpNonDec: Exp = {
     "return" <e:Exp_> => Exp::Return(e),
     "switch" <e:ExpNullary_> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
-}
-
-pub ExpNest_: Exp_ = {
-    ExpBin => Box::new(<>),
-}
-
-pub ExpNest: Exp = {
-    // to do -- Block
-    Exp,
 }
 
 pub ExpUn_: Exp_ = {

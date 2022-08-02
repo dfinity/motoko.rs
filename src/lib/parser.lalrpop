@@ -264,3 +264,19 @@ pub BinOp: BinOp = {
     "<>>" => BinOp::RotR,
     "#" => BinOp::Cat,
 }
+
+// Precedence
+// -----------
+// %nonassoc RETURN_NO_ARG IF_NO_ELSE LOOP_NO_WHILE
+// %nonassoc ELSE WHILE
+// %left COLON
+// %left OR
+// %left AND
+// %nonassoc EQOP NEQOP LEOP LTOP GTOP GEOP
+// %left ADDOP SUBOP WRAPADDOP WRAPSUBOP HASH
+// %left MULOP WRAPMULOP DIVOP MODOP
+// %left OROP
+// %left ANDOP
+// %left XOROP
+// %nonassoc SHLOP SHROP ROTLOP ROTROP
+// %left POWOP WRAPPOWOP

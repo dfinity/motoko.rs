@@ -11,10 +11,15 @@ fn test_strings() {
 }
 
 #[test]
+fn test_paren() {
+    assert_("(1)");
+    assert_("(\"hello\")");
+}
+
+#[test]
 fn test_tuples() {
     assert_("()");
-    assert_("(1, )")
-;
+    assert_("(1, )");
     assert_("(1, 2)");
     assert_("(1, 2, )");
 
@@ -82,6 +87,7 @@ fn test_binary_operators() {
 #[test]
 fn test_return() {
     assert_("return 0");
+    assert_("return (0, 1)");
 }
 
 #[test]
@@ -145,8 +151,15 @@ fn test_ignore() {
 
 #[test]
 fn test_switch() {
-    assert_("switch #apple { case (#apple) 1 }");
+    assert_("switch 0 { }");
+    assert_("switch 0 { case _ 0 }");
+    assert_("switch 0 { case _ 0; }");
+    assert_("switch 0 { case (_) 0 }");
+    assert_("switch 0 { case (_, ) 0 }");
+    assert_("switch 0 { case (_, _) 0 }");
+    assert_("switch 0 { case (_, _, ) 0 }");
     //assert_("switch (#apple) { case (#apple) 1 }");
+    //assert_("switch (#apple) { case (#apple) 1; }");
 }
 
 #[test]

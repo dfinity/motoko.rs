@@ -1,8 +1,8 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
-use crate::ast::{BinOp, Dec, Delim, Exp, Literal, Pat, Type, UnOp};
+use crate::ast::{BinOp, Dec, Delim, Exp, Literal, Mut, Pat, Type, UnOp};
 use crate::pretty::*;
-use pretty::{Doc, Pretty, RcAllocator, RcDoc};
+use pretty::{RcDoc};
 use std::fmt;
 
 pub fn format_pretty(to_doc: &dyn ToDoc, width: usize) -> String {
@@ -11,7 +11,11 @@ pub fn format_pretty(to_doc: &dyn ToDoc, width: usize) -> String {
     String::from_utf8(w).unwrap()
 }
 
-trait ToDoc {
+pub fn format(to_doc: &dyn ToDoc) -> String {
+    format_pretty(to_doc, usize::MAX)
+}
+
+pub trait ToDoc {
     fn doc(&self) -> RcDoc;
 }
 
@@ -38,12 +42,13 @@ fn tuple<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
     enclose("(", delim(d, ","), ")")
 }
 
-fn array<'a, T: ToDoc>(m: bool, d: &'a Delim<T>) -> RcDoc<'a> {
-    enclose(
-        "[",
-        (if m { kwd("mut") } else { RcDoc::nil() }).append(delim(d, ",")),
-        "]",
-    )
+fn array<'a, T: ToDoc>(m: &'a Mut, d: &'a Delim<T>) -> RcDoc<'a> {
+    let m_doc = if m == &Mut::Var {
+        kwd("var")
+    } else {
+        RcDoc::nil()
+    };
+    enclose("[", m_doc.append(delim(d, ",")), "]")
 }
 
 fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
@@ -59,7 +64,7 @@ where
     T: ToDoc,
 {
     fn doc(&self) -> RcDoc {
-        (*self).doc()
+        self.as_ref().doc()
     }
 }
 
@@ -71,20 +76,21 @@ impl ToDoc for Literal {
             Bool(true) => "true",
             Bool(false) => "false",
             Unit => "()",
-            Nat(n) => &format!("{}", n),
-            Nat8(n) => &format!("{}", n),
-            Nat16(n) => &format!("{}", n),
-            Nat32(n) => &format!("{}", n),
-            Nat64(n) => &format!("{}", n),
-            Int(i) => &format!("{}", i),
-            Int8(i) => &format!("{}", i),
-            Int16(i) => &format!("{}", i),
-            Int32(i) => &format!("{}", i),
-            Int64(i) => &format!("{}", i),
-            Float(s) => &s,
-            Text(s) => &s,
-            Char(c) => &format!("{}", c),
-            Blob(v) => unimplemented!(),
+            Nat(n) => n,
+            // Nat8(n) => &format!("{}", n),
+            // Nat16(n) => &format!("{}", n),
+            // Nat32(n) => &format!("{}", n),
+            // Nat64(n) => &format!("{}", n),
+            Int(i) => i,
+            // Int8(i) => &format!("{}", i),
+            // Int16(i) => &format!("{}", i),
+            // Int32(i) => &format!("{}", i),
+            // Int64(i) => &format!("{}", i),
+            Float(f) => f,
+            Text(t) => t,
+            // Char(c) => format!("{}", c),
+            Blob(_) => unimplemented!(),
+            _ => todo!(),
             // _ => text("Display-TODO={:?}", self),
         })
     }
@@ -96,7 +102,7 @@ impl ToDoc for UnOp {
         str(match self {
             Pos => "+",
             Neg => "-",
-            Not => "not", // "not " (?)
+            Not => "not ", // whitespace?
         })
     }
 }

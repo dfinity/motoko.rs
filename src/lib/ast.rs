@@ -36,7 +36,8 @@ pub enum ObjSort {
 
 pub type TypId = Id;
 
-pub type Cases = Vec<Case>;
+pub type Decs = Delim<Dec>;
+pub type Cases = Delim<Case>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Dec {
@@ -87,9 +88,9 @@ pub enum Mut {
     Var,
 }
 
-pub type TypBinds = Vec<TypBind>;
-pub type DecFields = Vec<DecField>;
-pub type ExpFields = Vec<ExpField>;
+pub type TypBinds = Delim<TypBind>;
+pub type DecFields = Delim<DecField>;
+pub type ExpFields = Delim<ExpField>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
@@ -149,14 +150,14 @@ pub enum Type {
     // Path (type path)?
     Prim(PrimType),
     Object(Vec<(Id, Type)>),
-    Array(Vec<Type>),
+    Array(Delim<Type>),
     Optional(Type_),
     // Variant(Vec<>),
-    Tuple(Vec<Type>),
+    Tuple(Delim<Type>),
     Function(
         (),      /* FuncSort */
         Vec<()>, /* TypeBind */
-        Vec<Type_>,
+        Delim<Type_>,
         Type_,
     ),
     Async(Type_),
@@ -196,7 +197,7 @@ pub enum Exp {
     Variant(Id, Exp_),
     Dot(Exp_, Id),
     Assign(Exp_, Exp_),
-    Array(Mut, Vec<Exp>),
+    Array(Mut, Delim<Exp>),
     Idx(Exp_, Exp_),
     Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
     Call(Exp_, Inst, Exp_),
@@ -233,7 +234,7 @@ pub enum Pat {
     Literal(Literal),
     Signed(Vec<UnOp>, Pat_),
     Tuple(Delim<Pat>),
-    Object(Vec<(Id, Pat)>),
+    Object(Delim<(Id, Pat)>),
     Optional(Pat_),
     Variant(Id, Pat_),
     Alt(Delim<Pat>),

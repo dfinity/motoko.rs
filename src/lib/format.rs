@@ -19,11 +19,11 @@ pub trait ToDoc {
     fn doc(&self) -> RcDoc;
 }
 
-impl fmt::Display for dyn ToDoc {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", format_pretty(self, usize::MAX))
-    }
-}
+// impl fmt::Display for dyn ToDoc {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "{}", format_pretty(self, usize::MAX))
+//     }
+// }
 
 fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = concat(d.vec.iter().map(|x| x.doc()), sep);
@@ -186,6 +186,12 @@ impl ToDoc for Exp {
             Paren(e) => enclose("(", e.doc(), ")"),
         }
         // _ => text("Display-TODO={:?}", self),
+    }
+}
+
+impl ToDoc for Delim<Dec> {
+    fn doc(&self) -> RcDoc {
+        delim(self, ";")
     }
 }
 

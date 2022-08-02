@@ -85,14 +85,6 @@ pub PatUn: Pat = {
     "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(Box::new(p))),
 }
 
-// pub Pat_: Pat_ = {
-//     Pat => Box::new(<>),
-// }
-
-// pub Pat: Pat = {
-//     <ps:Delim1<PatBeforeAlt, "|">> => Pat::Alt(ps),
-// }
-
 // pub PatBeforeType: Pat = {
 //     "_" => Pat::Wild,
 //     Id => Pat::Var(<>),
@@ -139,6 +131,12 @@ pub Type_: Type_ = {
 pub Type: Type = {
     PrimType => Type::Prim(<>),
     // TODO
+}
+
+// --- Programs --- //
+
+pub Prog: Decs = {
+    Decs,
 }
 
 // --- Expressions --- //
@@ -198,15 +196,22 @@ pub ExpNest_: Exp_ = {
 
 pub ExpNest: Exp = {
     // to do -- Block
-    Exp => <>,
+    Exp,
 }
 
 pub ExpUn_: Exp_ = {
     ExpUn => Box::new(<>),
 }
 
+pub ExpVar_: Exp_ = {
+    <x:Id> => Box::new(Exp::Var(x)),
+}
+
 pub ExpUn: Exp = {
-    ExpPost => <>,
+    ExpPost,
+//    "#" <x:ExpVar_> => Exp::Variant(x),
+//    "#" <e:ExpNullary_> => Exp::Variant(e),
+//    "?" <e:ExpUn> => Exp::Quest(e),
     <u:UnOp> <e:ExpUn_> => Exp::Un(u, e),
     "not" <e:ExpUn_> => Exp::Not(e),
 }
@@ -236,7 +241,8 @@ pub Decs: Decs = {
 }
 
 pub Dec: Dec = {
-    "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
+//    "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
+//    ExpPlain => Dec::Exp(<>),
 }
 
 pub UnOp: UnOp = {

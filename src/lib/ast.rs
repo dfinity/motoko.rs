@@ -29,6 +29,7 @@ pub enum ObjSort {
 pub type TypId = Id;
 
 pub type Decs = Delim<Dec>;
+pub type Prog = Decs;
 pub type Cases = Delim<Case>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

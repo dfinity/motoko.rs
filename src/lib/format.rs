@@ -2,7 +2,7 @@
 
 use crate::ast::{BinOp, Dec, Delim, Exp, Literal, Mut, Pat, Type, UnOp};
 use crate::pretty::*;
-use pretty::{RcDoc};
+use pretty::RcDoc;
 use std::fmt;
 
 pub fn format_pretty(to_doc: &dyn ToDoc, width: usize) -> String {
@@ -102,7 +102,7 @@ impl ToDoc for UnOp {
         str(match self {
             Pos => "+",
             Neg => "-",
-            Not => "not ", // whitespace?
+            Not => "^",
         })
     }
 }
@@ -174,7 +174,12 @@ impl ToDoc for Exp {
                 .append(RcDoc::space())
                 .append(e.doc()),
             Loop(_, _) => todo!(),
-            For(_, _, _) => todo!(),
+            For(p, c, e) => kwd("for")
+                .append(p.doc())
+                .append(" of ")
+                .append(c.doc())
+                .append(RcDoc::space())
+                .append(e.doc()),
             Label(_, _, _) => todo!(),
             Break(_, _) => todo!(),
             Debug(_) => todo!(),
@@ -234,14 +239,16 @@ impl ToDoc for Pat {
             Wild => str("_"),
             Var(s) => str(s),
             Literal(l) => l.doc(),
-            Signed(_, _) => todo!(),
-            Tuple(_) => todo!(),
+            Signed(us, p) => RcDoc::intersperse(us.iter().map(|u| u.doc()), "").append(p.doc()),
+            Tuple(ps) => tuple(ps),
             Object(_) => todo!(),
-            Optional(_) => todo!(),
-            Variant(_, _) => todo!(),
+            Optional(p) => str("?").append(p.doc()),
+            Variant(s, p) => str("#")
+                .append(kwd(s))
+                .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
             Alt(_) => todo!(),
-            Annot(_, _) => todo!(),
-            Paren(_) => todo!(),
+            Annot(p, t) => p.doc().append(" : ").append(t.doc()),
+            Paren(p) => enclose("(", p.doc(), ")"),
         }
     }
 }

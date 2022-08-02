@@ -1,9 +1,10 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/pretty.rs
 
+#![allow(dead_code)]
 use pretty::RcDoc;
 
 pub const INDENT_SPACE: isize = 2;
-pub const LINE_WIDTH: usize = 80;
+// pub const LINE_WIDTH: usize = 80;
 
 fn is_empty(doc: &RcDoc) -> bool {
     use pretty::Doc::*;

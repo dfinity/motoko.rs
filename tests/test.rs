@@ -98,13 +98,9 @@ fn test_array() {
 }
 
 #[test]
-fn test_let() {
-    assert_("let x = 0; x");
-}
-
-#[test]
 fn test_let_var() {
-    assert_("let var x = 0; x");
+    assert_("let x = 0; x");
+    assert_("var x = 0; x");
 }
 
 #[test]

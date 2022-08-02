@@ -188,7 +188,7 @@ pub ExpNonDec: Exp = {
 //    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_> => Exp::Return(e),
-    "switch" <e:ExpNullary_> "{" <cs:Cases> "}" => { Exp::Switch(e, cs) },
+    "switch" <e:ExpNullary_> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
 }
 

@@ -4,6 +4,8 @@ use log::info;
 use std::io;
 use structopt::{clap, clap::Shell};
 
+use motoko::format::format;
+
 pub type OurResult<X> = Result<X, OurError>;
 
 impl From<()> for OurError {
@@ -90,7 +92,7 @@ fn main() -> OurResult<()> {
         }
         CliCommand::Echo { input } => {
             let p = motoko::check::parse_exp(&input)?;
-            println!("{}", p);
+            println!("{}", format(&p));
         }
     };
     Ok(())

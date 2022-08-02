@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use crate::util::get_one;
-use crate::ast::{Id, Pat, Pat_, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim};
+use crate::ast::{Id, Pat, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim};
 
 grammar;
 
@@ -53,9 +53,9 @@ pub Literal: Literal = {
     "true" => Literal::Bool(true),
     "false" => Literal::Bool(false),
     "(" ")" => Literal::Unit,
-    r"-?[0-9]+\.[0-9]+" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
-    r"[0-9]+" => Literal::Nat(<>.to_string()),
+    r"-?([0-9]+\.[0-9]*|([0-9]*\.[0-9]+))" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
     r"-[0-9]+" => Literal::Int(<>.to_string()),
+    r"[0-9]+" => Literal::Nat(<>.to_string()),
     r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
     r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
 }
@@ -66,7 +66,7 @@ pub PatPlain: Pat = {
     "_" => Pat::Wild,
     Id => Pat::Var(<>),
     Literal => Pat::Literal(<>),
-    "(" <ps:Delim1<PatBin, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
+    "(" <ps:Delim1<PatBin, ",">> ")" => get_one(ps).map(Pat::Paren).unwrap_or_else(Pat::Tuple),
 }
 
 pub PatNullary: Pat = {
@@ -81,8 +81,8 @@ pub PatBin: Pat = {
 
 pub PatUn: Pat = {
     PatNullary,
-    "#" <s:Id> => Pat::Variant(s, Box::new(Pat::Tuple(Delim{vec:vec![], has_trailing:false}))),
-    "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Box::new(p)),
+    "#" <s:Id> => Pat::Variant(s, None),
+    "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(Box::new(p))),
 }
 
 // pub Pat_: Pat_ = {
@@ -137,7 +137,8 @@ pub Type_: Type_ = {
 }
 
 pub Type: Type = {
-   PrimType => Type::Prim(<>),
+    PrimType => Type::Prim(<>),
+    // TODO
 }
 
 // --- Expressions --- //
@@ -157,7 +158,7 @@ pub ExpPlain_: Exp_ = {
 
 pub ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
-    "(" <es:Delim1<Exp, ",">> ")" => Exp::Tuple(es),
+    "(" <es:Delim1<Exp, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
 }
 
 pub ExpNullary_: Exp_ = {
@@ -239,8 +240,8 @@ pub Dec: Dec = {
 }
 
 pub UnOp: UnOp = {
-    "+" => UnOp::Neg,
-    "-" => UnOp::Pos,
+    "+" => UnOp::Pos,
+    "-" => UnOp::Neg,
     "^" => UnOp::Not,
 }
 

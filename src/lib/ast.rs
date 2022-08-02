@@ -36,7 +36,6 @@ pub enum ObjSort {
 
 pub type TypId = Id;
 
-pub type Decs = Vec<Dec>;
 pub type Cases = Vec<Case>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,7 +162,7 @@ pub enum Type {
     Async(Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
-    // Parenthesized(Type_),
+    Paren(Type_),
     Named(Id, Type_),
 }
 
@@ -201,7 +200,7 @@ pub enum Exp {
     Idx(Exp_, Exp_),
     Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
     Call(Exp_, Inst, Exp_),
-    Block(Decs),
+    Block(Delim<Dec>),
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),
@@ -222,6 +221,7 @@ pub enum Exp {
     Throw(Exp_),
     Try(Exp_, Cases),
     Ignore(Exp_),
+    Paren(Exp_),
 }
 
 pub type Pat_ = Box<Pat>;
@@ -238,7 +238,7 @@ pub enum Pat {
     Variant(Id, Pat_),
     Alt(Delim<Pat>),
     Annot(Pat_, Type),
-    // Parenthesized(Pat_),
+    Paren(Pat_),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

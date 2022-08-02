@@ -1,138 +1,241 @@
-#![allow(unused_imports)]
-use crate::ast::{BinOp, Exp, Literal, UnOp, Delim};
+// Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
+use crate::ast::{BinOp, Dec, Delim, Exp, Literal, Pat, Type, UnOp};
+use crate::pretty::*;
+use pretty::{Doc, Pretty, RcAllocator, RcDoc};
 use std::fmt;
 
-struct Commas<'a, X>(&'a Delim<X>);
+pub fn format_pretty(to_doc: &dyn ToDoc, width: usize) -> String {
+    let mut w = Vec::new();
+    to_doc.doc().render(width, &mut w).unwrap();
+    String::from_utf8(w).unwrap()
+}
 
-impl<'a, X: fmt::Display> fmt::Display for Commas<'a, X> {
+trait ToDoc {
+    fn doc(&self) -> RcDoc;
+}
+
+impl fmt::Display for dyn ToDoc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut it = self.0.vec.iter().peekable();
-        while let Some(elm) = it.next() {
-            write!(f, "{}", elm)?;
-            if self.0.vec.len() == 1 || self.0.has_trailing {
-                write!(f, ", ")?;
-            };
-        }
-        Ok(())
+        write!(f, "{}", format_pretty(self, usize::MAX))
     }
 }
 
-impl fmt::Display for Literal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
+    let doc = concat(d.vec.iter().map(|x| x.doc()), sep);
+    if d.has_trailing {
+        doc.append(sep)
+    } else {
+        doc
+    }
+}
+
+fn block<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
+    enclose_space("{", delim(d, ";"), "}")
+}
+
+fn tuple<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
+    enclose("(", delim(d, ","), ")")
+}
+
+fn array<'a, T: ToDoc>(m: bool, d: &'a Delim<T>) -> RcDoc<'a> {
+    enclose(
+        "[",
+        (if m { kwd("mut") } else { RcDoc::nil() }).append(delim(d, ",")),
+        "]",
+    )
+}
+
+fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
+    e1.doc()
+        .append(RcDoc::space())
+        .append(b)
+        .append(RcDoc::space())
+        .append(e2.doc())
+}
+
+impl<T> ToDoc for Box<T>
+where
+    T: ToDoc,
+{
+    fn doc(&self) -> RcDoc {
+        (*self).doc()
+    }
+}
+
+impl ToDoc for Literal {
+    fn doc(&self) -> RcDoc {
         use Literal::*;
-        match self {
-            Null => write!(f, "null"),
-            Bool(true) => write!(f, "true"),
-            Bool(false) => write!(f, "false"),
-            Unit => write!(f, "()"),
-            Nat(n) => write!(f, "{}", n),
-            Nat8(n) => write!(f, "{}", n),
-            Nat16(n) => write!(f, "{}", n),
-            Nat32(n) => write!(f, "{}", n),
-            Nat64(n) => write!(f, "{}", n),
-            Int(i) => write!(f, "{}", i),
-            Int8(i) => write!(f, "{}", i),
-            Int16(i) => write!(f, "{}", i),
-            Int32(i) => write!(f, "{}", i),
-            Int64(i) => write!(f, "{}", i),
-            Float(s) => write!(f, "{}", s),
-            Text(t) => write!(f, "{}", t),
-            Char(c) => write!(f, "{}", c),
-            Blob(v) => todo!(),
-            // _ => write!(f, "Display-TODO={:?}", self),
-        }
+        str(match self {
+            Null => "null",
+            Bool(true) => "true",
+            Bool(false) => "false",
+            Unit => "()",
+            Nat(n) => &format!("{}", n),
+            Nat8(n) => &format!("{}", n),
+            Nat16(n) => &format!("{}", n),
+            Nat32(n) => &format!("{}", n),
+            Nat64(n) => &format!("{}", n),
+            Int(i) => &format!("{}", i),
+            Int8(i) => &format!("{}", i),
+            Int16(i) => &format!("{}", i),
+            Int32(i) => &format!("{}", i),
+            Int64(i) => &format!("{}", i),
+            Float(s) => &s,
+            Text(s) => &s,
+            Char(c) => &format!("{}", c),
+            Blob(v) => unimplemented!(),
+            // _ => text("Display-TODO={:?}", self),
+        })
     }
 }
 
-impl fmt::Display for UnOp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl ToDoc for UnOp {
+    fn doc(&self) -> RcDoc {
         use UnOp::*;
-        match self {
-            Pos => write!(f, "+"),
-            Neg => write!(f, "-"),
-            Not => write!(f, "not"),
-        }
+        str(match self {
+            Pos => "+",
+            Neg => "-",
+            Not => "not", // "not " (?)
+        })
     }
 }
 
-impl fmt::Display for BinOp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl ToDoc for BinOp {
+    fn doc(&self) -> RcDoc {
         use BinOp::*;
-        match self {
-            Add => write!(f, "+"),
-            Sub => write!(f, "-"),
-            Mul => write!(f, "*"),
-            Div => write!(f, "/"),
-            Mod => write!(f, "%"),
-            Pow => write!(f, "**"),
-            And => write!(f, "&"),
-            Or => write!(f, "|"),
-            Xor => write!(f, "^"),
-            ShL => write!(f, "<<"),
-            ShR => write!(f, " >>"),
-            RotL => write!(f, "<<>"),
-            RotR => write!(f, "<>>"),
-            WAdd => write!(f, "+%"),
-            WSub => write!(f, "-%"),
-            WMul => write!(f, "*%"),
-            WPow => write!(f, "**%"),
-            Cat => write!(f, "#"),
-        }
+        str(match self {
+            Add => "+",
+            Sub => "-",
+            Mul => "*",
+            Div => "/",
+            Mod => "%",
+            Pow => "**",
+            And => "&",
+            Or => "|",
+            Xor => "^",
+            ShL => "<<",
+            ShR => " >>",
+            RotL => "<<>",
+            RotR => "<>>",
+            WAdd => "+%",
+            WSub => "-%",
+            WMul => "*%",
+            WPow => "**%",
+            Cat => "#",
+        })
     }
 }
 
-impl fmt::Display for Exp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl ToDoc for Exp {
+    fn doc(&self) -> RcDoc {
         use Exp::*;
         match self {
-            Hole => write!(f, "_?_"),
-            Return(e) => write!(f, "return {}", e),
-            Literal(l) => write!(f, "{}", l),
-            Un(u, e2) => write!(f, "{} {}", u, e2),
-            Bin(e1, b, e2) => write!(f, "{} {} {}", e1, b, e2),
-            Tuple(es) => write!(f, "({})", Commas(es)),
-            Prim(_) => todo!(),
-            Var(id) => write!(f, "{}", id),
+            Hole => str("_?_"),
+            Return(e) => kwd("return").append(e.doc()),
+            Literal(l) => l.doc(),
+            Un(u, e2) => u.doc().append(e2.doc()),
+            Bin(e1, b, e2) => bin_op(e1, b.doc(), e2),
+            Tuple(es) => tuple(es),
+            Prim(_) => unimplemented!(),
+            Var(id) => str(id),
             ActorUrl(_) => todo!(),
             Rel(_, _) => todo!(),
-            Show(_) => todo!(),
+            Show(e) => kwd("debug_show").append(e.doc()),
             ToCandid(_) => todo!(),
             FromCandid(_) => todo!(),
-            Proj(_, _) => todo!(),
-            Opt(_) => todo!(),
-            DoOpt(_) => todo!(),
-            Bang(_) => todo!(),
+            Proj(e1, n) => e1.doc().append(format!(".{}", n)),
+            Opt(e) => str("?").append(e.doc()), // TODO parentheses
+            DoOpt(e) => kwd("do ?").append(e.doc()),
+            Bang(e) => e.doc().append("!"), // TODO parentheses
             ObjectBlock(_, _) => todo!(),
             Object(_) => todo!(),
             Variant(_, _) => todo!(),
-            Dot(_, _) => todo!(),
+            Dot(e, s) => e.doc().append(".").append(s), // TODO parentheses
             Assign(_, _) => todo!(),
-            Array(_, _) => todo!(),
+            Array(m, es) => array(m, es),
             Idx(_, _) => todo!(),
             Function(_, _, _, _, _, _) => todo!(),
             Call(_, _, _) => todo!(),
-            Block(_) => todo!(),
-            Not(_) => todo!(),
-            And(_, _) => todo!(),
-            Or(_, _) => todo!(),
+            Block(decs) => block(decs),
+            Not(e) => kwd("not").append(e.doc()),
+            And(e1, e2) => bin_op(e1, str("and"), e2),
+            Or(e1, e2) => bin_op(e1, str("or"), e2),
             Of(_, _, _) => todo!(),
             Switch(_, _) => todo!(),
-            While(_, _) => todo!(),
+            While(c, e) => kwd("while")
+                .append(c.doc())
+                .append(RcDoc::space())
+                .append(e.doc()),
             Loop(_, _) => todo!(),
             For(_, _, _) => todo!(),
             Label(_, _, _) => todo!(),
             Break(_, _) => todo!(),
             Debug(_) => todo!(),
             Async(_, _) => todo!(),
-            Await(_) => todo!(),
-            Assert(_) => todo!(),
-            Annot(_, _) => todo!(),
+            Await(e) => kwd("await").append(e.doc()),
+            Assert(e) => kwd("assert").append(e.doc()),
+            Annot(e, t) => e.doc().append(" : ").append(t.doc()),
             Import(_) => todo!(),
-            Throw(_) => todo!(),
+            Throw(e) => kwd("throw").append(e.doc()),
             Try(_, _) => todo!(),
-            Ignore(_) => todo!(),
-            // _ => write!(f, "Display-TODO={:?}", self),
+            Ignore(e) => kwd("ignore").append(e.doc()),
+            Paren(e) => enclose("(", e.doc(), ")"),
+        }
+        // _ => text("Display-TODO={:?}", self),
+    }
+}
+
+impl ToDoc for Dec {
+    fn doc(&self) -> RcDoc {
+        use Dec::*;
+        match self {
+            Exp(e) => e.doc(),
+            Let(p, e) => kwd("let")
+                .append(p.doc())
+                .append(str(" = "))
+                .append(e.doc()),
+            Var(s, e) => kwd("var").append(kwd(s)).append(str(" = ")).append(e.doc()),
+            Typ(_, _, _) => todo!(),
+            Class(_, _, _, _, _, _, _, _) => todo!(),
+        }
+    }
+}
+
+impl ToDoc for Type {
+    fn doc(&self) -> RcDoc {
+        use Type::*;
+        match self {
+            Prim(_) => todo!(),
+            Object(_) => todo!(),
+            Array(_) => todo!(),
+            Optional(_) => todo!(),
+            Tuple(_) => todo!(),
+            Function(_, _, _, _) => todo!(),
+            Async(_) => todo!(),
+            And(_, _) => todo!(),
+            Or(_, _) => todo!(),
+            Paren(_) => todo!(),
+            Named(_, _) => todo!(),
+        }
+    }
+}
+
+impl ToDoc for Pat {
+    fn doc(&self) -> RcDoc {
+        use Pat::*;
+        match self {
+            Wild => str("_"),
+            Var(s) => str(s),
+            Literal(l) => l.doc(),
+            Signed(_, _) => todo!(),
+            Tuple(_) => todo!(),
+            Object(_) => todo!(),
+            Optional(_) => todo!(),
+            Variant(_, _) => todo!(),
+            Alt(_) => todo!(),
+            Annot(_, _) => todo!(),
+            Paren(_) => todo!(),
         }
     }
 }

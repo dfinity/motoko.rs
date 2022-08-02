@@ -52,7 +52,7 @@ pub PatBeforeType: Pat = {
     Id => Pat::Var(<>),
     Literal => Pat::Literal(<>),
     // TODO: Signed(Vec<UnOp>, Pat_)
-    "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
+    "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).map(Pat::Paren).unwrap_or_else(Pat::Tuple),
     // TODO: Object(Vec<(Id, Pat)>)
     "?" <p:PatBeforeType> => Pat::Optional(Box::new(p)),
     "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, Box::new(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
@@ -99,7 +99,8 @@ pub Type_: Type_ = {
 }
 
 pub Type: Type = {
-   PrimType => Type::Prim(<>),
+    PrimType => Type::Prim(<>),
+    // TODO
 }
 
 // --- Expressions --- //
@@ -118,7 +119,7 @@ pub ExpPlain_: Exp_ = {
 
 pub ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
-    "(" <es:Delim1<Exp, ",">> ")" => Exp::Tuple(es),
+    "(" <es:Delim1<Exp, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple(es)),
 };
 
 pub ExpNullary_: Exp_ = {

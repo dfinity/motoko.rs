@@ -1,6 +1,6 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
-use crate::ast::{BinOp, Dec, Delim, Exp, Literal, Mut, Pat, Type, UnOp};
+use crate::ast::{BinOp, Dec, Delim, Exp, Literal, Mut, Pat, Type, UnOp, TypeBind, PrimType};
 use crate::pretty::*;
 use pretty::RcDoc;
 use std::fmt;
@@ -25,10 +25,21 @@ pub trait ToDoc {
 //     }
 // }
 
+// optional delimiter on the right
 fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
         doc.append(sep)
+    } else {
+        doc
+    }
+}
+
+// optional delimiter on the left
+fn delim_left<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
+    let doc = concat(d.vec.iter().map(|x| x.doc()), sep);
+    if d.has_trailing {
+        str(sep).append(doc)
     } else {
         doc
     }
@@ -227,18 +238,47 @@ impl ToDoc for Type {
     fn doc(&self) -> RcDoc {
         use Type::*;
         match self {
-            Prim(_) => todo!(),
+            Prim(p) => p.doc(),
             Object(_) => todo!(),
-            Array(_) => todo!(),
-            Optional(_) => todo!(),
-            Tuple(_) => todo!(),
+            Array(m, d) => array(m, d),
+            Optional(t) => str("?").append(t.doc()),
+            Tuple(d) => tuple(d),
             Function(_, _, _, _) => todo!(),
-            Async(_) => todo!(),
-            And(_, _) => todo!(),
-            Or(_, _) => todo!(),
-            Paren(_) => todo!(),
-            Named(_, _) => todo!(),
+            Async(t) => kwd("async").append(t.doc()),
+            And(e1, e2) => bin_op(e1, str("and"), e2),
+            Or(e1, e2) => bin_op(e1, str("or"), e2),
+            Paren(e) => enclose("(", e.doc(), ")"),
+            Named(id, t) => str(id).append(" : ").append(t.doc()),
         }
+    }
+}
+
+impl ToDoc for PrimType {
+    fn doc(&self) -> RcDoc {
+        use PrimType::*;
+        str(match self {
+            Unit => "()",
+            Bool => "Bool",
+            Nat => "Nat",
+            Nat8 => "Nat8",
+            Nat16 => "Nat16",
+            Nat32 => "Nat32",
+            Nat64 => "Nat64",
+            Int => "Int",
+            Int8 => "Int8",
+            Int16 => "Int16",
+            Int32 => "Int32",
+            Int64 => "Int64",
+            Principal => "Principal",
+            Text => "Text",
+        })
+    }
+}
+
+impl ToDoc for TypeBind {
+    fn doc(&self) -> RcDoc {
+        unimplemented!() // type vs. scope bindings?
+        // str(self.var).append("")
     }
 }
 
@@ -256,7 +296,7 @@ impl ToDoc for Pat {
             Variant(s, p) => str("#")
                 .append(kwd(s))
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
-            Alt(d) => delim(),
+            Alt(d) => delim_left(d, " |"),
             Annot(p, t) => p.doc().append(" : ").append(t.doc()),
             Paren(p) => enclose("(", p.doc(), ")"),
         }

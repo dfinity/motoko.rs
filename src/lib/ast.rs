@@ -69,10 +69,10 @@ pub enum BindSort {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypBind {
+pub struct TypeBind {
     pub var: Id,
     pub sort: BindSort,
-    pub bound: Type_,
+    pub bound: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,7 +81,7 @@ pub enum Mut {
     Var,
 }
 
-pub type TypBinds = Delim<TypBind>;
+pub type TypBinds = Delim<TypeBind>;
 pub type DecFields = Delim<DecField>;
 pub type ExpFields = Delim<ExpField>;
 
@@ -146,7 +146,7 @@ pub enum Type {
     // Path (type path)?
     Prim(PrimType),
     Object(Vec<(Id, Type)>),
-    Array(Delim<Type>),
+    Array(Mut, Delim<Type>),
     Optional(Type_),
     // Variant(Vec<>),
     Tuple(Delim<Type>),
@@ -210,7 +210,7 @@ pub enum Exp {
     Break(Id, Exp_),
     Return(Exp_),
     Debug(Exp_),
-    Async(TypBind, Exp_),
+    Async(TypeBind, Exp_),
     Await(Exp_),
     Assert(Exp_),
     Annot(Exp_, Type_),

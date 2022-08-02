@@ -243,6 +243,7 @@ pub Dec: Dec = {
     "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
     "var" <i:Id> "=" <e:Exp> => Dec::Var(i, e),
     Exp => Dec::Exp(<>),
+    ExpNonDec => Dec::Exp(<>),
 }
 
 pub UnOp: UnOp = {

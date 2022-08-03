@@ -3,6 +3,6 @@ pub mod check;
 pub mod format;
 #[allow(clippy::all)]
 pub mod parser;
-mod pretty;
+mod format_utils;
 mod value;
 mod util;

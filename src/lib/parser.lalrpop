@@ -37,7 +37,8 @@ Delim1<T, S>: Delim<T> = {
 Delim0<T, S>: Delim<T> = {
     <mut v:(<T> S)*> <e:T?> => match e {
         None => {
-            Delim{ vec:v, has_trailing: true }
+            let has_trailing = v.len() > 0;
+            Delim{ vec:v, has_trailing }
         },
         Some(e) => {
             v.push(e);
@@ -64,8 +65,8 @@ pub Literal: Literal = {
     r"-?[0-9]+\.[0-9]*" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
     r"-[0-9]+" => Literal::Int(<>.to_string()),
     r"[0-9]+" => Literal::Nat(<>.to_string()),
-    r"'([^']|')'" => Literal::Char(<>.chars().nth(<>.len() - 2).unwrap()), // TODO: more test cases
-    r#""(?:[^\\"]|\.)*""# => Literal::Text(<>[1..<>.len() - 1].to_string()), // TODO more test cases
+    r"'([^']|')'" => Literal::Char(<>.to_string()), // TODO: more test cases
+    r#""(?:[^\\"]|\.)*""# => Literal::Text(<>.to_string()), // TODO more test cases
 }
 
 // --- Patterns --- //

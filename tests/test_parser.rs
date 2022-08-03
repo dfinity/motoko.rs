@@ -1,8 +1,9 @@
-use motoko::check::assert_roundtrip as assert_;
+use motoko::check::{assert_parse as assert_to, assert_roundtrip as assert_};
 
 #[test]
 fn test_ids() {
     assert_("x");
+    assert_("X");
     assert_("xxx_");
     assert_("xXx_01");
     assert_("xxx_01_xxX");
@@ -37,10 +38,11 @@ fn test_tuples() {
 
     assert_("(1, 2, 3)");
     assert_("(1, 2, 3, )");
-}
 
-// to do -- test single-tuple function-type interaction in parsing:
-//((x:Nat,)) -> ((y:Nat,))
+    // current trailing delimiter behavior
+    assert_to("(1,  )", "(1, )");
+    assert_to("(1,)", "(1, )");
+}
 
 #[test]
 fn test_nats() {
@@ -56,6 +58,7 @@ fn test_ints() {
 
 #[test]
 fn test_floats() {
+    assert_("0.");
     assert_("-0.0");
     assert_("-123.123");
 }
@@ -107,6 +110,7 @@ fn test_array() {
     assert_("[]");
     assert_("[1]");
     assert_("[1, 2]");
+    assert_("[1, 2, ]");
 }
 
 #[test]

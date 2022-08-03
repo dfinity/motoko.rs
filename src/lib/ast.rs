@@ -14,8 +14,8 @@ pub enum Literal {
     Nat(String),
     Int(String),
     Float(String),
-    Char(char),
-    Text(String),
+    Char(String), // includes quotes
+    Text(String), // includes quotes
     Blob(Vec<u8>),
 }
 
@@ -143,6 +143,19 @@ pub enum Stab {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResolvedImport {
+    Unresolved,
+    Lib(String),
+    Candid { path: String, bytes: String },
+    Prim,
+}
+
+// | Unresolved
+// | LibPath of string
+// | IDLPath of (string * string) (* filepath * bytes *)
+// | PrimPath (* the built-in prim module *)
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sugar(bool);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -233,7 +246,7 @@ pub enum Exp {
     Await(Exp_),
     Assert(Exp_),
     Annot(Exp_, Type_),
-    Import(String),
+    Import(String, ResolvedImport),
     Throw(Exp_),
     Try(Exp_, Vec<Case>),
     Ignore(Exp_),

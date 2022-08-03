@@ -4,7 +4,7 @@ use crate::ast::{
     BinOp, BindSort, Case, Dec, Delim, Exp, Literal, Mut, ObjSort, Pat, PrimType, Type, TypeBind,
     TypeField, UnOp,
 };
-use crate::pretty::*;
+use crate::format_utils::*;
 use pretty::RcDoc;
 
 pub fn format_pretty(to_doc: &dyn ToDoc, width: usize) -> String {
@@ -29,9 +29,9 @@ pub trait ToDoc {
 
 // optional delimiter on the right
 fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
-    let doc = concat(d.vec.iter().map(|x| x.doc()), sep);
+    let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
-        doc.append(sep)
+        doc.append(sep).append(RcDoc::space())
     } else {
         doc
     }
@@ -39,9 +39,9 @@ fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
 
 // optional delimiter on the left
 fn delim_left<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
-    let doc = concat(d.vec.iter().map(|x| x.doc()), sep);
+    let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
-        str(sep).append(doc)
+        RcDoc::space().append(sep).append(doc)
     } else {
         doc
     }
@@ -117,9 +117,8 @@ impl ToDoc for Literal {
             Int(i) => i,
             Float(f) => f,
             Text(t) => t,
-            // Char(c) => format!("{}", c),
+            Char(c) => c,
             Blob(_) => unimplemented!(),
-            _ => todo!(),
             // _ => text("Display-TODO={:?}", self),
         })
     }
@@ -231,7 +230,7 @@ impl ToDoc for Exp {
             Await(e) => kwd("await").append(e.doc()),
             Assert(e) => kwd("assert").append(e.doc()),
             Annot(e, t) => e.doc().append(" : ").append(t.doc()),
-            Import(s) => kwd("import").append(s), // new permissive syntax?
+            Import(s, _) => kwd("import").append(s), // new permissive syntax?
             Throw(e) => kwd("throw").append(e.doc()),
             Try(e, cs) => {
                 let mut doc = kwd("try").append(e.doc());

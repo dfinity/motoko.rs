@@ -7,15 +7,16 @@ pub fn parse(input: &str) -> Result<Prog, ()> {
 }
 
 #[allow(unused_variables)]
-pub fn assert_parse_(input: &str, expected: &str) -> Prog {
+pub fn assert_parse(input: &str, expected: &str) -> Prog {
     println!("testing {}", input);
     let prog = parse(input).unwrap();
     println!(" * parsed {}", input);
-    //assert_eq!(&format!("{}", expr), expected);
-    //println!(" * formatted {}", format(&prog));
+    let formatted = format(&prog);
+    println!(" * formatted {}", formatted);
+    assert_eq!(&formatted, expected);
     prog
 }
 
 pub fn assert_roundtrip(input: &str) {
-    let _ = assert_parse_(input, input);
+    let _ = assert_parse(input, input);
 }

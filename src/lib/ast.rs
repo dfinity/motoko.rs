@@ -112,7 +112,7 @@ pub struct ExpField {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecField {
     pub dec: Dec,
-    pub vis: Vis,
+    pub vis: Option<Vis>,
     pub stab: Option<Stab>,
 }
 
@@ -211,7 +211,7 @@ pub enum Exp {
     ActorUrl(Exp_),
     Un(UnOp, Exp_),
     Bin(Exp_, BinOp, Exp_),
-    Rel(RelOp, Exp_),
+    Rel(Exp_, RelOp, Exp_),
     Show(Exp_),
     ToCandid(Vec<Exp_>),
     FromCandid(Exp_),

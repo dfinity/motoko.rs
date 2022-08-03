@@ -1,8 +1,8 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, BindSort, Case, Dec, Delim, Exp, Literal, Mut, ObjSort, Pat, PrimType, Type, TypeBind,
-    TypeField, UnOp,
+    BinOp, BindSort, Case, Dec, DecField, Delim, Exp, Literal, Mut, ObjSort, Pat, PrimType, RelOp,
+    Type, TypeBind, TypeField, UnOp, Vis, Stab,
 };
 use crate::format_utils::*;
 use pretty::RcDoc;
@@ -165,6 +165,20 @@ impl ToDoc for BinOp {
     }
 }
 
+impl ToDoc for RelOp {
+    fn doc(&self) -> RcDoc {
+        use RelOp::*;
+        str(match self {
+            Eq => "==",
+            Neq => "!=",
+            Lt => "<",
+            Gt => ">",
+            Le => "<=",
+            Ge => ">=",
+        })
+    }
+}
+
 impl ToDoc for Exp {
     fn doc(&self) -> RcDoc {
         use Exp::*;
@@ -178,18 +192,18 @@ impl ToDoc for Exp {
             Prim(_) => unimplemented!(),
             Var(id) => str(id),
             ActorUrl(_) => todo!(),
-            Rel(_, _) => todo!(),
+            Rel(e1, r, e2) => bin_op(e1, r.doc(), e2),
             Show(e) => kwd("debug_show").append(e.doc()),
             ToCandid(_) => todo!(),
             FromCandid(_) => todo!(),
             Proj(e1, n) => e1.doc().append(format!(".{}", n)),
-            Opt(e) => str("?").append(e.doc()), // TODO parentheses
+            Opt(e) => str("?").append(e.doc()),
             DoOpt(e) => kwd("do ?").append(e.doc()),
-            Bang(e) => e.doc().append("!"), // TODO parentheses
-            ObjectBlock(_, _) => todo!(),
+            Bang(e) => e.doc().append("!"),
+            ObjectBlock(s, fs) => s.doc().append(RcDoc::space()).append(block(fs)),
             Object(_) => todo!(),
             Variant(_, _) => todo!(),
-            Dot(e, s) => e.doc().append(".").append(s), // TODO parentheses
+            Dot(e, s) => e.doc().append(".").append(s),
             Assign(_, _) => todo!(),
             Array(m, es) => array(m, es),
             Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
@@ -283,16 +297,6 @@ impl ToDoc for Dec {
     }
 }
 
-impl ToDoc for ObjSort {
-    fn doc(&self) -> RcDoc {
-        str(match self {
-            ObjSort::Object => "object",
-            ObjSort::Actor => "actor",
-            ObjSort::Module => "module",
-        })
-    }
-}
-
 impl ToDoc for Type {
     fn doc(&self) -> RcDoc {
         use Type::*;
@@ -382,5 +386,49 @@ impl ToDoc for Case {
 impl ToDoc for TypeField {
     fn doc(&self) -> RcDoc {
         str(&self.id).append(" = ").append(self.typ.doc())
+    }
+}
+
+impl ToDoc for DecField {
+    fn doc(&self) -> RcDoc {
+        match &self.vis {
+            None=>RcDoc::nil(),
+            Some(v)=>v.doc().append(RcDoc::space())
+        }.append(match &self.stab{
+            None=>RcDoc::nil(),
+            Some(s)=>s.doc().append(RcDoc::space())
+        }).append(self.dec.doc())
+    }
+}
+
+impl ToDoc for Vis {
+    fn doc(&self) -> RcDoc {
+        use Vis::*;
+        match self {
+            Public(Some(s)) => todo!(),
+            Public(None) => str("public"),
+            Private => str("private"),
+            System => str("system"),
+        }
+    }
+}
+
+impl ToDoc for Stab {
+    fn doc(&self) -> RcDoc {
+        use Stab::*;
+       str(match self {
+            Stable => "stable",
+            Flexible => "flexible",
+        })
+    }
+}
+
+impl ToDoc for ObjSort {
+    fn doc(&self) -> RcDoc {
+        str(match self {
+            ObjSort::Object => "object",
+            ObjSort::Actor => "actor",
+            ObjSort::Module => "module",
+        })
     }
 }

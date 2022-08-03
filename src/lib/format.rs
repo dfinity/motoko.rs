@@ -1,8 +1,8 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, Dec, Delim, Exp, Literal, Mut, ObjSort, Pat, PrimType, Type, TypeBind,
-    UnOp, TypeField,
+    BinOp, BindSort, Case, Dec, Delim, Exp, Literal, Mut, ObjSort, Pat, PrimType, Type, TypeBind,
+    TypeField, UnOp,
 };
 use crate::pretty::*;
 use pretty::RcDoc;
@@ -84,12 +84,24 @@ fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
         .append(e2.doc())
 }
 
-impl<T> ToDoc for Box<T>
-where
-    T: ToDoc,
-{
+// impl<'a> ToDoc for RcDoc<'a> {
+//     fn doc(&'a self) -> RcDoc<'a> {
+//         self // TODO no clone
+//     }
+// }
+
+impl<T: ToDoc> ToDoc for Box<T> {
     fn doc(&self) -> RcDoc {
         self.as_ref().doc()
+    }
+}
+
+impl<T: ToDoc> ToDoc for Option<T> {
+    fn doc(&self) -> RcDoc {
+        match self {
+            None => RcDoc::nil(),
+            Some(value) => value.doc(),
+        }
     }
 }
 
@@ -185,7 +197,12 @@ impl ToDoc for Exp {
             Not(e) => kwd("not").append(e.doc()),
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
-            Switch(_, _) => todo!(),
+            Switch(e, cs) => {
+                kwd("switch")
+                    .append(e.doc())
+                    .append(RcDoc::space())
+                    .append(enclose_space("{", delim(cs, ";"), "}"))
+            }
             While(c, e) => kwd("while")
                 .append(c.doc())
                 .append(RcDoc::space())
@@ -197,16 +214,38 @@ impl ToDoc for Exp {
                 .append(c.doc())
                 .append(RcDoc::space())
                 .append(e.doc()),
-            Label(_, _, _) => todo!(),
-            Break(_, _) => todo!(),
-            Debug(_) => todo!(),
+            Label(id, t, e) => kwd("label")
+                .append(id)
+                .append(match t {
+                    None => RcDoc::nil(),
+                    Some(t) => str(" : ").append(t.doc()),
+                })
+                .append(RcDoc::space())
+                .append(e.doc()),
+            Break(id, e) => kwd("break").append(id).append(match e {
+                None => RcDoc::nil(),
+                Some(e) => RcDoc::space().append(e.doc()),
+            }),
+            Debug(e) => kwd("debug").append(e.doc()),
             Async(_, _) => todo!(),
             Await(e) => kwd("await").append(e.doc()),
             Assert(e) => kwd("assert").append(e.doc()),
             Annot(e, t) => e.doc().append(" : ").append(t.doc()),
-            Import(_) => todo!(),
+            Import(s) => kwd("import").append(s), // new permissive syntax?
             Throw(e) => kwd("throw").append(e.doc()),
-            Try(_, _) => todo!(),
+            Try(e, cs) => {
+                let mut doc = kwd("try").append(e.doc());
+                // ?????
+                for c in cs {
+                    doc = doc
+                        .append(RcDoc::line())
+                        .append(kwd("catch"))
+                        .append(c.pat.doc())
+                        .append(RcDoc::space())
+                        .append(c.exp.doc())
+                }
+                doc
+            }
             Ignore(e) => kwd("ignore").append(e.doc()),
             Paren(e) => enclose("(", e.doc(), ")"),
         }
@@ -294,8 +333,14 @@ impl ToDoc for PrimType {
 
 impl ToDoc for TypeBind {
     fn doc(&self) -> RcDoc {
-        unimplemented!() // type vs. scope bindings?
-                         // str(self.var).append("")
+        use BindSort::*;
+        match self.sort {
+            Scope => str("$"), // ?
+            Type => RcDoc::nil(),
+        }
+        .append(&self.var)
+        .append(" : ")
+        .append(self.bound.doc())
     }
 }
 
@@ -320,8 +365,14 @@ impl ToDoc for Pat {
     }
 }
 
-trait FieldValue {
-    fn sep<'a>() -> &'a str;
+impl ToDoc for Case {
+    fn doc(&self) -> RcDoc {
+        kwd("case")
+            .append(self.pat.doc())
+            .append(RcDoc::line())
+            .append(self.exp.doc())
+            .group()
+    }
 }
 
 impl ToDoc for TypeField {

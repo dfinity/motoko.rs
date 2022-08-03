@@ -37,8 +37,9 @@ pub type FuncSort = Shared<SharedSort>;
 pub type TypId = Id;
 
 pub type Decs = Delim<Dec>;
-pub type Prog = Decs;
 pub type Cases = Delim<Case>;
+
+pub type Prog = Decs;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Dec {
@@ -224,8 +225,8 @@ pub enum Exp {
     While(Exp_, Exp_),
     Loop(Exp_, Option<Exp_>),
     For(Pat, Exp_, Exp_),
-    Label(Id, Type_, Exp_),
-    Break(Id, Exp_),
+    Label(Id, Option<Type_>, Exp_),
+    Break(Id, Option<Exp_>),
     Return(Exp_),
     Debug(Exp_),
     Async(TypeBind, Exp_),
@@ -234,7 +235,7 @@ pub enum Exp {
     Annot(Exp_, Type_),
     Import(String),
     Throw(Exp_),
-    Try(Exp_, Cases),
+    Try(Exp_, Vec<Case>),
     Ignore(Exp_),
     Paren(Exp_),
 }

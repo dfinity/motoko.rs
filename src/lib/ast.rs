@@ -45,7 +45,7 @@ pub type Prog = Decs;
 pub enum Dec {
     Exp(Exp),
     Let(Pat, Exp),
-    Var(Id, Exp),
+    Var(Pat, Exp),
     Typ(TypId, TypBinds, Type),
     Class(
         SortPat,

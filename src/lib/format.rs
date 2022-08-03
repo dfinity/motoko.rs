@@ -7,14 +7,18 @@ use crate::ast::{
 use crate::format_utils::*;
 use pretty::RcDoc;
 
-pub fn format_pretty(to_doc: &dyn ToDoc, width: usize) -> String {
+fn format_(doc: RcDoc, width: usize) -> String {
     let mut w = Vec::new();
-    to_doc.doc().render(width, &mut w).unwrap();
+    doc.render(width, &mut w).unwrap();
     String::from_utf8(w).unwrap()
 }
 
-pub fn format(to_doc: &dyn ToDoc) -> String {
-    format_pretty(to_doc, usize::MAX)
+pub fn format_pretty(to_doc: &dyn ToDoc, width: usize) -> String {
+    format_(to_doc.doc(), width)
+}
+
+pub fn format_one_line(to_doc: &dyn ToDoc) -> String {
+    format_(to_doc.doc().group(), usize::MAX)
 }
 
 pub trait ToDoc {
@@ -31,7 +35,7 @@ pub trait ToDoc {
 fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
-        doc.append(sep).append(RcDoc::space())
+        doc.append(sep)
     } else {
         doc
     }
@@ -41,7 +45,7 @@ fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
 fn delim_left<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
-        RcDoc::space().append(sep).append(doc)
+        str(sep).append(doc)
     } else {
         doc
     }
@@ -196,12 +200,10 @@ impl ToDoc for Exp {
             Not(e) => kwd("not").append(e.doc()),
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
-            Switch(e, cs) => {
-                kwd("switch")
-                    .append(e.doc())
-                    .append(RcDoc::space())
-                    .append(enclose_space("{", delim(cs, ";"), "}"))
-            }
+            Switch(e, cs) => kwd("switch")
+                .append(e.doc())
+                .append(RcDoc::space())
+                .append(enclose_space("{", delim(cs, ";"), "}")),
             While(c, e) => kwd("while")
                 .append(c.doc())
                 .append(RcDoc::space())
@@ -267,7 +269,10 @@ impl ToDoc for Dec {
                 .append(p.doc())
                 .append(str(" = "))
                 .append(e.doc()),
-            Var(s, e) => kwd("var").append(kwd(s)).append(str(" = ")).append(e.doc()),
+            Var(p, e) => kwd("var")
+                .append(p.doc())
+                .append(str(" = "))
+                .append(e.doc()),
             Typ(i, b, t) => kwd("type")
                 .append(i)
                 .append(bind(b))

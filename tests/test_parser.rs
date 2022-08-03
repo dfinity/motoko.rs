@@ -32,16 +32,15 @@ fn test_paren() {
 #[test]
 fn test_tuples() {
     assert_("()");
-    assert_("(1, )");
+    assert_("(1,)");
     assert_("(1, 2)");
-    assert_("(1, 2, )");
+    assert_("(1, 2,)");
 
     assert_("(1, 2, 3)");
-    assert_("(1, 2, 3, )");
+    assert_("(1, 2, 3,)");
 
     // current trailing delimiter behavior
-    assert_to("(1,  )", "(1, )");
-    assert_to("(1,)", "(1, )");
+    assert_to("(1, )", "(1,)");
 }
 
 #[test]
@@ -116,7 +115,9 @@ fn test_array() {
 #[test]
 fn test_let_var() {
     assert_("let x = 0; x");
+    assert_("let x : Int = 0; x");
     assert_("var x = 0; x");
+    assert_("var x : Int = 0; x");
 }
 
 #[test]
@@ -167,9 +168,9 @@ fn test_switch() {
     assert_("switch 0 { case _ 0 }");
     assert_("switch 0 { case _ 0; }");
     assert_("switch 0 { case (_) 0 }");
-    assert_("switch 0 { case (_, ) 0 }");
+    assert_("switch 0 { case (_,) 0 }");
     assert_("switch 0 { case (_, _) 0 }");
-    assert_("switch 0 { case (_, _, ) 0 }");
+    assert_("switch 0 { case (_, _,) 0 }");
     //assert_("switch (#apple) { case (#apple) 1 }");
     //assert_("switch (#apple) { case (#apple) 1; }");
 }

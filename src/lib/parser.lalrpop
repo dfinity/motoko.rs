@@ -1,6 +1,6 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::util::{dec_into_exp, get_one};
+use crate::parser_utils::{dec_into_exp, get_one};
 use crate::ast::{Id, Pat, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim};
 
 grammar;
@@ -92,6 +92,10 @@ pub PatUn: Pat = {
     PatNullary,
     "#" <s:Id> => Pat::Variant(s, None),
     "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(Box::new(p))),
+}
+
+pub Pat = {
+    PatBin,
 }
 
 // pub PatBeforeType: Pat = {
@@ -272,14 +276,14 @@ Dec: Dec = {
 }
 
 DecNonVar: Dec = {
-    "let" <i:Id> "=" <e:Exp<Ob>> => Dec::Let(Pat::Var(i), e),
+    "let" <p:Pat> "=" <e:Exp<Ob>> => Dec::Let(p, e),
     // type
     // class
     // actor class
 }
 
 DecVar: Dec = {
-    "var" <i:Id> "=" <e:Exp<Ob>> => Dec::Var(i, e),
+    "var" <p:Pat> "=" <e:Exp<Ob>> => Dec::Var(p, e),
 }
 
 UnOp: UnOp = {

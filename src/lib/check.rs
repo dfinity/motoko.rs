@@ -12,7 +12,7 @@ pub fn assert_parse_(input: &str, expected: &str) -> Prog {
     let prog = parse(input).unwrap();
     println!(" * parsed {}", input);
     //assert_eq!(&format!("{}", expr), expected);
-    println!(" * formatted {}", format(&prog));
+    //println!(" * formatted {}", format(&prog));
     prog
 }
 

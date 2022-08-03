@@ -46,6 +46,14 @@ Delim0<T, S>: Delim<T> = {
     }
 };
 
+Bl : Exp = {
+    r"\\\\BIG.FART." => unreachable!()
+}
+
+Ob : Exp = {
+    ExpObj
+}
+
 // --- Literals --- //
 
 pub Literal: Literal = {
@@ -141,125 +149,145 @@ pub Prog: Decs = {
 
 // --- Expressions --- //
 
-pub Exp_: Exp_ = {
-    Exp => Box::new(<>)
+Exp_<B>: Exp_ = {
+    Exp<B> => Box::new(<>)
 }
 
-pub Exp: Exp = {
-    ExpNullary,
-}
-
-pub ExpPlain_: Exp_ = {
+ExpPlain_: Exp_ = {
     ExpPlain => Box::new(<>),
 }
 
-pub ExpPlain: Exp = {
+ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
-    "(" <es:Delim1<Exp, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
+    "(" <es:Delim1<Exp<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
 }
 
-pub ExpNullary_: Exp_ = {
-    ExpNullary => Box::new(<>),
+ExpNullary_<B>: Exp_ = {
+    ExpNullary<B> => Box::new(<>),
 }
 
-pub ExpNullary: Exp = {
+ExpNullary<B>: Exp = {
+    B,
     ExpPlain => <>,
     Id => Exp::Var(<>),
+    // Prim
 }
 
-pub ExpPost_: Exp_ = {
-    ExpPost => Box::new(<>),
+ExpPost_<B>: Exp_ = {
+    ExpPost<B> => Box::new(<>),
 }
 
-pub ExpPost: Exp = {
-    ExpNullary => <>,
-    <e1:ExpPost_> "[" <e2:Exp_> "]" => Exp::Idx(e1, e2),
-    <e1:ExpPost_> "." <i:NatIndex> => Exp::Proj(e1, i),
-    <e1:ExpPost_> "." <i:Id> => Exp::Dot(e1, i),
-    <e:ExpPost_> "!" => Exp::Bang(e),
+ExpPost<B>: Exp = {
+    ExpNullary<B>,
+    <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Idx(e1, e2),
+    <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
+    <e1:ExpPost_<B>> "." <i:Id> => Exp::Dot(e1, i),
+    <e:ExpPost_<B>> "!" => Exp::Bang(e),
 }
 
-pub ExpNest_: Exp_ = {
+ExpUn<B>: Exp = {
+    ExpPost<B>,
+//    "#" <x:ExpVar_> => Exp::Variant(x),
+//    "#" <e:ExpNullary_> => Exp::Variant(e),
+//    "?" <e:ExpUn> => Exp::Quest(e),
+    <u:UnOp> <e:ExpUn_<B>> => Exp::Un(u, e),
+    "not" <e:ExpUn_<B>> => Exp::Not(e),
+}
+
+ExpUn_<B>: Exp_ = {
+    ExpUn<B> => Box::new(<>),
+}
+
+ExpNest_: Exp_ = {
     ExpNest => Box::new(<>),
-  // | e=block
-  //   { e }
-  // | e=exp(bl)         ????????
-  //   { e }
 }
 
-pub ExpNest: Exp = {
+ExpNest: Exp = {
     Block,
+    Exp<Bl>,
 }
 
-pub Block: Exp = {
+Exp<B>: Exp = {
+    ExpNonVar<B>,
+    DecVar,
+}
+
+Block: Exp = {
     "{" <ds:Decs> "}" => Exp::Block(ds)
 }
 
-pub ExpNonDec: Exp = {
+ExpObj: Exp = {
+    // to do -- temp. fix this.
+    "{" <ds:Decs> "}" => Exp::Block(ds)
+}
+
+ExpNonVar<B>: Exp = {
+    ExpNonDec<B>,
+    DecNonVar,
+}
+
+ExpNonDec<B>: Exp = {
 //    ExpUn => <>,
 //    ExpBin => <>,
 //    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
-    "return" <e:Exp_> => Exp::Return(e),
-    "switch" <e:ExpNullary_> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
+    "return" <e:Exp_<B>> => Exp::Return(e),
+    "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
 }
 
-pub ExpUn_: Exp_ = {
-    ExpUn => Box::new(<>),
-}
-
-pub ExpVar_: Exp_ = {
+ExpVar_: Exp_ = {
     <x:Id> => Box::new(Exp::Var(x)),
 }
 
-pub ExpUn: Exp = {
-    ExpPost,
-//    "#" <x:ExpVar_> => Exp::Variant(x),
-//    "#" <e:ExpNullary_> => Exp::Variant(e),
-//    "?" <e:ExpUn> => Exp::Quest(e),
-    <u:UnOp> <e:ExpUn_> => Exp::Un(u, e),
-    "not" <e:ExpUn_> => Exp::Not(e),
+ExpBin_<B>: Exp_ = {
+    ExpBin<B> => Box::new(<>),
 }
 
-pub ExpBin_: Exp_ = {
-    ExpBin => Box::new(<>),
+ExpBin<B>: Exp = {
+    <e1:Exp_<B>> <b:BinOp> <e2:ExpBin_<B>> => Exp::Bin(e1, b, e2),
 }
 
-pub ExpBin: Exp = {
-    <e1:Exp_> <b:BinOp> <e2:ExpBin_> => Exp::Bin(e1, b, e2),
-}
-
-pub TextId: String = {
+TextId: String = {
    r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 }
 
-pub Cases: Cases = {
+Cases: Cases = {
     Delim0<Case, ";">
 }
 
-pub Case: Case = {
+Case: Case = {
     "case" <pat:PatNullary> <exp:ExpNest> => Case{pat, exp},
 }
 
-pub Decs: Decs = {
+Decs: Decs = {
     Delim0<Dec, ";">
 }
 
-pub Dec: Dec = {
-    "let" <i:Id> "=" <e:Exp> => Dec::Let(Pat::Var(i), e),
-    "var" <i:Id> "=" <e:Exp> => Dec::Var(i, e),
-    Exp => Dec::Exp(<>),
-    ExpNonDec => Dec::Exp(<>),
+Dec: Dec = {
+    DecVar,
+    DecNonVar,
+    ExpNonDec<Ob> => Dec::Exp(<>),
 }
 
-pub UnOp: UnOp = {
+DecNonVar: Dec = {
+    "let" <i:Id> "=" <e:Exp<Ob>> => Dec::Let(Pat::Var(i), e),
+    // type
+    // class
+    // actor class
+}
+
+DecVar: Dec = {
+    "var" <i:Id> "=" <e:Exp<Ob>> => Dec::Var(i, e),
+}
+
+UnOp: UnOp = {
     "+" => UnOp::Pos,
     "-" => UnOp::Neg,
     "^" => UnOp::Not,
 }
 
-pub BinOp: BinOp = {
+BinOp: BinOp = {
     "+" => BinOp::Add,
     "-" => BinOp::Sub,
     "*" => BinOp::Mul,

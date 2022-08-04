@@ -114,6 +114,13 @@ fn test_const_array() {
 }
 
 #[test]
+fn test_decs() {
+    assert_("x;");
+    assert_("x; x");
+    assert_("x; x;");
+}
+
+#[test]
 fn test_var_array() {
     assert_("[var ]");
     assert_("[var 1]");
@@ -157,8 +164,9 @@ fn test_assign() {
 
 #[test]
 fn test_if() {
-    assert_("if true { 1 } else { 2 }");
-    assert_("if true { () };");
+    assert_("if true 1 else 2");
+    assert_("if true { 1 } else { 2 };");
+    assert_to("if true { } \\no_else", "if true { }");
 }
 
 #[test]

@@ -216,10 +216,10 @@ impl ToDoc for Exp {
                 .append(e1.doc())
                 .append(RcDoc::space())
                 .append(e2.doc())
-                .append(RcDoc::space())
-                .append(kwd("else"))
-                .append(RcDoc::space())
-                .append(e3.doc()),
+                .append(match e3 {
+                    None => RcDoc::nil(),
+                    Some(e3) => RcDoc::space().append(kwd("else")).append(e3.doc()),
+                }),
             Switch(e, cs) => kwd("switch")
                 .append(e.doc())
                 .append(RcDoc::space())

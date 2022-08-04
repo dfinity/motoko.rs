@@ -1,19 +1,27 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_into_exp, get_one, unit_exp};
-use crate::ast::{Id, Pat, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
+use crate::parser_utils::{dec_into_exp, get_one, unit_exp, annot_exp_, annot_exp, varexp_into_id};
+use crate::ast::{Id, Pat, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
 
 // Terminals
 
-pub NatIndex: usize = {
+NatIndex: usize = {
     r"[0-9]+" => <>.parse().unwrap(),
 }
 
-pub Id: Id = {
+Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
+
+VarExp: Exp = {
+    Id => Exp::Var(<>),
+}
+
+VarExp_: Exp_ = {
+    Id => Box::new(Exp::Var(<>)),
+}
 
 // --- Helper Functions --- //
 
@@ -116,8 +124,9 @@ pub Pat = {
 
 // --- Types --- //
 
-pub TypeAnnot: Type = {
-    ":" <t:Type> => t,
+pub AnnotOpt: Option<Type_> = {
+    ":" <t:Type_> => Some(t),
+     => None,
 }
 
 pub PrimType: PrimType = {
@@ -273,6 +282,11 @@ Cases: Cases = {
 
 Case: Case = {
     "case" <pat:PatNullary> <exp:ExpNest> => Case{pat, exp},
+}
+
+ExpField: ExpField = {
+    <mut_:VarOpt> <x:VarExp> <t:AnnotOpt> => ExpField{ mut_, id:varexp_into_id(&x), exp:annot_exp(x, t) },
+    <mut_:VarOpt> <id:Id> <t:AnnotOpt> "=" <e:Exp<Ob>> => ExpField{ mut_, id, exp:annot_exp(e, t) }
 }
 
 Decs: Decs = {

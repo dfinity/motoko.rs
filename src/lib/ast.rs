@@ -224,7 +224,7 @@ pub enum Exp {
     Bang(Exp_),
     ObjectBlock(ObjSort, DecFields),
     Object(ExpFields),
-    Variant(Id, Option<Exp_>),
+    Variant(Id_, Option<Exp_>),
     Dot(Exp_, Id),
     Assign(Exp_, Exp_),
     Array(Mut, Delim<Exp>),
@@ -313,3 +313,4 @@ pub enum RelOp {
 }
 
 pub type Id = String;
+pub type Id_ = Box<Id>;

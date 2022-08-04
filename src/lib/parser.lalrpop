@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use crate::parser_utils::{dec_into_exp, get_one, unit_exp, varexp_into_id};
-use crate::ast::{Id, Pat, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
+use crate::ast::{Id, Id_, Pat, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
 
@@ -14,6 +14,10 @@ NatIndex: usize = {
 Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
+
+Id_: Id_ = {
+    Id => Box::new(<>)
+}
 
 VarExp: Exp = {
     Id => Exp::Var(<>),
@@ -208,7 +212,7 @@ ExpPost<B>: Exp = {
 
 ExpUn<B>: Exp = {
     ExpPost<B>,
-//    "#" <x:ExpVar_> => Exp::Variant(x),
+    "#" <x:Id_> => Exp::Variant(x, None),
 //    "#" <e:ExpNullary_> => Exp::Variant(e),
 //    "?" <e:ExpUn> => Exp::Quest(e),
     <u:UnOp> <e:ExpUn_<B>> => Exp::Un(u, e),

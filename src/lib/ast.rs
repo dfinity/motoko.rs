@@ -235,7 +235,7 @@ pub enum Exp {
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),
-    If(Exp_, Exp_, Exp_),
+    If(Exp_, Exp_, Option<Exp_>),
     Switch(Exp_, Cases),
     While(Exp_, Exp_),
     Loop(Exp_, Option<Exp_>),

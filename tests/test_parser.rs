@@ -105,11 +105,21 @@ fn test_return() {
 }
 
 #[test]
-fn test_array() {
+fn test_const_array() {
     assert_("[]");
     assert_("[1]");
+    assert_("[1,]");
     assert_("[1, 2]");
     assert_("[1, 2,]");
+}
+
+#[test]
+fn test_var_array() {
+    assert_("[var ]");
+    assert_("[var 1]");
+    assert_("[var 1,]");
+    assert_("[var 1, 2]");
+    assert_("[var 1, 2,]");
 }
 
 #[test]

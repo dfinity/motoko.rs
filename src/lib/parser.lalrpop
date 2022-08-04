@@ -1,6 +1,6 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_into_exp, get_one, unit_exp, annot_exp_, annot_exp, varexp_into_id};
+use crate::parser_utils::{dec_into_exp, get_one, unit_exp, varexp_into_id};
 use crate::ast::{Id, Pat, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
@@ -124,8 +124,8 @@ pub Pat = {
 
 // --- Types --- //
 
-pub AnnotOpt: Option<Type_> = {
-    ":" <t:Type_> => Some(t),
+pub AnnotOpt: Option<Type> = {
+    ":" <t:Type> => Some(t),
 //     => None,
 }
 
@@ -287,7 +287,7 @@ Case: Case = {
 
 ExpField: ExpField = {
 //    <mut_:VarOpt> <x:VarExp> <t:AnnotOpt> => ExpField{ mut_, id:varexp_into_id(&x), exp:annot_exp(x, t) },
-    <mut_:VarOpt> <id:Id> <t:AnnotOpt> "=" <e:Exp<Ob>> => ExpField{ mut_, id, exp:annot_exp(e, t) }
+    <mut_:VarOpt> <id:Id> <typ:AnnotOpt> "=" <e:Exp<Ob>> => ExpField{ mut_, id, exp:e, typ }
 }
 
 Decs: Decs = {

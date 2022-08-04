@@ -414,7 +414,15 @@ impl ToDoc for DecField {
 
 impl ToDoc for ExpField {
     fn doc(&self) -> RcDoc {
-        self.mut_.doc().append(&self.id).append(" = ").append(self.exp.doc())
+        self.mut_
+            .doc()
+            .append(&self.id)
+            .append(match self.typ {
+                None => RcDoc::nil(),
+                Some(typ) => typ.doc(),
+            })
+            .append(" = ")
+            .append(self.exp.doc())
     }
 }
 

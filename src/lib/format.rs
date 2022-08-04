@@ -89,6 +89,12 @@ fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
 //     }
 // }
 
+impl ToDoc for String {
+    fn doc(&self) -> RcDoc {
+        str(&self)
+    }
+}
+
 impl<T: ToDoc> ToDoc for Box<T> {
     fn doc(&self) -> RcDoc {
         self.as_ref().doc()
@@ -197,7 +203,7 @@ impl ToDoc for Exp {
             Bang(e) => e.doc().append("!"),
             ObjectBlock(s, fs) => s.doc().append(RcDoc::space()).append(block(fs)),
             Object(fs) => block(fs),
-            Variant(id, e) => str("#").append(id).append(match e {
+            Variant(id, e) => str("#").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
                 Some(e) => RcDoc::space().append(e.doc()),
             }),

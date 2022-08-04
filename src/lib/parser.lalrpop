@@ -126,7 +126,7 @@ pub Pat = {
 
 pub AnnotOpt: Option<Type_> = {
     ":" <t:Type_> => Some(t),
-     => None,
+//     => None,
 }
 
 pub PrimType: PrimType = {
@@ -238,8 +238,7 @@ Block: Exp = {
 }
 
 ExpObj: Exp = {
-    // to do -- temp. fix this.
-    "{" <ds:Decs> "}" => Exp::Block(ds)
+    "{" <efs:Delim0<ExpField, ";">> "}" => Exp::Object(efs)
 }
 
 ExpNonVar<B>: Exp = {
@@ -286,7 +285,7 @@ Case: Case = {
 }
 
 ExpField: ExpField = {
-    <mut_:VarOpt> <x:VarExp> <t:AnnotOpt> => ExpField{ mut_, id:varexp_into_id(&x), exp:annot_exp(x, t) },
+//    <mut_:VarOpt> <x:VarExp> <t:AnnotOpt> => ExpField{ mut_, id:varexp_into_id(&x), exp:annot_exp(x, t) },
     <mut_:VarOpt> <id:Id> <t:AnnotOpt> "=" <e:Exp<Ob>> => ExpField{ mut_, id, exp:annot_exp(e, t) }
 }
 

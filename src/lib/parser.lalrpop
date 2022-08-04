@@ -249,6 +249,7 @@ ExpNonDec<B>: Exp = {
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_<B>> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
+    // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
 }
 

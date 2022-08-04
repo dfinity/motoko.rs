@@ -107,6 +107,7 @@ pub struct Case {
 pub struct ExpField {
     pub mut_: Mut,
     pub id: Id,
+    pub typ: Option<Type>,
     pub exp: Exp,
 }
 

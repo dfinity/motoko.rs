@@ -1,6 +1,6 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_into_exp, get_one};
+use crate::parser_utils::{dec_into_exp, get_one, unit_exp};
 use crate::ast::{Id, Pat, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
@@ -167,6 +167,7 @@ ExpPlain: Exp = {
     "(" <es:Delim1<Exp<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
 }
 
+#[inline]
 ExpNullary_<B>: Exp_ = {
     ExpNullary<B> => Box::new(<>),
 }
@@ -241,8 +242,9 @@ ExpNonDec<B>: Exp = {
     ExpUn<B>,
 //    ExpBin => <>,
 //    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
-    //"if" <e1:ExpNullary<Ob>> <e2:ExpNest> => Exp::If(e1, e2, Exp::Unit),
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, e3),
+    // if without an else -- TEMP -- using semi here but it doesn't belong.
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> ";" => Exp::If(e1, e2, Box::new(unit_exp())),
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_<B>> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),

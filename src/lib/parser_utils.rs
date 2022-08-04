@@ -19,3 +19,7 @@ pub fn dec_into_exp(d: Dec) -> Exp {
         }),
     }
 }
+
+pub fn unit_exp() -> Exp {
+    Exp::Block(Delim{vec:vec!(), has_trailing: false})
+}

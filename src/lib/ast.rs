@@ -12,18 +12,10 @@ pub enum Literal {
     Bool(bool),
     Unit,
     Nat(String),
-    Nat8(u8),
-    Nat16(u16),
-    Nat32(u32),
-    Nat64(u64),
     Int(String),
-    Int8(i8),
-    Int16(i16),
-    Int32(i32),
-    Int64(i64),
     Float(String),
-    Char(char),
-    Text(String),
+    Char(String), // includes quotes
+    Text(String), // includes quotes
     Blob(Vec<u8>),
 }
 
@@ -34,17 +26,27 @@ pub enum ObjSort {
     Module,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Shared<T /*: std::fmt::Debug + Clone + PartialEq + Eq*/> {
+    Local,
+    Shared(T),
+}
+
+pub type FuncSort = Shared<SharedSort>;
+
 pub type TypId = Id;
 
 pub type Decs = Delim<Dec>;
 pub type Cases = Delim<Case>;
 
+pub type Prog = Decs;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Dec {
     Exp(Exp),
     Let(Pat, Exp),
-    Var(Id, Exp),
-    Typ(TypId, TypBinds, Type_),
+    Var(Pat, Exp),
+    Typ(TypId, TypBinds, Type),
     Class(
         SortPat,
         TypId,
@@ -60,7 +62,7 @@ pub enum Dec {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SortPat {
     Local,
-    Shared(SharedSort, Pat_),
+    Shared(SharedSort, Pat),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,10 +78,10 @@ pub enum BindSort {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypBind {
+pub struct TypeBind {
     pub var: Id,
     pub sort: BindSort,
-    pub bound: Type_,
+    pub bound: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,9 +90,11 @@ pub enum Mut {
     Var,
 }
 
-pub type TypBinds = Delim<TypBind>;
+pub type TypBinds = Delim<TypeBind>;
 pub type DecFields = Delim<DecField>;
 pub type ExpFields = Delim<ExpField>;
+pub type PatFields = Delim<PatField>;
+pub type TypeFields = Delim<TypeField>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
@@ -108,8 +112,21 @@ pub struct ExpField {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecField {
     pub dec: Dec,
-    pub vis: Vis,
+    pub vis: Option<Vis>,
     pub stab: Option<Stab>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PatField {
+    pub id: Id,
+    pub pat: Pat,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeField {
+    pub mut_: Mut,
+    pub id: Id,
+    pub typ: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,6 +141,22 @@ pub enum Stab {
     Stable,
     Flexible,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResolvedImport {
+    Unresolved,
+    Lib(String),
+    Candid { path: String, bytes: String },
+    Prim,
+}
+
+// | Unresolved
+// | LibPath of string
+// | IDLPath of (string * string) (* filepath * bytes *)
+// | PrimPath (* the built-in prim module *)
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Sugar(bool);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrimType {
@@ -149,25 +182,20 @@ pub type Type_ = Box<Type>;
 pub enum Type {
     // Path (type path)?
     Prim(PrimType),
-    Object(Vec<(Id, Type)>),
-    Array(Delim<Type>),
+    Object(ObjSort, TypeFields),
+    Array(Mut, Delim<Type>),
     Optional(Type_),
     // Variant(Vec<>),
     Tuple(Delim<Type>),
-    Function(
-        (),      /* FuncSort */
-        Vec<()>, /* TypeBind */
-        Delim<Type_>,
-        Type_,
-    ),
-    Async(Type_),
+    Function(FuncSort, Delim<TypeBind>, Delim<Type>, Type_),
+    Async(Type_, Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
     Paren(Type_),
     Named(Id, Type_),
 }
 
-pub type Inst = Vec<Type>;
+pub type Inst = Delim<Type>;
 
 // Convention: Foo_ = Box<Foo>
 // where Foo is an enum for an AST subsort, like Exp.
@@ -183,7 +211,7 @@ pub enum Exp {
     ActorUrl(Exp_),
     Un(UnOp, Exp_),
     Bin(Exp_, BinOp, Exp_),
-    Rel(RelOp, Exp_),
+    Rel(Exp_, RelOp, Exp_),
     Show(Exp_),
     ToCandid(Vec<Exp_>),
     FromCandid(Exp_),
@@ -194,33 +222,33 @@ pub enum Exp {
     Bang(Exp_),
     ObjectBlock(ObjSort, DecFields),
     Object(ExpFields),
-    Variant(Id, Exp_),
+    Variant(Id, Option<Exp_>),
     Dot(Exp_, Id),
     Assign(Exp_, Exp_),
     Array(Mut, Delim<Exp>),
     Idx(Exp_, Exp_),
-    Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Exp_),
+    Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Sugar, Exp_),
     Call(Exp_, Inst, Exp_),
     Block(Delim<Dec>),
+    DoBlock(Delim<Dec>),
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),
-    Of(Exp_, Exp_, Exp_),
     Switch(Exp_, Cases),
     While(Exp_, Exp_),
     Loop(Exp_, Option<Exp_>),
     For(Pat, Exp_, Exp_),
-    Label(Id, Type_, Exp_),
-    Break(Id, Exp_),
+    Label(Id, Option<Type_>, Exp_),
+    Break(Id, Option<Exp_>),
     Return(Exp_),
     Debug(Exp_),
-    Async(TypBind, Exp_),
+    Async(TypeBind, Exp_),
     Await(Exp_),
     Assert(Exp_),
     Annot(Exp_, Type_),
-    Import(String),
+    Import(String, ResolvedImport),
     Throw(Exp_),
-    Try(Exp_, Cases),
+    Try(Exp_, Vec<Case>),
     Ignore(Exp_),
     Paren(Exp_),
 }
@@ -232,9 +260,9 @@ pub enum Pat {
     Wild,
     Var(Id),
     Literal(Literal),
-    Signed(Vec<UnOp>, Pat_),
+    Signed(UnOp, Pat_),
     Tuple(Delim<Pat>),
-    Object(Delim<(Id, Pat)>),
+    Object(Delim<PatFields>),
     Optional(Pat_),
     Variant(Id, Option<Pat_>),
     Alt(Delim<Pat>),

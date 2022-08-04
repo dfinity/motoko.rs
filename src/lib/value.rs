@@ -44,8 +44,8 @@ impl Value {
             Literal::Int32(i) => Int32(i),
             Literal::Int64(i) => Int64(i),
             Literal::Float(f) => Float(F64::from(f.parse::<f64>().map_err(|_| ())?)),
-            Literal::Char(c) => Char(c),
-            Literal::Text(s) => Text(s),
+            Literal::Char(c) => Char(c.chars().nth(<>.len() - 2).map_err(|_| ())),
+            Literal::Text(s) => Text(s[1..<>.len() - 1].to_string()),
             Literal::Blob(v) => Blob(v),
         })
     }

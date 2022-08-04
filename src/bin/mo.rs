@@ -4,7 +4,7 @@ use log::info;
 use std::io;
 use structopt::{clap, clap::Shell};
 
-use motoko::format::format;
+use motoko::format::format_one_line;
 
 pub type OurResult<X> = Result<X, OurError>;
 
@@ -87,12 +87,12 @@ fn main() -> OurResult<()> {
             info!("done");
         }
         CliCommand::Check { input } => {
-            let _ = motoko::check::parse_exp(&input)?;
+            let _ = motoko::check::parse(&input)?;
             println!("check::parse: okay.");
         }
         CliCommand::Echo { input } => {
-            let p = motoko::check::parse_exp(&input)?;
-            println!("{}", format(&p));
+            let p = motoko::check::parse(&input)?;
+            println!("{}", format_one_line(&p));
         }
     };
     Ok(())

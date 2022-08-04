@@ -35,7 +35,7 @@ pub fn enclose<'a>(left: &'a str, doc: RcDoc<'a>, right: &'a str) -> RcDoc<'a> {
 
 pub fn enclose_space<'a>(left: &'a str, doc: RcDoc<'a>, right: &'a str) -> RcDoc<'a> {
     if is_empty(&doc) {
-        RcDoc::text(left).append(right)
+        RcDoc::text(left).append(RcDoc::space()).append(right)
     } else {
         RcDoc::text(left)
             .append(RcDoc::line())

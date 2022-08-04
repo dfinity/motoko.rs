@@ -417,7 +417,7 @@ impl ToDoc for ExpField {
         self.mut_
             .doc()
             .append(&self.id)
-            .append(match self.typ {
+            .append(match &self.typ {
                 None => RcDoc::nil(),
                 Some(typ) => str(" : ").append(typ.doc()),
             })

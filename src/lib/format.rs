@@ -419,7 +419,7 @@ impl ToDoc for ExpField {
             .append(&self.id)
             .append(match self.typ {
                 None => RcDoc::nil(),
-                Some(typ) => typ.doc(),
+                Some(typ) => str(" : ").append(typ.doc()),
             })
             .append(" = ")
             .append(self.exp.doc())

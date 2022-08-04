@@ -212,6 +212,14 @@ impl ToDoc for Exp {
             Not(e) => kwd("not").append(e.doc()),
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
+            If(e1, e2, e3) => kwd("if")
+                .append(e1.doc())
+                .append(RcDoc::space())
+                .append(e2.doc())
+                .append(RcDoc::space())
+                .append(kwd("else"))
+                .append(RcDoc::space())
+                .append(e3.doc()),
             Switch(e, cs) => kwd("switch")
                 .append(e.doc())
                 .append(RcDoc::space())

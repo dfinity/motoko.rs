@@ -84,7 +84,6 @@ pub struct TypeBind {
     pub bound: Type,
 }
 
-
 /// Mutability setting, for arrays, record fields and lexically-scoped bindings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mut {
@@ -236,6 +235,7 @@ pub enum Exp {
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),
+    If(Exp_, Exp_, Exp_),
     Switch(Exp_, Cases),
     While(Exp_, Exp_),
     Loop(Exp_, Option<Exp_>),

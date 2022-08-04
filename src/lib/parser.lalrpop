@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use crate::parser_utils::{dec_into_exp, get_one};
-use crate::ast::{Id, Pat, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim};
+use crate::ast::{Id, Pat, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
 
@@ -182,8 +182,14 @@ ExpPost_<B>: Exp_ = {
     ExpPost<B> => Box::new(<>),
 }
 
+VarOpt: Mut = {
+    "var" => Mut::Var,
+     => Mut::Const,
+}
+
 ExpPost<B>: Exp = {
     ExpNullary<B>,
+    "[" <v:VarOpt> <es:Delim0<ExpNonVar<Ob>, ",">> "]" => Exp::Array(v, es),
     <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Idx(e1, e2),
     <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
     <e1:ExpPost_<B>> "." <i:Id> => Exp::Dot(e1, i),

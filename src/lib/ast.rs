@@ -84,6 +84,8 @@ pub struct TypeBind {
     pub bound: Type,
 }
 
+
+/// Mutability setting, for arrays, record fields and lexically-scoped bindings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mut {
     Const,

@@ -109,7 +109,7 @@ fn test_array() {
     assert_("[]");
     assert_("[1]");
     assert_("[1, 2]");
-    assert_("[1, 2, ]");
+    assert_("[1, 2,]");
 }
 
 #[test]

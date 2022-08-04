@@ -153,8 +153,8 @@ fn test_variant() {
 #[test]
 fn test_record() {
     assert_("{ }");
-    assert_("{ foo = 3; }");
-    assert_("{ foo = 3; bar = #apple }");
+    assert_("{ foo : Nat = 3; }");
+    //assert_("{ foo : Nat = 3; bar : { #apple } = #apple}");
 }
 
 #[test]

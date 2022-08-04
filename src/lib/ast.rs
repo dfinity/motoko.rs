@@ -222,7 +222,7 @@ pub enum Exp {
     Bang(Exp_),
     ObjectBlock(ObjSort, DecFields),
     Object(ExpFields),
-    Variant(Id, Exp_),
+    Variant(Id, Option<Exp_>),
     Dot(Exp_, Id),
     Assign(Exp_, Exp_),
     Array(Mut, Delim<Exp>),

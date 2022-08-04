@@ -1,8 +1,8 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, BindSort, Case, Dec, DecField, Delim, Exp, Literal, Mut, ObjSort, Pat, PrimType, RelOp,
-    Type, TypeBind, TypeField, UnOp, Vis, Stab,
+    BinOp, BindSort, Case, Dec, DecField, Delim, Exp, ExpField, Literal, Mut, ObjSort, Pat,
+    PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
 use pretty::RcDoc;
@@ -64,12 +64,7 @@ fn field_block<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
 }
 
 fn array<'a, T: ToDoc>(m: &'a Mut, d: &'a Delim<T>) -> RcDoc<'a> {
-    let m_doc = if m == &Mut::Var {
-        kwd("var")
-    } else {
-        RcDoc::nil()
-    };
-    enclose("[", m_doc.append(delim(d, ",")), "]")
+    enclose("[", m.doc().append(delim(d, ",")), "]")
 }
 
 fn bind<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
@@ -201,10 +196,13 @@ impl ToDoc for Exp {
             DoOpt(e) => kwd("do ?").append(e.doc()),
             Bang(e) => e.doc().append("!"),
             ObjectBlock(s, fs) => s.doc().append(RcDoc::space()).append(block(fs)),
-            Object(_) => todo!(),
-            Variant(_, _) => todo!(),
+            Object(fs) => block(fs),
+            Variant(id, e) => str("#").append(id).append(match e {
+                None => RcDoc::nil(),
+                Some(e) => RcDoc::space().append(e.doc()),
+            }),
             Dot(e, s) => e.doc().append(".").append(s),
-            Assign(_, _) => todo!(),
+            Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),
             Array(m, es) => array(m, es),
             Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
             Function(_, _, _, _, _, _, _) => todo!(),
@@ -222,7 +220,10 @@ impl ToDoc for Exp {
                 .append(c.doc())
                 .append(RcDoc::space())
                 .append(e.doc()),
-            Loop(_, _) => todo!(),
+            Loop(e, w) => kwd("loop").append(e.doc()).append(match w {
+                None => RcDoc::nil(),
+                Some(w) => RcDoc::space().append(w.doc()),
+            }),
             For(p, c, e) => kwd("for")
                 .append(p.doc())
                 .append(" of ")
@@ -308,7 +309,7 @@ impl ToDoc for Type {
             Tuple(d) => tuple(d),
             Function(_, _, _, _) => todo!(),
             // Async(s, t) => kwd("async").append(t.doc()),
-            Async(s, t) => unimplemented!(), // scope?
+            Async(_, t) => unimplemented!(), // scope?
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),
@@ -392,12 +393,20 @@ impl ToDoc for TypeField {
 impl ToDoc for DecField {
     fn doc(&self) -> RcDoc {
         match &self.vis {
-            None=>RcDoc::nil(),
-            Some(v)=>v.doc().append(RcDoc::space())
-        }.append(match &self.stab{
-            None=>RcDoc::nil(),
-            Some(s)=>s.doc().append(RcDoc::space())
-        }).append(self.dec.doc())
+            None => RcDoc::nil(),
+            Some(v) => v.doc().append(RcDoc::space()),
+        }
+        .append(match &self.stab {
+            None => RcDoc::nil(),
+            Some(s) => s.doc().append(RcDoc::space()),
+        })
+        .append(self.dec.doc())
+    }
+}
+
+impl ToDoc for ExpField {
+    fn doc(&self) -> RcDoc {
+        self.mut_.doc().append(&self.id).append(self.exp.doc())
     }
 }
 
@@ -405,7 +414,7 @@ impl ToDoc for Vis {
     fn doc(&self) -> RcDoc {
         use Vis::*;
         match self {
-            Public(Some(s)) => todo!(),
+            Public(Some(_)) => todo!(), // ??
             Public(None) => str("public"),
             Private => str("private"),
             System => str("system"),
@@ -416,10 +425,20 @@ impl ToDoc for Vis {
 impl ToDoc for Stab {
     fn doc(&self) -> RcDoc {
         use Stab::*;
-       str(match self {
+        str(match self {
             Stable => "stable",
             Flexible => "flexible",
         })
+    }
+}
+
+impl ToDoc for Mut {
+    fn doc(&self) -> RcDoc {
+        use Mut::*;
+        match self {
+            Var => kwd("var"), // includes space after keyword
+            Const => RcDoc::nil(),
+        }
     }
 }
 

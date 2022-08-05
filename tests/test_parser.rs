@@ -201,6 +201,7 @@ fn test_assign() {
 fn test_if() {
     assert_("if true 1 else 2");
     assert_("if true { 1 } else { 2 };");
+    // to do -- fix the \\no_else wart here.
     assert_to("if true { } \\no_else", "if true { }");
 }
 
@@ -224,21 +225,24 @@ fn test_switch() {
     assert_("switch 0 { case (_,) 0 }");
     assert_("switch 0 { case (_, _) 0 }");
     assert_("switch 0 { case (_, _,) 0 }");
-    //assert_("switch (#apple) { case (#apple) 1 }");
-    //assert_("switch (#apple) { case (#apple) 1; }");
+    assert_("switch (#apple) { case (#apple) 1 }");
+    assert_("switch (#apple) { case (#apple) 1; }");
 }
 
 #[test]
 fn test_record_proj() {
     assert_("x.foo");
+    assert_to("x . foo", "x.foo");
 }
 
 #[test]
 fn test_tuple_proj() {
     assert_("x.0");
+    assert_to("x . 0", "x.0");
 }
 
 #[test]
 fn test_array_index() {
     assert_("x[0]");
+    assert_to("x [ 0 ]", "x[0]");
 }

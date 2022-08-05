@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
 use crate::parser_utils::{dec_into_exp, get_one};
-use crate::ast::{Id, Id_, Pat, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
+use crate::ast::{Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
 
@@ -95,7 +95,10 @@ pub PatNullary: Pat = {
     // to do -- copy more cases from parser.mly
 }
 
+pub PatBin_: Pat_ = { PatBin => Box::new(<>) }
+
 pub PatBin: Pat = {
+    <p:PatBin_> ":" <t:Type> => Pat::Annot(p, t),
     PatUn,
     // to do -- copy more cases from parser.mly
 }

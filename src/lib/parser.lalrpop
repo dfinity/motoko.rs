@@ -128,11 +128,6 @@ pub Pat = {
 
 // --- Types --- //
 
-pub AnnotOpt: Option<Type> = {
-    ":" <t:Type> => Some(t),
-//     => None,
-}
-
 pub PrimType: PrimType = {
     "(" ")" => PrimType::Unit,
     "Bool" => PrimType::Bool,
@@ -213,7 +208,7 @@ ExpPost<B>: Exp = {
 ExpUn<B>: Exp = {
     ExpPost<B>,
     "#" <x:Id_> <e:(ExpNullary_<B>)?> => Exp::Variant(x, e),
-//    "?" <e:ExpUn> => Exp::Quest(e),
+    "?" <e:ExpUn_<Ob>> => Exp::Opt(e),
     <u:UnOp> <e:ExpUn_<B>> => Exp::Un(u, e),
     "not" <e:ExpUn_<B>> => Exp::Not(e),
 }
@@ -292,8 +287,7 @@ Case: Case = {
 }
 
 ExpField: ExpField = {
-//    <mut_:VarOpt> <x:VarExp> <t:AnnotOpt> => ExpField{ mut_, id:varexp_into_id(&x), exp:annot_exp(x, t) },
-    <mut_:VarOpt> <id:Id> <typ:AnnotOpt> "=" <e:Exp<Ob>> => ExpField{ mut_, id, exp:e, typ }
+    <mut_:VarOpt> <id:Id> <typ:(":" <Type>)?> "=" <exp:Exp<Ob>> => ExpField{ mut_, id, exp, typ }
 }
 
 Decs: Decs = {

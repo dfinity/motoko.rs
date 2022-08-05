@@ -1,6 +1,14 @@
 use motoko::check::{assert_parse as assert_to, assert_roundtrip as assert_};
 
 #[test]
+fn test_option() {
+    assert_("?1");
+    assert_("?()");
+    assert_("?(,)");
+    assert_("?{}");
+}
+
+#[test]
 fn test_ids() {
     assert_("x");
     assert_("X");
@@ -161,8 +169,10 @@ fn test_variant() {
 #[test]
 fn test_record() {
     assert_("{ }");
+    //assert_("{ ; }"); // 2022-08-05 <-- corner case. what to do here?
+    assert_("{ foo = 3; }");
     assert_("{ foo : Nat = 3; }");
-    //assert_("{ foo : Nat = 3; bar : { #apple } = #apple}");
+    assert_("{ foo : Nat = 3; bar = #apple }");
 }
 
 #[test]

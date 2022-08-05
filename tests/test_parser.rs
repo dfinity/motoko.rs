@@ -146,10 +146,16 @@ fn test_do_block() {
 
 #[test]
 fn test_variant() {
-//    assert_("#banana");
+    assert_("#banana");
     assert_("#banana 0");
-    assert_("#banana(0)");
-  //  assert_("#banana(#apple)");
+
+    if true { // to do -- fix formatter, then use else branch only.
+        assert_("#banana (0)");
+        assert_("#banana (#apple)");
+    } else {
+        assert_("#banana(0)");
+        assert_("#banana(#apple)");
+    }
 }
 
 #[test]

@@ -205,7 +205,7 @@ impl ToDoc for Exp {
             Object(fs) => block(fs),
             Variant(id, e) => str("#").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
-                Some(e) => RcDoc::space().append(e.doc()),
+                Some(e) => RcDoc::space().append(e.doc())
             }),
             Dot(e, s) => e.doc().append(".").append(s),
             Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),
@@ -379,7 +379,7 @@ impl ToDoc for Pat {
             Object(_) => todo!(),
             Optional(p) => str("?").append(p.doc()),
             Variant(s, p) => str("#")
-                .append(kwd(s))
+                .append(s.doc())
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
             Alt(d) => delim_left(d, " |"),
             Annot(p, t) => p.doc().append(" : ").append(t.doc()),

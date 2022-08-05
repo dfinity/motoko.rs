@@ -4,8 +4,10 @@ use motoko::check::{assert_parse as assert_to, assert_roundtrip as assert_};
 fn test_option() {
     assert_("?1");
     assert_("?()");
-    assert_("?(,)");
-    assert_("?{}");
+    assert_("?(1)");
+    assert_("?(1, 2,)");
+    assert_("?{ }");
+    assert_("?#apple");
 }
 
 #[test]
@@ -40,6 +42,9 @@ fn test_paren() {
 #[test]
 fn test_tuples() {
     assert_("()");
+    if false { // to do 2022-08-05.
+        assert_("(,)");
+    }
     assert_("(1,)");
     assert_("(1, 2)");
     assert_("(1, 2,)");
@@ -61,6 +66,16 @@ fn test_nats() {
 fn test_ints() {
     assert_("-0");
     assert_("-123");
+}
+
+#[test]
+fn test_unop() {
+    assert_("-0");
+    assert_("+0");
+    assert_("^0");
+    assert_to("- 0", "-0");
+    assert_to("+ 0", "+0");
+    assert_to("^ 0", "^0");
 }
 
 #[test]

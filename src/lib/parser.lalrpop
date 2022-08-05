@@ -247,9 +247,8 @@ ExpNonVar<B>: Exp = {
 }
 
 ExpNonDec<B>: Exp = {
-    ExpUn<B>,
-//    ExpBin => <>,
-//    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
+    ExpBin<B>,
+    <e1:ExpUn_<B>> ":=" <e2:ExpUn_<B>> => Exp::Assign(e1, e2),
     // TODO: remove 
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
     // if without an else -- TEMP -- using semi here but it doesn't belong.
@@ -271,7 +270,8 @@ ExpBin_<B>: Exp_ = {
 }
 
 ExpBin<B>: Exp = {
-    <e1:Exp_<B>> <b:BinOp> <e2:ExpBin_<B>> => Exp::Bin(e1, b, e2),
+    <e1:ExpUn_<B>> "+" <e2:ExpBin_<B>> => Exp::Bin(e1, BinOp::Add, e2),
+    ExpUn<B>,
 }
 
 TextId: String = {

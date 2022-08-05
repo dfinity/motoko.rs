@@ -100,7 +100,9 @@ fn test_unary_operators() {
 
 #[test]
 fn test_binary_operators() {
+    assert_("0 * 0");
     assert_("0 + 0");
+    assert_("0 + 0 * 0 + 0");
 /*
     assert_("0 - 0");
     assert_("0 / 0");

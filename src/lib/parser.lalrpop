@@ -273,7 +273,16 @@ ExpBin_<B>: Exp_ = {
 }
 
 ExpBin<B>: Exp = {
-    <e1:ExpUn_<B>> "+" <e2:ExpBin_<B>> => Exp::Bin(e1, BinOp::Add, e2),
+    <e1:ExpBin1_<B>> "*" <e2:ExpBin_<B>> => Exp::Bin(e1, BinOp::Mul, e2),
+    ExpBin1<B>,
+}
+
+ExpBin1_<B>: Exp_ = {
+    ExpBin1<B> => Box::new(<>),
+}
+
+ExpBin1<B>: Exp = {
+    <e1:ExpUn_<B>> "+" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Add, e2),
     ExpUn<B>,
 }
 

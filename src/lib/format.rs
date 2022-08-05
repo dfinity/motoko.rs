@@ -89,6 +89,12 @@ fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
 //     }
 // }
 
+impl ToDoc for String {
+    fn doc(&self) -> RcDoc {
+        str(&self)
+    }
+}
+
 impl<T: ToDoc> ToDoc for Box<T> {
     fn doc(&self) -> RcDoc {
         self.as_ref().doc()
@@ -197,7 +203,7 @@ impl ToDoc for Exp {
             Bang(e) => e.doc().append("!"),
             ObjectBlock(s, fs) => s.doc().append(RcDoc::space()).append(block(fs)),
             Object(fs) => block(fs),
-            Variant(id, e) => str("#").append(id).append(match e {
+            Variant(id, e) => str("#").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
                 Some(e) => RcDoc::space().append(e.doc()),
             }),
@@ -212,6 +218,14 @@ impl ToDoc for Exp {
             Not(e) => kwd("not").append(e.doc()),
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
+            If(e1, e2, e3) => kwd("if")
+                .append(e1.doc())
+                .append(RcDoc::space())
+                .append(e2.doc())
+                .append(match e3 {
+                    None => RcDoc::nil(),
+                    Some(e3) => RcDoc::space().append(kwd("else")).append(e3.doc()),
+                }),
             Switch(e, cs) => kwd("switch")
                 .append(e.doc())
                 .append(RcDoc::space())
@@ -406,7 +420,15 @@ impl ToDoc for DecField {
 
 impl ToDoc for ExpField {
     fn doc(&self) -> RcDoc {
-        self.mut_.doc().append(&self.id).append(self.exp.doc())
+        self.mut_
+            .doc()
+            .append(&self.id)
+            .append(match &self.typ {
+                None => RcDoc::nil(),
+                Some(typ) => str(" : ").append(typ.doc()),
+            })
+            .append(" = ")
+            .append(self.exp.doc())
     }
 }
 

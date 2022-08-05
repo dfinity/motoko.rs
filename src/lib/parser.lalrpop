@@ -1,19 +1,31 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_into_exp, get_one};
-use crate::ast::{Id, Pat, Exp, Exp_, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim};
+use crate::parser_utils::{dec_into_exp, get_one, unit_exp, varexp_into_id};
+use crate::ast::{Id, Id_, Pat, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
 
 // Terminals
 
-pub NatIndex: usize = {
+NatIndex: usize = {
     r"[0-9]+" => <>.parse().unwrap(),
 }
 
-pub Id: Id = {
+Id: Id = {
     r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
+
+Id_: Id_ = {
+    Id => Box::new(<>)
+}
+
+VarExp: Exp = {
+    Id => Exp::Var(<>),
+}
+
+VarExp_: Exp_ = {
+    Id => Box::new(Exp::Var(<>)),
+}
 
 // --- Helper Functions --- //
 
@@ -116,8 +128,9 @@ pub Pat = {
 
 // --- Types --- //
 
-pub TypeAnnot: Type = {
-    ":" <t:Type> => t,
+pub AnnotOpt: Option<Type> = {
+    ":" <t:Type> => Some(t),
+//     => None,
 }
 
 pub PrimType: PrimType = {
@@ -167,6 +180,7 @@ ExpPlain: Exp = {
     "(" <es:Delim1<Exp<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
 }
 
+#[inline]
 ExpNullary_<B>: Exp_ = {
     ExpNullary<B> => Box::new(<>),
 }
@@ -182,8 +196,14 @@ ExpPost_<B>: Exp_ = {
     ExpPost<B> => Box::new(<>),
 }
 
+VarOpt: Mut = {
+    "var" => Mut::Var,
+     => Mut::Const,
+}
+
 ExpPost<B>: Exp = {
     ExpNullary<B>,
+    "[" <v:VarOpt> <es:Delim0<ExpNonVar<Ob>, ",">> "]" => Exp::Array(v, es),
     <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Idx(e1, e2),
     <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
     <e1:ExpPost_<B>> "." <i:Id> => Exp::Dot(e1, i),
@@ -192,8 +212,8 @@ ExpPost<B>: Exp = {
 
 ExpUn<B>: Exp = {
     ExpPost<B>,
-//    "#" <x:ExpVar_> => Exp::Variant(x),
-//    "#" <e:ExpNullary_> => Exp::Variant(e),
+//    "#" <x:Id_> => Exp::Variant(x, None),
+    "#" <x:Id_> <e:ExpNullary_<B>> => Exp::Variant(x, Some(e)),
 //    "?" <e:ExpUn> => Exp::Quest(e),
     <u:UnOp> <e:ExpUn_<B>> => Exp::Un(u, e),
     "not" <e:ExpUn_<B>> => Exp::Not(e),
@@ -222,8 +242,7 @@ Block: Exp = {
 }
 
 ExpObj: Exp = {
-    // to do -- temp. fix this.
-    "{" <ds:Decs> "}" => Exp::Block(ds)
+    "{" <efs:Delim0<ExpField, ";">> "}" => Exp::Object(efs)
 }
 
 ExpNonVar<B>: Exp = {
@@ -235,9 +254,14 @@ ExpNonDec<B>: Exp = {
     ExpUn<B>,
 //    ExpBin => <>,
 //    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
+    // TODO: remove 
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
+    // if without an else -- TEMP -- using semi here but it doesn't belong.
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_<B>> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
+    // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
 }
 
@@ -263,6 +287,11 @@ Cases: Cases = {
 
 Case: Case = {
     "case" <pat:PatNullary> <exp:ExpNest> => Case{pat, exp},
+}
+
+ExpField: ExpField = {
+//    <mut_:VarOpt> <x:VarExp> <t:AnnotOpt> => ExpField{ mut_, id:varexp_into_id(&x), exp:annot_exp(x, t) },
+    <mut_:VarOpt> <id:Id> <typ:AnnotOpt> "=" <e:Exp<Ob>> => ExpField{ mut_, id, exp:e, typ }
 }
 
 Decs: Decs = {

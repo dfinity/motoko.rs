@@ -105,11 +105,28 @@ fn test_return() {
 }
 
 #[test]
-fn test_array() {
+fn test_const_array() {
     assert_("[]");
     assert_("[1]");
+    assert_("[1,]");
     assert_("[1, 2]");
-    assert_("[1, 2, ]");
+    assert_("[1, 2,]");
+}
+
+#[test]
+fn test_decs() {
+    assert_("x;");
+    assert_("x; x");
+    assert_("x; x;");
+}
+
+#[test]
+fn test_var_array() {
+    assert_("[var ]");
+    assert_("[var 1]");
+    assert_("[var 1,]");
+    assert_("[var 1, 2]");
+    assert_("[var 1, 2,]");
 }
 
 #[test]
@@ -128,16 +145,17 @@ fn test_nested_block() {
 
 #[test]
 fn test_variant() {
-    assert_("#banana");
+//    assert_("#banana");
+    assert_("#banana 0");
     assert_("#banana(0)");
-    assert_("#banana(#apple)");
+  //  assert_("#banana(#apple)");
 }
 
 #[test]
 fn test_record() {
     assert_("{ }");
-    assert_("{ foo = 3; }");
-    assert_("{ foo = 3; bar = #apple }");
+    assert_("{ foo : Nat = 3; }");
+    //assert_("{ foo : Nat = 3; bar : { #apple } = #apple}");
 }
 
 #[test]
@@ -147,8 +165,9 @@ fn test_assign() {
 
 #[test]
 fn test_if() {
-    assert_("if true { 1 } else { 2 }");
-    assert_("if true { () };");
+    assert_("if true 1 else 2");
+    assert_("if true { 1 } else { 2 };");
+    assert_to("if true { } \\no_else", "if true { }");
 }
 
 #[test]

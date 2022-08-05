@@ -84,6 +84,7 @@ pub struct TypeBind {
     pub bound: Type,
 }
 
+/// Mutability setting, for arrays, record fields and lexically-scoped bindings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mut {
     Const,
@@ -106,6 +107,7 @@ pub struct Case {
 pub struct ExpField {
     pub mut_: Mut,
     pub id: Id,
+    pub typ: Option<Type>,
     pub exp: Exp,
 }
 
@@ -222,7 +224,7 @@ pub enum Exp {
     Bang(Exp_),
     ObjectBlock(ObjSort, DecFields),
     Object(ExpFields),
-    Variant(Id, Option<Exp_>),
+    Variant(Id_, Option<Exp_>),
     Dot(Exp_, Id),
     Assign(Exp_, Exp_),
     Array(Mut, Delim<Exp>),
@@ -234,6 +236,7 @@ pub enum Exp {
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),
+    If(Exp_, Exp_, Option<Exp_>),
     Switch(Exp_, Cases),
     While(Exp_, Exp_),
     Loop(Exp_, Option<Exp_>),
@@ -310,3 +313,4 @@ pub enum RelOp {
 }
 
 pub type Id = String;
+pub type Id_ = Box<Id>;

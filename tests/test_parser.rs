@@ -138,9 +138,10 @@ fn test_let_var() {
 }
 
 #[test]
-fn test_nested_block() {
-    assert_("{ let x = 0; x }");
-    assert_("let y = { let x = 0; x }; y");
+fn test_do_block() {
+    assert_("do { let x = 0; x }");
+    assert_("let y = do { let x = 0; x }; y");
+    assert_("var x = do { var y = 0; x }; x");
 }
 
 #[test]

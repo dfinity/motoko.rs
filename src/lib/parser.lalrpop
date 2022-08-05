@@ -1,6 +1,6 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_into_exp, get_one, unit_exp, varexp_into_id};
+use crate::parser_utils::{dec_into_exp, get_one};
 use crate::ast::{Id, Id_, Pat, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
@@ -241,6 +241,8 @@ Block: Exp = {
     "{" <ds:Decs> "}" => Exp::Block(ds)
 }
 
+Block_: Exp_ = { Block => Box::new(<>) }
+
 ExpObj: Exp = {
     "{" <efs:Delim0<ExpField, ";">> "}" => Exp::Object(efs)
 }
@@ -263,6 +265,7 @@ ExpNonDec<B>: Exp = {
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
+    "do" <e:Block_> => Exp::Do(e),
 }
 
 ExpVar_: Exp_ = {

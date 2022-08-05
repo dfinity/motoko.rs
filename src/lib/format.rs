@@ -214,7 +214,7 @@ impl ToDoc for Exp {
             Function(_, _, _, _, _, _, _) => todo!(),
             Call(e, b, a) => e.doc().append(bind(b)).append(enclose("(", a.doc(), ")")),
             Block(decs) => block(decs),
-            DoBlock(decs) => kwd("do").append(block(decs)),
+            Do(e) => kwd("do").append(e.doc()),
             Not(e) => kwd("not").append(e.doc()),
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),

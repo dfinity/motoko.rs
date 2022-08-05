@@ -10,12 +10,14 @@ pub fn parse(input: &str) -> Result<Prog, ()> {
 pub fn assert_parse(input: &str, expected: &str) -> Prog {
     println!("testing {}", input);
     let prog = parse(input).unwrap();
-    println!(" * parsed {}", input);
+    println!(" * input {}", input);
+    println!(" * parsed {:?}", prog);
     let formatted = format_one_line(&prog);
     println!(" * formatted {}", formatted);
     assert_eq!(&formatted, expected);
     prog
 }
+
 
 pub fn assert_roundtrip(input: &str) {
     let _ = assert_parse(input, input);

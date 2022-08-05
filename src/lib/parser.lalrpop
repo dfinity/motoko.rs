@@ -176,6 +176,7 @@ ExpPlain_: Exp_ = {
 ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
     "(" <es:Delim1<Exp<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
+    "`" "(" <e:Exp<Ob>> ")" => e,
 }
 
 #[inline]
@@ -273,7 +274,7 @@ ExpBin_<B>: Exp_ = {
 }
 
 ExpBin<B>: Exp = {
-    <e1:ExpBin1_<B>> "*" <e2:ExpBin_<B>> => Exp::Bin(e1, BinOp::Mul, e2),
+    <e1:ExpBin1_<B>> "+" <e2:ExpBin_<B>> => Exp::Bin(e1, BinOp::Add, e2),
     ExpBin1<B>,
 }
 
@@ -282,7 +283,25 @@ ExpBin1_<B>: Exp_ = {
 }
 
 ExpBin1<B>: Exp = {
-    <e1:ExpUn_<B>> "+" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Add, e2),
+    <e1:ExpBin2_<B>> "*" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Mul, e2),
+    ExpBin2<B>,
+}
+
+ExpBin2_<B>: Exp_ = {
+    ExpBin2<B> => Box::new(<>),
+}
+
+ExpBin2<B>: Exp = {
+    <e1:ExpBin3_<B>> "|" <e2:ExpBin2_<B>> => Exp::Bin(e1, BinOp::BitOr, e2),
+    ExpBin3<B>,
+}
+
+ExpBin3_<B>: Exp_ = {
+    ExpBin3<B> => Box::new(<>),
+}
+
+ExpBin3<B>: Exp = {
+    <e1:ExpUn_<B>> "&" <e2:ExpBin3_<B>> => Exp::Bin(e1, BinOp::BitAnd, e2),
     ExpUn<B>,
 }
 

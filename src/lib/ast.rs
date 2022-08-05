@@ -300,6 +300,8 @@ pub enum BinOp {
     WMul,
     WPow,
     Cat,
+    BitOr,
+    BitAnd,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -162,6 +162,7 @@ pub struct Sugar(bool);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrimType {
+    Null,
     Unit,
     Bool,
     Nat,
@@ -174,8 +175,10 @@ pub enum PrimType {
     Int16,
     Int32,
     Int64,
-    Principal,
+    Float,
     Text,
+    Char,
+    Principal,
 }
 
 pub type Type_ = Box<Type>;

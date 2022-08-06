@@ -1,3 +1,4 @@
+use crate::ast::PrimType;
 use logos::{Lexer, Logos, Span};
 
 pub fn create_lex_tree(input: &str) -> Result<TokenTree, ()> {
@@ -36,6 +37,33 @@ fn flatten_(tt: TokenTree, tokens: &mut Tokens) {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GroupType {
+    Paren,
+    Curly,
+    Square,
+    Angle,
+}
+
+impl GroupType {
+    pub fn left(&self) -> &'static str {
+        match self {
+            GroupType::Paren => "(",
+            GroupType::Curly => "{",
+            GroupType::Square => "[",
+            GroupType::Angle => "<",
+        }
+    }
+    pub fn right(&self) -> &'static str {
+        match self {
+            GroupType::Paren => ")",
+            GroupType::Curly => "}",
+            GroupType::Square => "]",
+            GroupType::Angle => ">",
+        }
+    }
+}
+
 type Tokens = Vec<(Token, Span)>;
 
 type Data = String;
@@ -44,37 +72,32 @@ fn data(lex: &mut Lexer<Token>) -> Option<Data> {
     Some(lex.slice().to_string())
 }
 
+macro_rules! data {
+    ($e:expr) => {
+        |lex| Some((data(lex)?, $e))
+    };
+}
+
 #[derive(Logos, Debug, Clone, PartialEq, Eq)]
 pub enum Token {
-    // #[token("/*", data)]
-    // StartBlockComment(Data),
-    // #[token("*/", data)]
-    // EndBlockComment(Data),
-    #[regex(r"/*", data)]
+    // #[regex(r"/\*[^]*", data)]
+    #[regex(r"/\*", data)]
     BlockCommentPart(Data),
 
-    #[regex(r"//[^\n]\n", data)]
+    #[regex(r"//[^\n]*", data)]
     LineComment(Data),
 
-    #[token("{", data)]
-    LBrace(Data),
-    #[token("}", data)]
-    RBrace(Data),
+    #[token("(", data!(GroupType::Paren))]
+    #[token("{", data!(GroupType::Curly))]
+    #[token("[", data!(GroupType::Square))]
+    // #[token("<", data!(GroupType::Angle))]
+    Open((Data, GroupType)),
 
-    #[token("(", data)]
-    LParen(Data),
-    #[token(")", data)]
-    RParen(Data),
-
-    #[token("[", data)]
-    LSquareBracket(Data),
-    #[token("]", data)]
-    RSquareBracket(Data),
-
-    #[token("<", data)]
-    LAngleBracket(Data),
-    #[token(">", data)]
-    RAngleBracket(Data),
+    #[token(")", data!(GroupType::Paren))]
+    #[token("}", data!(GroupType::Curly))]
+    #[token("]", data!(GroupType::Square))]
+    // #[token(">", data!(GroupType::Angle))]
+    Close((Data, GroupType)),
 
     #[token(".", data)]
     Dot(Data),
@@ -85,16 +108,15 @@ pub enum Token {
     #[regex(r"[a-zA-Z][a-zA-Z_0-9]*", data)]
     Ident(Data),
 
-    #[regex(r"[0-9]+([0-9_]*[0-9]+)?", data)]
-    Nat(Data),
-    #[regex(r"-[0-9]+([0-9_]*[0-9]+)?", data)]
-    Int(Data),
-    #[regex(r"-?[0-9]+([0-9_]*[0-9]+)\.[0-9]*([0-9_]*[0-9]+)?", data)]
-    Float(Data),
-    #[regex(r"'([^']|')'", data)]
-    Char(Data),
-    #[regex(r#""(?:[^\\"]|\.)*""#, data)]
-    String(Data),
+    #[token("true", data!(PrimType::Bool))]
+    #[token("false", data!(PrimType::Bool))]
+    #[token("null", data!(PrimType::Null))]
+    #[regex(r"[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Nat))]
+    #[regex(r"-[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Int))]
+    #[regex(r"-?[0-9]+([0-9_]*[0-9]+)\.[0-9]*([0-9_]*[0-9]+)?", data!(PrimType::Float))]
+    #[regex(r"'([^']|')'", data!(PrimType::Char))]
+    #[regex(r#""(?:[^\\"]|\.)*""#, data!(PrimType::Text))]
+    Literal((Data, PrimType)),
 
     #[regex(r"\s+", data)]
     Space(Data),
@@ -151,10 +173,8 @@ fn get_data<'a>(token: &'a Token) -> Result<&'a Data, ()> {
     use Token::*;
     match token {
         Error => Err(()),
-        BlockCommentPart(x)|/* StartBlockComment(x) | EndBlockComment(x) | */ LineComment(x) | LBrace(x) | RBrace(x)
-        | LParen(x) | RParen(x) | LSquareBracket(x) | RSquareBracket(x) | LAngleBracket(x)
-        | RAngleBracket(x) | Dot(x) | Symbol(x) | Ident(x) | Space(x) | Nat(x) | Int(x)
-        | Float(x) | Char(x) | String(x) => Ok(x),
+        BlockCommentPart(x) | LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x)
+        | Symbol(x) | Ident(x) | Literal((x, _)) | Space(x) => Ok(x),
     }
 }
 

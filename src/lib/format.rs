@@ -207,7 +207,7 @@ impl ToDoc for Exp {
             Object(fs) => block(fs),
             Variant(id, e) => str("#").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
-                Some(e) => RcDoc::space().append(e.doc())
+                Some(e) => RcDoc::space().append(e.doc()),
             }),
             Dot(e, s) => e.doc().append(".").append(s),
             Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),
@@ -338,6 +338,7 @@ impl ToDoc for PrimType {
     fn doc(&self) -> RcDoc {
         use PrimType::*;
         str(match self {
+            Null => "Null",
             Unit => "()",
             Bool => "Bool",
             Nat => "Nat",
@@ -350,8 +351,10 @@ impl ToDoc for PrimType {
             Int16 => "Int16",
             Int32 => "Int32",
             Int64 => "Int64",
-            Principal => "Principal",
+            Float => "Float",
+            Char => "Char",
             Text => "Text",
+            Principal => "Principal",
         })
     }
 }

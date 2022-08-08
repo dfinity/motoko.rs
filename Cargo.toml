@@ -17,6 +17,7 @@ structopt = "0.3.16"
 num-bigint = "0.4.3"
 eq-float = "0.1.0"
 pretty = "0.11.3"
+logos = "0.12.1"
 
 [lib]
 name = "motoko"

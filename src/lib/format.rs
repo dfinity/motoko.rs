@@ -325,7 +325,7 @@ impl ToDoc for Type {
             Tuple(d) => tuple(d),
             Function(_, _, _, _) => todo!(),
             // Async(s, t) => kwd("async").append(t.doc()),
-            Async(_, t) => unimplemented!(), // scope?
+            Async(_, _) => unimplemented!(), // scope?
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),
@@ -338,6 +338,7 @@ impl ToDoc for PrimType {
     fn doc(&self) -> RcDoc {
         use PrimType::*;
         str(match self {
+            Null => "Null",
             Unit => "()",
             Bool => "Bool",
             Nat => "Nat",
@@ -350,8 +351,10 @@ impl ToDoc for PrimType {
             Int16 => "Int16",
             Int32 => "Int32",
             Int64 => "Int64",
-            Principal => "Principal",
+            Float => "Float",
+            Char => "Char",
             Text => "Text",
+            Principal => "Principal",
         })
     }
 }

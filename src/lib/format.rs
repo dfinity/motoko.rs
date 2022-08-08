@@ -207,7 +207,7 @@ impl ToDoc for Exp {
             Object(fs) => block(fs),
             Variant(id, e) => str("#").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
-                Some(e) => RcDoc::space().append(e.doc())
+                Some(e) => RcDoc::space().append(e.doc()),
             }),
             Dot(e, s) => e.doc().append(".").append(s),
             Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),

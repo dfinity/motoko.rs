@@ -18,7 +18,6 @@ pub fn assert_parse(input: &str, expected: &str) -> Prog {
     prog
 }
 
-
 pub fn assert_roundtrip(input: &str) {
     let _ = assert_parse(input, input);
 }

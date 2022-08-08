@@ -20,7 +20,7 @@ fn test_ids() {
 
     // 'let' as a variable -- this is not a legal program, but we want a good parse error, so parse it as a variable.
     // currently results in a parse error
-    // assert_("let");
+    //assert_("let");
 }
 
 #[test]
@@ -42,7 +42,8 @@ fn test_paren() {
 #[test]
 fn test_tuples() {
     assert_("()");
-    if false { // to do 2022-08-05.
+    if false {
+        // to do 2022-08-05.
         assert_("(,)");
     }
     assert_("(1,)");
@@ -99,12 +100,17 @@ fn test_unary_operators() {
 }
 
 #[test]
+fn test_bang() {
+    assert_to("null !", "null!");
+}
+
+#[test]
 fn test_binary_operators() {
     assert_("0 * 0");
     assert_("0 + 0");
     assert_("0 + 0 * 0 + 0");
     assert_("0 + 0 * 0 | 0 | 0 * 0 + 0");
-/*
+    /*
     assert_("0 - 0");
     assert_("0 / 0");
     assert_("0 % 0");
@@ -177,7 +183,8 @@ fn test_variant() {
     assert_("#banana");
     assert_("#banana 0");
 
-    if true { // to do -- fix formatter, then use else branch only.
+    if true {
+        // to do -- fix formatter, then use else branch only.
         assert_("#banana (0)");
         assert_("#banana (#apple)");
     } else {
@@ -248,4 +255,17 @@ fn test_tuple_proj() {
 fn test_array_index() {
     assert_("x[0]");
     assert_to("x [ 0 ]", "x[0]");
+}
+
+#[test]
+fn test_call() {
+    // to do -- handle type instantiations, via <(Type,)+> syntax
+    assert_to("f 0", "f(0)");
+    assert_to("f (0, 1)", "f((0, 1))");
+    assert_to("0 0", "0(0)");
+    assert_to("0 f", "0(f)");
+    assert_to("(0) (f)", "(0)((f))");
+    assert_to("f(x)", "f((x))");
+    assert_to("(f)(x)", "(f)((x))");
+    assert_to("(f)x", "(f)(x)");
 }

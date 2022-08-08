@@ -150,8 +150,10 @@ impl ToDoc for BinOp {
             Div => "/",
             Mod => "%",
             Pow => "**",
-            And => "&",
-            Or => "|",
+            And => "and",
+            Or => "or",
+            BitAnd => "&",
+            BitOr => "|",
             Xor => "^",
             ShL => "<<",
             ShR => " >>",
@@ -214,7 +216,7 @@ impl ToDoc for Exp {
             Function(_, _, _, _, _, _, _) => todo!(),
             Call(e, b, a) => e.doc().append(bind(b)).append(enclose("(", a.doc(), ")")),
             Block(decs) => block(decs),
-            DoBlock(decs) => kwd("do").append(block(decs)),
+            Do(e) => kwd("do").append(e.doc()),
             Not(e) => kwd("not").append(e.doc()),
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
@@ -323,7 +325,7 @@ impl ToDoc for Type {
             Tuple(d) => tuple(d),
             Function(_, _, _, _) => todo!(),
             // Async(s, t) => kwd("async").append(t.doc()),
-            Async(_, t) => unimplemented!(), // scope?
+            Async(_, _) => unimplemented!(), // scope?
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),
@@ -336,6 +338,7 @@ impl ToDoc for PrimType {
     fn doc(&self) -> RcDoc {
         use PrimType::*;
         str(match self {
+            Null => "Null",
             Unit => "()",
             Bool => "Bool",
             Nat => "Nat",
@@ -348,8 +351,10 @@ impl ToDoc for PrimType {
             Int16 => "Int16",
             Int32 => "Int32",
             Int64 => "Int64",
-            Principal => "Principal",
+            Float => "Float",
+            Char => "Char",
             Text => "Text",
+            Principal => "Principal",
         })
     }
 }
@@ -379,7 +384,7 @@ impl ToDoc for Pat {
             Object(_) => todo!(),
             Optional(p) => str("?").append(p.doc()),
             Variant(s, p) => str("#")
-                .append(kwd(s))
+                .append(s.doc())
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
             Alt(d) => delim_left(d, " |"),
             Annot(p, t) => p.doc().append(" : ").append(t.doc()),

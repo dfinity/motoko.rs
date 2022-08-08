@@ -1,7 +1,7 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_into_exp, get_one, unit_exp, varexp_into_id};
-use crate::ast::{Id, Id_, Pat, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
+use crate::parser_utils::{dec_into_exp, get_one};
+use crate::ast::{Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
 
@@ -95,7 +95,10 @@ pub PatNullary: Pat = {
     // to do -- copy more cases from parser.mly
 }
 
+pub PatBin_: Pat_ = { PatBin => Box::new(<>) }
+
 pub PatBin: Pat = {
+    <p:PatBin_> ":" <t:Type> => Pat::Annot(p, t),
     PatUn,
     // to do -- copy more cases from parser.mly
 }
@@ -104,6 +107,7 @@ pub PatUn: Pat = {
     PatNullary,
     "#" <s:Id> => Pat::Variant(s, None),
     "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(Box::new(p))),
+
 }
 
 pub Pat = {
@@ -127,11 +131,6 @@ pub Pat = {
 // }
 
 // --- Types --- //
-
-pub AnnotOpt: Option<Type> = {
-    ":" <t:Type> => Some(t),
-//     => None,
-}
 
 pub PrimType: PrimType = {
     "(" ")" => PrimType::Unit,
@@ -178,6 +177,7 @@ ExpPlain_: Exp_ = {
 ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
     "(" <es:Delim1<Exp<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
+    "`" "(" <e:Exp<Ob>> ")" => e,
 }
 
 #[inline]
@@ -207,14 +207,14 @@ ExpPost<B>: Exp = {
     <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Idx(e1, e2),
     <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
     <e1:ExpPost_<B>> "." <i:Id> => Exp::Dot(e1, i),
+    <e1:ExpPost_<B>> <e2:ExpNullary_<Ob>> => Exp::Call(e1, Delim{vec:vec!(), has_trailing:false}, e2),
     <e:ExpPost_<B>> "!" => Exp::Bang(e),
 }
 
 ExpUn<B>: Exp = {
     ExpPost<B>,
-//    "#" <x:Id_> => Exp::Variant(x, None),
-    "#" <x:Id_> <e:ExpNullary_<B>> => Exp::Variant(x, Some(e)),
-//    "?" <e:ExpUn> => Exp::Quest(e),
+    "#" <x:Id_> <e:(ExpNullary_<B>)?> => Exp::Variant(x, e),
+    "?" <e:ExpUn_<Ob>> => Exp::Opt(e),
     <u:UnOp> <e:ExpUn_<B>> => Exp::Un(u, e),
     "not" <e:ExpUn_<B>> => Exp::Not(e),
 }
@@ -241,6 +241,8 @@ Block: Exp = {
     "{" <ds:Decs> "}" => Exp::Block(ds)
 }
 
+Block_: Exp_ = { Block => Box::new(<>) }
+
 ExpObj: Exp = {
     "{" <efs:Delim0<ExpField, ";">> "}" => Exp::Object(efs)
 }
@@ -251,18 +253,18 @@ ExpNonVar<B>: Exp = {
 }
 
 ExpNonDec<B>: Exp = {
-    ExpUn<B>,
-//    ExpBin => <>,
-//    <e1:ExpBin_> ":=" <e2:Exp_> => Exp::Assign(e1, e2),
+    ExpBin<B>,
+    <e1:ExpUn_<B>> ":=" <e2:ExpUn_<B>> => Exp::Assign(e1, e2),
     // TODO: remove 
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
-    // if without an else -- TEMP -- using semi here but it doesn't belong.
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
+    // if without an else -- TEMP -- using semi here but it doesn't belong.
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_<B>> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
+    "do" <e:Block_> => Exp::Do(e),
 }
 
 ExpVar_: Exp_ = {
@@ -274,7 +276,35 @@ ExpBin_<B>: Exp_ = {
 }
 
 ExpBin<B>: Exp = {
-    <e1:Exp_<B>> <b:BinOp> <e2:ExpBin_<B>> => Exp::Bin(e1, b, e2),
+    <e1:ExpBin1_<B>> "+" <e2:ExpBin_<B>> => Exp::Bin(e1, BinOp::Add, e2),
+    ExpBin1<B>,
+}
+
+ExpBin1_<B>: Exp_ = {
+    ExpBin1<B> => Box::new(<>),
+}
+
+ExpBin1<B>: Exp = {
+    <e1:ExpBin2_<B>> "*" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Mul, e2),
+    ExpBin2<B>,
+}
+
+ExpBin2_<B>: Exp_ = {
+    ExpBin2<B> => Box::new(<>),
+}
+
+ExpBin2<B>: Exp = {
+    <e1:ExpBin3_<B>> "|" <e2:ExpBin2_<B>> => Exp::Bin(e1, BinOp::BitOr, e2),
+    ExpBin3<B>,
+}
+
+ExpBin3_<B>: Exp_ = {
+    ExpBin3<B> => Box::new(<>),
+}
+
+ExpBin3<B>: Exp = {
+    <e1:ExpUn_<B>> "&" <e2:ExpBin3_<B>> => Exp::Bin(e1, BinOp::BitAnd, e2),
+    ExpUn<B>,
 }
 
 TextId: String = {
@@ -290,8 +320,7 @@ Case: Case = {
 }
 
 ExpField: ExpField = {
-//    <mut_:VarOpt> <x:VarExp> <t:AnnotOpt> => ExpField{ mut_, id:varexp_into_id(&x), exp:annot_exp(x, t) },
-    <mut_:VarOpt> <id:Id> <typ:AnnotOpt> "=" <e:Exp<Ob>> => ExpField{ mut_, id, exp:e, typ }
+    <mut_:VarOpt> <id:Id> <typ:(":" <Type>)?> "=" <exp:Exp<Ob>> => ExpField{ mut_, id, exp, typ }
 }
 
 Decs: Decs = {

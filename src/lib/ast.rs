@@ -162,6 +162,7 @@ pub struct Sugar(bool);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrimType {
+    Null,
     Unit,
     Bool,
     Nat,
@@ -174,8 +175,10 @@ pub enum PrimType {
     Int16,
     Int32,
     Int64,
-    Principal,
+    Float,
     Text,
+    Char,
+    Principal,
 }
 
 pub type Type_ = Box<Type>;
@@ -232,7 +235,7 @@ pub enum Exp {
     Function(Id, SortPat, TypBinds, Pat_, Option<Type_>, Sugar, Exp_),
     Call(Exp_, Inst, Exp_),
     Block(Delim<Dec>),
-    DoBlock(Delim<Dec>),
+    Do(Exp_),
     Not(Exp_),
     And(Exp_, Exp_),
     Or(Exp_, Exp_),
@@ -300,6 +303,8 @@ pub enum BinOp {
     WMul,
     WPow,
     Cat,
+    BitOr,
+    BitAnd,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

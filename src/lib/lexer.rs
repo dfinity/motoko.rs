@@ -63,15 +63,54 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
 // }
 
 pub fn group(tokens: Tokens) -> LexResult<TokenTree> {
-    //TODO
     Ok(TokenTree::Group(
-        tokens
-            .into_iter()
-            .map(|(t, s)| TokenTree::Token(t, s))
-            .collect(),
+        group_(tokens)?,
         GroupSort::Unenclosed,
         None,
     ))
+}
+
+pub fn group_(tokens: Tokens) -> LexResult<Vec<TokenTree>> {
+    let mut result = vec![];
+    let mut i = 0;
+    while i < tokens.len() {
+        let (t, s) = &tokens[i];
+        result.push(match t {
+            Token::Open((_, ref g)) => {
+                let mut depth: usize = 0;
+                let mut vec = vec![];
+                i += 1;
+                while i < tokens.len() {
+                    let (t, s) = tokens[i].clone();
+                    if let Token::Open((_, ref g_)) = t {
+                        // Increase pair depth
+                        if g == g_ {
+                            depth += 1;
+                        }
+                    };
+                    if let Token::Close((_, ref g_)) = t {
+                        if g == g_ {
+                            if depth == 0 {
+                                break;
+                            }
+                            // Decrease pair depth
+                            depth -= 1;
+                        }
+                    };
+                    vec.push((t, s));
+                    i += 1;
+                }
+                TokenTree::Group(
+                    group_(vec)?,
+                    g.clone(),
+                    Some(((t.clone(), s.clone()), tokens[i].clone())),
+                )
+            }
+            t => TokenTree::Token(t.clone(), s.clone()),
+        });
+        i += 1;
+    }
+    Ok(result)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -139,10 +178,7 @@ macro_rules! data {
 
 #[derive(Logos, Debug, Clone, PartialEq, Eq)]
 pub enum Token {
-    // #[regex(r"/\*[^]*", data)]
-    #[regex(r"/\*", data)]
-    BlockComment(Data),
-
+    // BlockComment(Data),
     #[regex(r"//[^\n]*", data)]
     LineComment(Data),
 
@@ -150,12 +186,14 @@ pub enum Token {
     #[token("{", data!(GroupSort::Curly))]
     #[token("[", data!(GroupSort::Square))]
     // #[token("<", data!(GroupType::Angle))]
+    #[token("/*", data!(GroupSort::Comment))]
     Open((Data, GroupSort)),
 
     #[token(")", data!(GroupSort::Paren))]
     #[token("}", data!(GroupSort::Curly))]
     #[token("]", data!(GroupSort::Square))]
     // #[token(">", data!(GroupType::Angle))]
+    #[token("*/", data!(GroupSort::Comment))]
     Close((Data, GroupSort)),
 
     #[token(".", data)]
@@ -196,10 +234,8 @@ impl Token {
         use Token::*;
         match self {
             Error => Err(()),
-            BlockComment(x) | LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x)
-            | Symbol(x) | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x) | Unknown(x) => {
-                Ok(x)
-            }
+            LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Symbol(x) | Ident(x)
+            | Delim((x, _)) | Literal((x, _)) | Space(x) | Unknown(x) => Ok(x),
         }
     }
 }

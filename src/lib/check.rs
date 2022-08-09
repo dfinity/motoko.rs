@@ -1,6 +1,6 @@
 use crate::ast::Prog;
 use crate::format::format_one_line;
-use crate::lexer::{create_lex_tree, TokenTree};
+use crate::lexer::{create_token_tree, TokenTree};
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
     // crate::parser::ExpParser::new().parse(input).map_err(|_| ())
@@ -10,7 +10,7 @@ pub fn parse(input: &str) -> Result<Prog, ()> {
 #[allow(unused_variables)]
 pub fn assert_lex(input: &str, expected: &str) -> TokenTree {
     println!("testing {}", input);
-    let tree = create_lex_tree(input).unwrap();
+    let tree = create_token_tree(input).unwrap();
     println!(" * input {}", input);
     println!(" * parsed {:?}", tree);
     let formatted = format!("{}", tree);

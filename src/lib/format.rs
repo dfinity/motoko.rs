@@ -5,6 +5,7 @@ use crate::ast::{
     PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
+use crate::lexer::{GroupSort, Token, TokenTree};
 use pretty::RcDoc;
 
 fn format_(doc: RcDoc, width: usize) -> String {
@@ -476,5 +477,43 @@ impl ToDoc for ObjSort {
             ObjSort::Actor => "actor",
             ObjSort::Module => "module",
         })
+    }
+}
+
+// Tokens
+
+impl ToDoc for TokenTree {
+    fn doc(&self) -> RcDoc {
+        use GroupSort::*;
+        use TokenTree::*;
+        match self {
+            Token(t, _) => t.doc(),
+            Group(trees, sort, pair) => {
+                let docs = trees.iter().map(|tt| tt.doc());
+                let concat = RcDoc::concat(docs);
+                let (open, close) = if let Some(((open, _), (close, _))) = pair {
+                    (&open.data().unwrap()[..], &close.data().unwrap()[..])
+                } else {
+                    ("", "") // TODO refactor GroupSort into Option
+                };
+                match sort {
+                    Unenclosed => concat,
+                    Curly => enclose_space(open, concat, close),
+                    Paren | Square | Angle => enclose(open, concat, close),
+                    Comment => str(open).append(format!("{}", self)).append(close),
+                }
+            }
+        }
+    }
+}
+
+impl ToDoc for Token {
+    fn doc(&self) -> RcDoc {
+        use Token::*;
+        match self {
+            Space(_) => RcDoc::space(),
+            Delim((s, _)) => str(s).append(RcDoc::line()),
+            t => str(t.data().unwrap()),
+        }
     }
 }

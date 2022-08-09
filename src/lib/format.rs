@@ -500,7 +500,8 @@ impl ToDoc for TokenTree {
                     Unenclosed => concat,
                     Curly => enclose_space(open, concat, close),
                     Paren | Square | Angle => enclose(open, concat, close),
-                    Comment => str(open).append(format!("{}", self)).append(close),
+                    // Comment => str(open).append(format!("{}", self)).append(close),
+                    Comment => str("").append(format!("{}", self)),
                 }
             }
         }

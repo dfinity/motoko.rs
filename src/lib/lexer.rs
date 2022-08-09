@@ -64,53 +64,69 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
 
 pub fn group(tokens: Tokens) -> LexResult<TokenTree> {
     Ok(TokenTree::Group(
-        group_(tokens)?,
+        group_(&tokens)?,
         GroupSort::Unenclosed,
         None,
     ))
 }
 
-pub fn group_(tokens: Tokens) -> LexResult<Vec<TokenTree>> {
+fn group_(tokens: &[(Token, Span)]) -> LexResult<Vec<TokenTree>> {
     let mut result = vec![];
     let mut i = 0;
     while i < tokens.len() {
         let (t, s) = &tokens[i];
         result.push(match t {
-            Token::Open((_, ref g)) => {
-                let mut depth: usize = 0;
-                let mut vec = vec![];
-                i += 1;
-                while i < tokens.len() {
-                    let (t, s) = tokens[i].clone();
-                    if let Token::Open((_, ref g_)) = t {
-                        // Increase pair depth
-                        if g == g_ {
-                            depth += 1;
-                        }
-                    };
-                    if let Token::Close((_, ref g_)) = t {
-                        if g == g_ {
-                            if depth == 0 {
-                                break;
-                            }
-                            // Decrease pair depth
-                            depth -= 1;
-                        }
-                    };
-                    vec.push((t, s));
-                    i += 1;
+            Token::Open((_, g)) => {
+                let start = i;
+                if let Some(end) = find_closing(g, tokens, i) {
+                    i = end;
+                    println!("{}  ---  {}", tokens[start].0, tokens[end].0); //////////
+                    TokenTree::Group(
+                        group_(&tokens[start + 1..i])?,
+                        g.clone(),
+                        Some(((t.clone(), s.clone()), tokens[i].clone())),
+                    )
+                } else {
+                    // Extraneous opening token
+                    TokenTree::Token(t.clone(), s.clone())
                 }
-                TokenTree::Group(
-                    group_(vec)?,
-                    g.clone(),
-                    Some(((t.clone(), s.clone()), tokens[i].clone())),
-                )
             }
             t => TokenTree::Token(t.clone(), s.clone()),
         });
         i += 1;
     }
     Ok(result)
+}
+
+fn find_closing(sort: &GroupSort, tokens: &[(Token, Span)], start: usize) -> Option<usize> {
+    // println!(">  {:?} {}", sort, start);///////
+    let mut i = start + 1;
+    let mut depth: usize = 0;
+    while i < tokens.len() {
+        let (t, _) = &tokens[i];
+
+        if let Token::Open((_, g)) = t {
+            if g == sort {
+                depth += 1;
+            } else if g == &GroupSort::Comment {
+                // Skip depth check in block comments
+                if let Some(j) = find_closing(&g, tokens, i) {
+                    i = j;
+                }
+            }
+        };
+        if let Token::Close((_, g)) = t {
+            if g == sort {
+                if depth == 0 {
+                    return Some(i);
+                }
+                depth -= 1;
+            }
+        };
+        i += 1;
+    }
+    // println!("<  {:?} {}", sort, start);///////
+    None
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -199,12 +215,15 @@ pub enum Token {
     #[token(".", data)]
     Dot(Data),
 
+    #[token("=", data)]
+    Assign(Data),
+
     #[token(",", data!(Delim::Comma))]
     #[token(";", data!(Delim::Semi))]
     Delim((Data, Delim)),
 
     #[regex(r"[+\-*/%&|^!?:=<>@]+", data)]
-    Symbol(Data),
+    Operator(Data),
 
     #[regex(r"[a-zA-Z_][a-zA-Z_0-9]*", data)]
     Ident(Data),
@@ -234,8 +253,8 @@ impl Token {
         use Token::*;
         match self {
             Error => Err(()),
-            LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Symbol(x) | Ident(x)
-            | Delim((x, _)) | Literal((x, _)) | Space(x) | Unknown(x) => Ok(x),
+            LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Assign(x) | Operator(x)
+            | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x) | Unknown(x) => Ok(x),
         }
     }
 }
@@ -301,10 +320,12 @@ impl std::fmt::Display for TokenTree {
         match self {
             Token(t, _) => write!(f, "{}", t),
             Group(trees, _, pair) => {
-                for t in trees {
-                    if let Some(((open, _), (close, _))) = pair {
-                        write!(f, "{}{}{}", open, t, close)?
+                if let Some(((open, _), (close, _))) = pair {
+                    write!(f, "{}", open)?;
+                    for t in trees {
+                        write!(f, "{}", t)?;
                     }
+                    write!(f, "{}", close)?;
                 }
                 Ok(())
             }

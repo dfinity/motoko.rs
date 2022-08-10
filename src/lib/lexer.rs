@@ -1,6 +1,22 @@
 use crate::ast::PrimType;
 use logos::{Lexer, Logos, Span};
 
+const KEYWORDS: &'static [&'static str] = &[
+    "public",
+    "actor",
+    "let",
+    "let",
+    "let",
+    "let",
+    "let",
+    "let",
+    "let" // TODO
+];
+
+pub fn is_keyword(ident: &str)->bool {
+    return KEYWORDS.contains(&ident);
+}
+
 pub type LexResult<T> = Result<T, ()>;
 
 pub fn create_token_tree(input: &str) -> LexResult<TokenTree> {
@@ -215,6 +231,9 @@ pub enum Token {
     #[token(".", data)]
     Dot(Data),
 
+    #[token(":", data)]
+    Colon(Data),
+
     #[token("=", data)]
     Assign(Data),
 
@@ -253,8 +272,10 @@ impl Token {
         use Token::*;
         match self {
             Error => Err(()),
-            LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Assign(x) | Operator(x)
-            | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x) | Unknown(x) => Ok(x),
+            LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Colon(x) | Assign(x)
+            | Operator(x) | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x) | Unknown(x) => {
+                Ok(x)
+            }
         }
     }
 }

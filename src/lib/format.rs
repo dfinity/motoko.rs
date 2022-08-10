@@ -5,7 +5,7 @@ use crate::ast::{
     PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
-use crate::lexer::{GroupSort, Token, TokenTree};
+use crate::lexer::{is_keyword, GroupSort, Token, TokenTree};
 use pretty::RcDoc;
 
 fn format_(doc: RcDoc, width: usize) -> String {
@@ -46,7 +46,7 @@ fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
 fn delim_left<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
-        str(sep).append(doc)
+        str(sep).append(RcDoc::space()).append(doc)
     } else {
         doc
     }
@@ -480,7 +480,39 @@ impl ToDoc for ObjSort {
     }
 }
 
-// Tokens
+// Token-based code formatter
+
+fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
+    let mut results = vec![];
+    filter_whitespace_(trees, &mut results);
+    results
+}
+
+fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTree>) {
+    for tt in trees {
+        if match tt {
+            TokenTree::Token(Token::Space(_), _) => false,
+            _ => true,
+        } {
+            results.push(tt);
+        }
+    }
+}
+
+fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
+    use crate::lexer::Token::*;
+    use TokenTree::*;
+    match (a, b) {
+        (Token(Open(_), _), _) | (_, Token(Close(_), _)) => RcDoc::nil(),
+        (_, Token(Delim(_), _)) => RcDoc::nil(),
+        (_, Token(Dot(_), _)) | (Token(Dot(_), _), _) => RcDoc::nil(),
+        (_, Token(Assign(_), _)) => RcDoc::space(),
+        (Token(Assign(_), _), _) => RcDoc::space(), // TODO: indented line
+        (Token(Delim(_), _), _) => RcDoc::line(),
+        (Token(Ident(s), _), Token(Open(_), _)) if !is_keyword(s) => RcDoc::nil(),
+        _ => RcDoc::space(),
+    }
+}
 
 impl ToDoc for TokenTree {
     fn doc(&self) -> RcDoc {
@@ -489,17 +521,28 @@ impl ToDoc for TokenTree {
         match self {
             Token(t, _) => t.doc(),
             Group(trees, sort, pair) => {
-                let docs = trees.iter().map(|tt| tt.doc());
-                let concat = RcDoc::concat(docs);
+                let trees = filter_whitespace(trees);
+                let doc = match trees.first() {
+                    None => RcDoc::nil(),
+                    Some(tt) => {
+                        let mut doc = tt.doc();
+                        for i in 0..trees.len() - 1 {
+                            let (a, b) = (trees[i], trees[i + 1]);
+                            doc = doc.append(get_space(a, b)).append(b.doc());
+                        }
+                        doc
+                    }
+                };
+                // let concat = RcDoc::concat(docs);
                 let (open, close) = if let Some(((open, _), (close, _))) = pair {
                     (&open.data().unwrap()[..], &close.data().unwrap()[..])
                 } else {
                     ("", "") // TODO refactor GroupSort into Option
                 };
                 match sort {
-                    Unenclosed => concat,
-                    Curly => enclose_space(open, concat, close),
-                    Paren | Square | Angle => enclose(open, concat, close),
+                    Unenclosed => doc,
+                    Curly => enclose_space(open, doc, close),
+                    Paren | Square | Angle => enclose(open, doc, close),
                     // Comment => str(open).append(format!("{}", self)).append(close),
                     Comment => str("").append(format!("{}", self)),
                 }
@@ -510,11 +553,12 @@ impl ToDoc for TokenTree {
 
 impl ToDoc for Token {
     fn doc(&self) -> RcDoc {
-        use Token::*;
-        match self {
-            Space(_) => RcDoc::space(),
-            Delim((s, _)) => str(s).append(RcDoc::line()),
-            t => str(t.data().unwrap()),
-        }
+        // use Token::*;
+        // match self {
+        //     Space(_) => RcDoc::space(),
+        //     Delim((s, _)) => str(s).append(RcDoc::line()),
+        //     t => str(t.data().unwrap()),
+        // }
+        str(self.data().unwrap())
     }
 }

@@ -501,19 +501,22 @@ fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTre
 
 fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
     use crate::lexer::Token::*;
+    use GroupSort::*;
     use TokenTree::*;
     match (a, b) {
-        (Token(Ident(s), _), Group(_, g, _))
-            if !is_keyword(s) && (g == &GroupSort::Paren || g == &GroupSort::Square) =>
-        {
+        // TODO: refactor these rules to a text-based configuration file
+        (Token(Ident(s), _), Group(_, g, _)) if !is_keyword(s) && (g == &Paren || g == &Square) => {
             RcDoc::nil()
         }
         (Token(Open(_), _), _) | (_, Token(Close(_), _)) => RcDoc::nil(),
         (_, Token(Delim(_), _)) => RcDoc::nil(),
-        (_, Token(Dot(_), _)) | (Token(Dot(_), _), _) => RcDoc::nil(),
-        (_, Token(Assign(_), _)) => RcDoc::space(),
-        (Token(Assign(_), _), _) => RcDoc::space(), // TODO: indented line
         (Token(Delim(_), _), _) => RcDoc::line(),
+        (Token(Dot(_), _), _) => RcDoc::nil(),
+        (_, Token(Dot(_), _)) => RcDoc::softline_().nest(INDENT_SPACE),
+        (_, Token(Assign(_), _)) => RcDoc::space(),
+        (Token(Assign(_), _), _) => RcDoc::softline().nest(INDENT_SPACE),
+        (_, Group(_, Comment, _)) => RcDoc::softline().nest(INDENT_SPACE),
+        (Group(_, Comment, _), _) => RcDoc::line(),
         _ => RcDoc::space(),
     }
 }

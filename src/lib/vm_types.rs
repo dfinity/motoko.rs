@@ -4,11 +4,11 @@ use crate::ast::{Dec, Id as Identifer};
 use crate::value::Value;
 
 /// Or maybe a string?
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Id(u64);
 
 /// Or maybe a string?
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Pointer(u64);
 
 /// Local continuation as a Dec sequence.  This Vector permits
@@ -17,21 +17,26 @@ pub struct Pointer(u64);
 /// For a block, a local continuation is a list of Decs left to
 /// evaluate.  A single expression injects into this type as a
 /// singleton vector holding a Dec::Exp.
-pub type Decs = Vector<Dec>;
+pub type Cont = Vector<Dec>;
+
+/// Some(Value) exists if and only if the continuation is fully evaluated.
+pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
+    unimplemented!()
+}
 
 pub mod stack {
-    use super::Decs;
+    use super::Cont;
     use crate::ast::Pat;
 
     /// Local continuation, stored in a stack frame.
-    #[derive(Clone)]
-    pub enum Cont {
-        Let(Pat, Decs),
-        Var(Pat, Decs),
+    #[derive(Debug, Clone)]
+    pub enum FrameCont {
+        Let(Pat, Cont),
+        Var(Pat, Cont),
     }
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct Frame {
-        pub cont: Cont,
+        pub cont: FrameCont,
     }
     pub type Frames = im_rc::Vector<Frame>;
 }
@@ -46,17 +51,29 @@ pub type Env = HashMap<Identifer, Value>;
 /// records.
 pub type Store = HashMap<Pointer, Value>;
 
+/// Counts. Some ideas of how we could count and limit what the VM
+/// does, to interject some "slow interactivity" into its execution.
+#[derive(Clone, Debug)]
+pub struct Counts {
+    pub step: usize,
+    pub stack: usize,
+    pub call: usize,
+    pub alloc: usize,
+    pub send: usize,
+}
+
 /// Encapsulates VM state for "core Motoko code",
 /// excluding message and actor operations.
 ///
 /// The cost of copying this state is O(1), permitting us to
 /// eventually version it and generate a DAG of relationships.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Core {
-    pub store: Store,
+    //pub store: Store,
     pub stack: Stack,
     pub env: Env,
-    pub cont: Decs,
+    pub cont: Cont,
+    pub counts: Counts,
 }
 
 /// Encapsulates the VM state running Motoko code locally,
@@ -71,6 +88,7 @@ pub struct Core {
 pub struct Local {
     // to do
     // - one "active" Core.
+    pub active: Core,
     // - a DAG of inactive Cores, related to the active one.
     // - DAG is initially empty.
 }

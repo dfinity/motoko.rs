@@ -226,6 +226,9 @@ pub enum Token {
     #[token(":", data)]
     Colon(Data),
 
+    #[token("#", data)]
+    Hash(Data),
+
     #[token("=", data)]
     Assign(Data),
 
@@ -267,8 +270,8 @@ impl Token {
         use Token::*;
         match self {
             Error => Err(()),
-            LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Colon(x) | Assign(x)
-            | Operator(x) | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x)
+            LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Colon(x) | Hash(x)
+            | Assign(x) | Operator(x) | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x)
             | MultiLineSpace(x) | Unknown(x) => Ok(x),
         }
     }

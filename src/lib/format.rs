@@ -516,7 +516,7 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
         (_, Token(Delim(_), _)) => nil(),
         (Token(Delim(_), _), _) => line(),
         (Token(Dot(_), _), _) => nil(),
-        (Token(Hash(_), _), _) => nil(),
+        (Token(Operator(s), _), Token(Ident(_), _)) if s.eq("#") => nil(),
         (_, Token(Dot(_), _)) => wrap_(),
         (Token(Assign(_), _), _) => wrap(),
         (_, Group(_, Comment, _)) => wrap(),

@@ -2,18 +2,10 @@ use crate::ast::PrimType;
 use logos::{Lexer, Logos, Span};
 
 const KEYWORDS: &'static [&'static str] = &[
-    "public",
-    "actor",
-    "let",
-    "let",
-    "let",
-    "let",
-    "let",
-    "let",
-    "let" // TODO
+    "public", "actor", "func", "if", "let", "let", "let", "let", "let", "let", "let", // TODO
 ];
 
-pub fn is_keyword(ident: &str)->bool {
+pub fn is_keyword(ident: &str) -> bool {
     return KEYWORDS.contains(&ident);
 }
 

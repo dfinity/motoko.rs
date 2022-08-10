@@ -507,7 +507,9 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
         // TODO: refactor these rules to a text-based configuration file
         (Token(Space(_), _), _) | (_, Token(Space(_), _)) => nil(),
         (Token(MultiLineSpace(_), _), _) | (_, Token(MultiLineSpace(_), _)) => nil(),
-        (Token(Ident(s), _), Group(_, g, _)) if !is_keyword(s) && (g == &Paren || g == &Square) => {
+        (Token(Ident(s), _), Group(_, g, _))
+            if !is_keyword(s) && (g == &Paren || g == &Square || g == &Angle) =>
+        {
             nil()
         }
         (Token(Open(_), _), _) | (_, Token(Close(_), _)) => nil(),

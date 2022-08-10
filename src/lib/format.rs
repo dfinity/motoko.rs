@@ -505,6 +505,8 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
     use TokenTree::*;
     match (a, b) {
         // TODO: refactor these rules to a text-based configuration file
+        (Token(Space(_), _), _) | (_, Token(Space(_), _)) => nil(),
+        (Token(MultiLineSpace(_), _), _) | (_, Token(MultiLineSpace(_), _)) => nil(),
         (Token(Ident(s), _), Group(_, g, _)) if !is_keyword(s) && (g == &Paren || g == &Square) => {
             nil()
         }
@@ -512,7 +514,7 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
         (_, Token(Delim(_), _)) => nil(),
         (Token(Delim(_), _), _) => line(),
         (Token(Dot(_), _), _) => nil(),
-        (_, Token(Dot(_), _)) => wrap(),
+        (_, Token(Dot(_), _)) => wrap_(),
         (Token(Assign(_), _), _) => wrap(),
         (_, Group(_, Comment, _)) => wrap(),
         (Group(_, Comment, _), _) => line(),
@@ -559,12 +561,11 @@ impl ToDoc for TokenTree {
 
 impl ToDoc for Token {
     fn doc(&self) -> RcDoc {
-        // use Token::*;
-        // match self {
-        //     Space(_) => RcDoc::space(),
-        //     Delim((s, _)) => str(s).append(RcDoc::line()),
-        //     t => str(t.data().unwrap()),
-        // }
-        str(self.data().unwrap())
+        use Token::*;
+        match self {
+            &MultiLineSpace(_) => RcDoc::hardline().append(RcDoc::hardline()),
+            t => str(t.data().unwrap()),
+        }
+        // str(self.data().unwrap())
     }
 }

@@ -252,6 +252,9 @@ pub enum Token {
     #[regex(r"\s+", data)]
     Space(Data),
 
+    #[regex(r"[^\S\n]*\n[^\S\n]*\n\s*", data)]
+    MultiLineSpace(Data),
+
     Unknown(Data),
 
     #[error]
@@ -265,9 +268,8 @@ impl Token {
         match self {
             Error => Err(()),
             LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Colon(x) | Assign(x)
-            | Operator(x) | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x) | Unknown(x) => {
-                Ok(x)
-            }
+            | Operator(x) | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x)
+            | MultiLineSpace(x) | Unknown(x) => Ok(x),
         }
     }
 }

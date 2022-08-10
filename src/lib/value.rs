@@ -1,7 +1,21 @@
-/*
 use crate::ast::Literal;
 use eq_float::F64;
-use num_bigint::{BigInt, BigUint};
+use im_rc::vector;
+use im_rc::HashMap;
+use im_rc::Vector;
+use num_bigint::{BigInt, BigUint, ParseBigIntError};
+
+/// Permit sharing, and fast concats.
+pub type Text = Vector<String>;
+
+#[derive(Debug, Clone)] // , PartialEq, Eq
+pub struct Mut(bool);
+
+#[derive(Debug, Clone)] // , PartialEq, Eq
+pub struct FieldValue {
+    pub mut_: Mut,
+    pub value: Value,
+}
 
 #[derive(Debug, Clone)] // , PartialEq, Eq
 pub enum Value {
@@ -9,45 +23,28 @@ pub enum Value {
     Bool(bool),
     Unit,
     Nat(BigUint),
-    Nat8(u8),
-    Nat16(u16),
-    Nat32(u32),
-    Nat64(u64),
     Int(BigInt),
-    Int8(i8),
-    Int16(i16),
-    Int32(i32),
-    Int64(i64),
     Float(F64), // TODO: test NaN equality compared to Motoko
     Char(char),
-    Text(String),
+    Text(Text),
     Blob(Vec<u8>),
-    Tuple(Vec<Value>),
-    Object(Vec<(String, Value)>),
+    Array(Mut, Vector<Value>),
+    Tuple(Vector<Value>),
+    Object(HashMap<String, FieldValue>),
 }
 
 impl Value {
-    pub fn from_literal(l: Literal) -> Result<Value, () /* TODO */> {
+    pub fn from_literal(l: Literal) -> Result<Value, ParseBigIntError> {
         use Value::*;
         Ok(match l {
             Literal::Null => Null,
             Literal::Bool(b) => Bool(b),
             Literal::Unit => Unit,
-            Literal::Nat(n) => Nat(n.parse().map_err(|_| ())?),
-            Literal::Nat8(n) => Nat8(n),
-            Literal::Nat16(n) => Nat16(n),
-            Literal::Nat32(n) => Nat32(n),
-            Literal::Nat64(n) => Nat64(n),
-            Literal::Int(i) => Int(i.parse().map_err(|_| ())?),
-            Literal::Int8(i) => Int8(i),
-            Literal::Int16(i) => Int16(i),
-            Literal::Int32(i) => Int32(i),
-            Literal::Int64(i) => Int64(i),
-            Literal::Float(f) => Float(F64::from(f.parse::<f64>().map_err(|_| ())?)),
-            Literal::Char(c) => Char(c.chars().nth(<>.len() - 2).map_err(|_| ())),
-            Literal::Text(s) => Text(s[1..<>.len() - 1].to_string()),
+            Literal::Nat(n) => Nat(n.parse()?),
+            Literal::Int(i) => Int(i.parse()?),
+            Literal::Text(s) => Text(vector![s]),
             Literal::Blob(v) => Blob(v),
+            _ => unimplemented!(),
         })
     }
 }
-*/

@@ -234,6 +234,7 @@ pub enum Token {
     Delim((Data, Delim)),
 
     #[regex(r"[+\-*/%&|^!?:<>@#]+=?", data)]
+    #[regex(r"==", data)]
     // #[regex(r" >>=", data)]
     Operator(Data),
 

@@ -506,18 +506,17 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
     match (a, b) {
         // TODO: refactor these rules to a text-based configuration file
         (Token(Ident(s), _), Group(_, g, _)) if !is_keyword(s) && (g == &Paren || g == &Square) => {
-            RcDoc::nil()
+            nil()
         }
-        (Token(Open(_), _), _) | (_, Token(Close(_), _)) => RcDoc::nil(),
-        (_, Token(Delim(_), _)) => RcDoc::nil(),
-        (Token(Delim(_), _), _) => RcDoc::line(),
-        (Token(Dot(_), _), _) => RcDoc::nil(),
-        (_, Token(Dot(_), _)) => RcDoc::softline_().nest(INDENT_SPACE),
-        (_, Token(Assign(_), _)) => RcDoc::space(),
-        (Token(Assign(_), _), _) => RcDoc::softline().nest(INDENT_SPACE),
-        (_, Group(_, Comment, _)) => RcDoc::softline().nest(INDENT_SPACE),
-        (Group(_, Comment, _), _) => RcDoc::line(),
-        _ => RcDoc::space(),
+        (Token(Open(_), _), _) | (_, Token(Close(_), _)) => nil(),
+        (_, Token(Delim(_), _)) => nil(),
+        (Token(Delim(_), _), _) => line(),
+        (Token(Dot(_), _), _) => nil(),
+        (_, Token(Dot(_), _)) => wrap(),
+        (Token(Assign(_), _), _) => wrap(),
+        (_, Group(_, Comment, _)) => wrap(),
+        (Group(_, Comment, _), _) => line(),
+        _ => space(),
     }
 }
 

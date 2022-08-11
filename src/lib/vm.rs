@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Prog};
+use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Pat, Prog};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
@@ -136,6 +136,11 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                         core.cont = Cont::Value(binop(bop, v1, v)?);
                         Ok(Step {})
                     }
+                    Let(Pat::Var(x), cont) => {
+                        core.env.insert(x, v);
+                        core.cont = cont;
+                        Ok(Step {})
+                    }
                     _ => todo!(),
                 }
             }
@@ -151,7 +156,12 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {
-                        todo!()
+                        core.stack.push_back(Frame {
+                            cont: FrameCont::Let(p, Cont::Decs(decs)),
+                            env: core.env.clone(),
+                        });
+                        core.cont = Cont::Exp_(Box::new(e));
+                        Ok(Step {})
                     }
                     _ => todo!(),
                 }

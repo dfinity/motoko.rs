@@ -119,7 +119,7 @@ impl ToDoc for Literal {
             Bool(false) => "false",
             Unit => "()",
             Nat(n) => n,
-            Int(i) => i,
+            // Int(i) => i,
             Float(f) => f,
             Text(t) => t,
             Char(c) => c,

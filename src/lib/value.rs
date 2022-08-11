@@ -74,7 +74,7 @@ impl Value {
             Literal::Bool(b) => Bool(b),
             Literal::Unit => Unit,
             Literal::Nat(n) => Nat(n.parse()?),
-            Literal::Int(i) => Int(i.parse()?),
+            // Literal::Int(i) => Int(i.parse()?),
             Literal::Text(s) => Text(vector![s]),
             Literal::Blob(v) => Blob(v),
             _ => unimplemented!(),

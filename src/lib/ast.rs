@@ -12,7 +12,7 @@ pub enum Literal {
     Bool(bool),
     Unit,
     Nat(String),
-    Int(String),
+    // Int(String),
     Float(String),
     Char(String), // includes quotes
     Text(String), // includes quotes

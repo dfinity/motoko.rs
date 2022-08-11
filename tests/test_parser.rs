@@ -110,6 +110,7 @@ fn test_binary_operators() {
     assert_("0 + 0");
     assert_("0 + 0 * 0 + 0");
     assert_("0 + 0 * 0 | 0 | 0 * 0 + 0");
+    assert_to("2-1", "2 - 1");
     /*
     assert_("0 - 0");
     assert_("0 / 0");

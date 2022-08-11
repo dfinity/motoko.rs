@@ -1,6 +1,6 @@
 use im_rc::{HashMap, Vector};
 
-use crate::ast::{Dec, Id as Identifier};
+use crate::ast::{Dec, Exp_, Id as Identifier};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -8,7 +8,7 @@ use crate::value::Value;
 pub struct Id(u64);
 
 /// Or maybe a string?
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Pointer(u64);
 
 /// Local continuation as a Dec sequence.  This Vector permits
@@ -20,6 +20,7 @@ pub struct Pointer(u64);
 /// (its extensional, not intensional) and stands as its own case.
 #[derive(Debug, Clone)]
 pub enum Cont {
+    Taken,
     Decs(Vector<Dec>),
     Exp_(Exp_),
     Value(Value),
@@ -31,7 +32,7 @@ pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
 }
 
 pub mod stack {
-    use super::Cont;
+    use super::{Cont, Env};
     use crate::ast::{BinOp, Exp, Exp_, Pat};
     use crate::value::Value;
 
@@ -45,6 +46,7 @@ pub mod stack {
     }
     #[derive(Debug, Clone)]
     pub struct Frame {
+        pub env: Env,
         pub cont: FrameCont,
     }
     pub type Frames = im_rc::Vector<Frame>;
@@ -78,7 +80,7 @@ pub struct Counts {
 /// eventually version it and generate a DAG of relationships.
 #[derive(Clone, Debug)]
 pub struct Core {
-    //pub store: Store,
+    pub store: Store,
     pub stack: Stack,
     pub env: Env,
     pub cont: Cont,

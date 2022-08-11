@@ -50,7 +50,7 @@ impl Value {
         if decs.vec.len() > 1 {
             Err(ValueFromExpError::NotAValue)
         } else {
-            Value::from_dec(decs.vec[0])
+            Value::from_dec(decs.vec[0].clone())
         }
     }
 
@@ -63,6 +63,7 @@ impl Value {
             Return(e) => Value::from_exp(*e),
             Do(e) => Value::from_exp(*e),
             Block(decs) => Value::from_decs(decs),
+            _ => Err(ValueFromExpError::NotAValue),
         }
     }
 

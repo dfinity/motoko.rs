@@ -107,6 +107,7 @@ pub PatUn: Pat = {
     PatNullary,
     "#" <s:Id> => Pat::Variant(s, None),
     "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(Box::new(p))),
+
 }
 
 pub Pat = {
@@ -206,6 +207,7 @@ ExpPost<B>: Exp = {
     <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Idx(e1, e2),
     <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
     <e1:ExpPost_<B>> "." <i:Id> => Exp::Dot(e1, i),
+    <e1:ExpPost_<B>> <e2:ExpNullary_<Ob>> => Exp::Call(e1, Delim{vec:vec!(), has_trailing:false}, e2),
     <e:ExpPost_<B>> "!" => Exp::Bang(e),
 }
 
@@ -255,8 +257,8 @@ ExpNonDec<B>: Exp = {
     <e1:ExpUn_<B>> ":=" <e2:ExpUn_<B>> => Exp::Assign(e1, e2),
     // TODO: remove 
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
-    // if without an else -- TEMP -- using semi here but it doesn't belong.
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
+    // if without an else -- TEMP -- using semi here but it doesn't belong.
     "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_<B>> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),

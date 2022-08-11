@@ -1,4 +1,4 @@
-use crate::ast::{Dec, Decs, Exp, Literal};
+use crate::ast::{Dec, Decs, Exp, Id_, Literal};
 use eq_float::F64;
 use im_rc::vector;
 use im_rc::HashMap;
@@ -31,7 +31,10 @@ pub enum Value {
     Array(Mut, Vector<Value>),
     Tuple(Vector<Value>),
     Object(HashMap<String, FieldValue>),
+    Variant(Id_, Option<Value_>),
 }
+
+pub type Value_ = Box<Value>;
 
 pub enum ValueFromExpError {
     ParseBigIntError(ParseBigIntError),

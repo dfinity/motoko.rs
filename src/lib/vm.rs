@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Pat, Prog};
+use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Id_, Pat, Prog};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
@@ -122,6 +122,18 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
             core.cont = Cont::Exp_(e);
             Ok(Step {})
         }
+        Variant(id, None) => {
+            core.cont = Cont::Value(Value::Variant(id, None));
+            Ok(Step {})
+        }
+        Variant(id, Some(e)) => {
+            core.stack.push_back(Frame {
+                env: core.env.clone(),
+                cont: FrameCont::Variant(id),
+            });
+            core.cont = Cont::Exp_(e);
+            Ok(Step {})
+        }
         _ => todo!(),
     }
 }
@@ -160,6 +172,10 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                     }
                     Paren => {
                         core.cont = Cont::Value(v);
+                        Ok(Step {})
+                    }
+                    Variant(i) => {
+                        core.cont = Cont::Value(Value::Variant(i, Some(Box::new(v))));
                         Ok(Step {})
                     }
                     _ => todo!(),

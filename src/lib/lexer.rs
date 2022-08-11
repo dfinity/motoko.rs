@@ -1,7 +1,7 @@
 use crate::ast::PrimType;
 use logos::{Lexer, Logos, Span};
 
-const KEYWORDS: &'static [&'static str] = &[
+pub const KEYWORDS: &'static [&'static str] = &[
     "public", "actor", "func", "if", "let", "let", "let", "let", "let", "let", "let", // TODO
 ];
 
@@ -28,47 +28,6 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
         .collect();
     Ok(tokens)
 }
-
-// pub fn simplify_token_vec(tokens: Tokens) -> LexResult<Tokens> {
-//     fn should_keep(token: &Token) -> LexResult<bool> {
-//         if let Token::Error = token {
-//             Err(())
-//         } else {
-//             Ok(match token {
-//                 Token::Space(_) => false,
-//                 _ => true,
-//             })
-//         }
-//     }
-//     let mut results = vec![];
-//     let mut previous: Option<(Token, Span)> = None;
-//     for next in tokens {
-//         if let Some(previous) = previous {
-//             use Token::*;
-//             let keep = match (&previous.0, &next.0) {
-//                 // TODO
-//                 (BlockComment(a), BlockComment(b)) => Some(BlockComment(format!("{}{}", a, b))),
-//                 (Space(a), Space(b)) => Some(Space(format!("{}{}", a, b))),
-//                 (_, t) => {
-//                     if should_keep(t) {
-//                         Some(t)
-//                     } else {
-//                         None
-//                     }
-//                 }
-//             };
-//             if let Some(keep) = keep {
-//                 results.push(keep);
-//             }
-//         } else {
-//             if should_keep(&next.0)? {
-//                 results.push(next);
-//             }
-//         };
-//         previous = Some(next);
-//     }
-//     Ok(results)
-// }
 
 pub fn group(tokens: Tokens) -> LexResult<TokenTree> {
     Ok(TokenTree::Group(
@@ -116,7 +75,7 @@ fn find_closing(sort: &GroupSort, tokens: &[(Token, Span)], start: usize) -> Opt
         if let Token::Open((_, g)) = t {
             if g == sort {
                 depth += 1;
-            } else if g == &GroupSort::Comment {
+            } else if /* sort!=&GroupSort::Comment */ g == &GroupSort::Comment {
                 // Skip depth check in block comments
                 if let Some(j) = find_closing(&g, tokens, i) {
                     i = j;
@@ -234,8 +193,8 @@ pub enum Token {
     Delim((Data, Delim)),
 
     #[regex(r"[+\-*/%&|^!?:<>@#]+=?", data)]
-    #[regex(r"==", data)]
-    // #[regex(r" >>=", data)]
+    #[token("==", data)]
+    // #[regex(r" >>=?", data)]
     Operator(Data),
 
     #[regex(r"[a-zA-Z_][a-zA-Z_0-9]*", data)]

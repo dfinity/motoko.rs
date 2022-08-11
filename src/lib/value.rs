@@ -1,4 +1,4 @@
-use crate::ast::Literal;
+use crate::ast::{Dec, Decs, Exp, Literal};
 use eq_float::F64;
 use im_rc::vector;
 use im_rc::HashMap;
@@ -33,7 +33,39 @@ pub enum Value {
     Object(HashMap<String, FieldValue>),
 }
 
+pub enum ValueFromExpError {
+    ParseBigIntError(ParseBigIntError),
+    NotAValue,
+}
+
 impl Value {
+    pub fn from_dec(dec: Dec) -> Result<Value, ValueFromExpError> {
+        match dec {
+            Dec::Exp(e) => Value::from_exp(e),
+            _ => Err(ValueFromExpError::NotAValue),
+        }
+    }
+
+    pub fn from_decs(decs: Decs) -> Result<Value, ValueFromExpError> {
+        if decs.vec.len() > 1 {
+            Err(ValueFromExpError::NotAValue)
+        } else {
+            Value::from_dec(decs.vec[0])
+        }
+    }
+
+    pub fn from_exp(e: Exp) -> Result<Value, ValueFromExpError> {
+        use Exp::*;
+        match e {
+            Literal(l) => Value::from_literal(l).map_err(ValueFromExpError::ParseBigIntError),
+            Paren(e) => Value::from_exp(*e),
+            Annot(e, _) => Value::from_exp(*e),
+            Return(e) => Value::from_exp(*e),
+            Do(e) => Value::from_exp(*e),
+            Block(decs) => Value::from_decs(decs),
+        }
+    }
+
     pub fn from_literal(l: Literal) -> Result<Value, ParseBigIntError> {
         use Value::*;
         Ok(match l {

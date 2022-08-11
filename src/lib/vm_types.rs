@@ -1,6 +1,6 @@
 use im_rc::{HashMap, Vector};
 
-use crate::ast::{Dec, Id as Identifer};
+use crate::ast::{Dec, Id as Identifier};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -16,8 +16,14 @@ pub struct Pointer(u64);
 ///
 /// For a block, a local continuation is a list of Decs left to
 /// evaluate.  A single expression injects into this type as a
-/// singleton vector holding a Dec::Exp.
-pub type Cont = Vector<Dec>;
+/// singleton vector holding a Dec::Exp.  A fnal Value is not syntax
+/// (its extensional, not intensional) and stands as its own case.
+#[derive(Debug, Clone)]
+pub enum Cont {
+    Decs(Vector<Dec>),
+    Exp_(Exp_),
+    Value(Value),
+}
 
 /// Some(Value) exists if and only if the continuation is fully evaluated.
 pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
@@ -26,13 +32,16 @@ pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
 
 pub mod stack {
     use super::Cont;
-    use crate::ast::Pat;
+    use crate::ast::{BinOp, Exp, Exp_, Pat};
+    use crate::value::Value;
 
     /// Local continuation, stored in a stack frame.
     #[derive(Debug, Clone)]
     pub enum FrameCont {
         Let(Pat, Cont),
         Var(Pat, Cont),
+        BinOp1(BinOp, Exp_),
+        BinOp2(Value, BinOp),
     }
     #[derive(Debug, Clone)]
     pub struct Frame {
@@ -45,7 +54,7 @@ pub type Stack = stack::Frames;
 
 /// Local environment as a mapping from identifiers to values.
 /// This HashMap permits sharing.
-pub type Env = HashMap<Identifer, Value>;
+pub type Env = HashMap<Identifier, Value>;
 
 /// Store holds mutable variables, mutable arrays and mutable
 /// records.

@@ -79,6 +79,15 @@ fn binop(binop: BinOp, v1: Value, v2: Value) -> Result<Value, Interruption> {
             */
             _ => todo!(),
         },
+        Sub => match (v1, v2) {
+            (Nat(n1), Nat(n2)) => Ok(Nat(n1 - n2)),
+            (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
+            /*
+                       (Int(i1), Nat(n2)) => Ok(Int(i1 + n2)),
+                       (Nat(n1), Int(i2)) => Ok(Int(n1 + i2)),
+            */
+            _ => todo!(),
+        },
         _ => todo!(),
     }
 }
@@ -103,6 +112,14 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
                 cont: FrameCont::BinOp1(binop, e2),
             });
             core.cont = Cont::Exp_(e1);
+            Ok(Step {})
+        }
+        Paren(e) => {
+            core.stack.push_back(Frame {
+                env: core.env.clone(),
+                cont: FrameCont::Paren,
+            });
+            core.cont = Cont::Exp_(e);
             Ok(Step {})
         }
         _ => todo!(),
@@ -139,6 +156,10 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                     Let(Pat::Var(x), cont) => {
                         core.env.insert(x, v);
                         core.cont = cont;
+                        Ok(Step {})
+                    }
+                    Paren => {
+                        core.cont = Cont::Value(v);
                         Ok(Step {})
                     }
                     _ => todo!(),

@@ -33,7 +33,7 @@ pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
 
 pub mod stack {
     use super::{Cont, Env};
-    use crate::ast::{BinOp, Exp, Exp_, Pat};
+    use crate::ast::{BinOp, Exp, Exp_, Id_, Pat};
     use crate::value::Value;
 
     /// Local continuation, stored in a stack frame.
@@ -43,6 +43,8 @@ pub mod stack {
         Var(Pat, Cont),
         BinOp1(BinOp, Exp_),
         BinOp2(Value, BinOp),
+        Paren,
+        Variant(Id_),
     }
     #[derive(Debug, Clone)]
     pub struct Frame {

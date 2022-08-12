@@ -25,7 +25,7 @@ pub enum Value {
     Unit,
     Nat(BigUint),
     Int(BigInt),
-//    Float(f64),
+    //    Float(f64),
     Char(char),
     Text(Text),
     Blob(Vec<u8>),

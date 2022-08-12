@@ -115,7 +115,6 @@ pub struct Canister {
     // Unclear how these changes affect the state we need.
 }
 
-
 // Some ideas of how we could count and limit what the VM does,
 // to interject some "slow interactivity" into its execution.
 #[derive(Clone, Debug, Serialize, Deserialize)]

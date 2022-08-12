@@ -15,3 +15,12 @@ fn test_literals() {
 fn test_let() {
     assert_("let x = 1; x", "1");
 }
+
+#[test]
+fn test_binop() {
+    assert_("1 + 1", "2");
+    assert_("1 - 1", "0");
+    //assert_("3 - 2 - 1", "0");
+    assert_("(3 - 2) - 1", "0");
+    assert_("3 - (2 - 1)", "2");
+}

@@ -2,12 +2,12 @@ use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Id_, Pat, Prog};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Cont, Core, Counts, Local, Error, Signal, Interruption, Step, Canister, Limits
+    Canister, Cont, Core, Counts, Error, Interruption, Limits, Local, Signal, Step,
 };
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-impl Limits {    
+impl Limits {
     fn none() -> Limits {
         Limits {
             step: None,
@@ -205,14 +205,11 @@ pub fn eval(prog: &str) -> Result<Value, ()> {
     let p = crate::check::parse(&prog)?;
     let c = core_init(p);
     let mut l = local_init(c);
-    let s = local_run(
-        &mut l,
-        &Limits::none(),
-    ).map_err(|_|{()})?;
+    let s = local_run(&mut l, &Limits::none()).map_err(|_| ())?;
     println!("final signal: {:?}", s);
     use crate::vm_types::Signal::*;
     match s {
         ReachedLimit(_) => unreachable!(),
-        Done(result) => Ok(result)
+        Done(result) => Ok(result),
     }
 }

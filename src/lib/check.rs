@@ -42,6 +42,10 @@ pub fn assert_roundtrip(input: &str) {
 }
 
 pub fn assert_vm_run(input_prog: &str, expected_result: &str) {
+    println!(
+        "\nassert_vm_run(\"{}\", \"{}\")",
+        input_prog, expected_result
+    );
     let v1 = crate::vm::eval(input_prog).unwrap();
     let v2 = crate::vm::eval(expected_result).unwrap();
     assert_eq!(v1, v2)

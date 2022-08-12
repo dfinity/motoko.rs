@@ -1,12 +1,12 @@
-//use num_bigint::{BigInt, BigUint};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Delim<X> {
     pub vec: Vec<X>,
     pub has_trailing: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Literal {
     Null,
     Bool(bool),
@@ -19,14 +19,14 @@ pub enum Literal {
     Blob(Vec<u8>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ObjSort {
     Object,
     Actor,
     Module,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Shared<T /*: std::fmt::Debug + Clone + PartialEq + Eq*/> {
     Local,
     Shared(T),
@@ -41,7 +41,7 @@ pub type Cases = Delim<Case>;
 
 pub type Prog = Decs;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Dec {
     Exp(Exp),
     Let(Pat, Exp),
@@ -59,25 +59,25 @@ pub enum Dec {
     ),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SortPat {
     Local,
     Shared(SharedSort, Pat),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SharedSort {
     Query,
     Update,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BindSort {
     Scope,
     Type,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TypeBind {
     pub var: Id,
     pub sort: BindSort,
@@ -85,7 +85,7 @@ pub struct TypeBind {
 }
 
 /// Mutability setting, for arrays, record fields and lexically-scoped bindings.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Mut {
     Const,
     Var,
@@ -97,13 +97,13 @@ pub type ExpFields = Delim<ExpField>;
 pub type PatFields = Delim<PatField>;
 pub type TypeFields = Delim<TypeField>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Case {
     pub pat: Pat,
     pub exp: Exp,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpField {
     pub mut_: Mut,
     pub id: Id,
@@ -111,40 +111,40 @@ pub struct ExpField {
     pub exp: Exp,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecField {
     pub dec: Dec,
     pub vis: Option<Vis>,
     pub stab: Option<Stab>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatField {
     pub id: Id,
     pub pat: Pat,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TypeField {
     pub mut_: Mut,
     pub id: Id,
     pub typ: Type,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Vis {
     Public(Option<Id>),
     Private,
     System,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Stab {
     Stable,
     Flexible,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResolvedImport {
     Unresolved,
     Lib(String),
@@ -157,10 +157,10 @@ pub enum ResolvedImport {
 // | IDLPath of (string * string) (* filepath * bytes *)
 // | PrimPath (* the built-in prim module *)
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sugar(bool);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrimType {
     Null,
     Unit,
@@ -183,7 +183,7 @@ pub enum PrimType {
 
 pub type Type_ = Box<Type>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Type {
     // Path (type path)?
     Prim(PrimType),
@@ -207,7 +207,7 @@ pub type Inst = Delim<Type>;
 
 pub type Exp_ = Box<Exp>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Exp {
     Hole,
     Prim(Id),
@@ -261,7 +261,7 @@ pub enum Exp {
 
 pub type Pat_ = Box<Pat>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Pat {
     Wild,
     Var(Id),
@@ -276,14 +276,14 @@ pub enum Pat {
     Paren(Pat_),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UnOp {
     Pos,
     Neg,
     Not,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BinOp {
     Add,
     Sub,
@@ -307,7 +307,7 @@ pub enum BinOp {
     BitAnd,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RelOp {
     Eq,
     Neq,

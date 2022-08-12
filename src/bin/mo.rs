@@ -5,6 +5,7 @@ use std::io;
 use structopt::{clap, clap::Shell};
 
 use motoko::format::format_one_line;
+use motoko::vm_types::Limits;
 
 pub type OurResult<X> = Result<X, OurError>;
 
@@ -14,10 +15,17 @@ impl From<()> for OurError {
     }
 }
 
+impl From<motoko::vm_types::Error> for OurError {
+    fn from(vm: motoko::vm_types::Error) -> Self {
+        OurError::VM(vm)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum OurError {
     Unit,
     String(String),
+    VM(motoko::vm_types::Error),
 }
 
 /// Motoko tools in Rust.
@@ -54,6 +62,9 @@ pub enum CliCommand {
         input: String,
     },
     Echo {
+        input: String,
+    },
+    Eval {
         input: String,
     },
 }
@@ -93,6 +104,10 @@ fn main() -> OurResult<()> {
         CliCommand::Echo { input } => {
             let p = motoko::check::parse(&input)?;
             println!("{}", format_one_line(&p));
+        }
+        CliCommand::Eval { input } => {
+            let v = motoko::vm::eval(&input);
+            println!("final value: {:?}", v)
         }
     };
     Ok(())

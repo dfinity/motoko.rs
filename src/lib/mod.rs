@@ -7,3 +7,5 @@ pub mod lexer;
 pub mod parser;
 mod parser_utils;
 pub mod value;
+pub mod vm;
+pub mod vm_types;

@@ -74,8 +74,7 @@ pub Literal: Literal = {
     "true" => Literal::Bool(true),
     "false" => Literal::Bool(false),
     "(" ")" => Literal::Unit,
-    r"-?[0-9]+\.[0-9]*" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
-    r"-[0-9]+" => Literal::Int(<>.to_string()),
+    r"[0-9]+\.[0-9]*" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
     r"[0-9]+" => Literal::Nat(<>.to_string()),
     r"'([^']|')'" => Literal::Char(<>.to_string()), // TODO: more test cases
     r#""(?:[^\\"]|\.)*""# => Literal::Text(<>.to_string()), // TODO more test cases
@@ -276,7 +275,8 @@ ExpBin_<B>: Exp_ = {
 }
 
 ExpBin<B>: Exp = {
-    <e1:ExpBin1_<B>> "+" <e2:ExpBin_<B>> => Exp::Bin(e1, BinOp::Add, e2),
+    <e1:ExpBin_<B>> "+" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Add, e2),
+    <e1:ExpBin_<B>> "-" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Sub, e2),
     ExpBin1<B>,
 }
 
@@ -286,6 +286,7 @@ ExpBin1_<B>: Exp_ = {
 
 ExpBin1<B>: Exp = {
     <e1:ExpBin2_<B>> "*" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Mul, e2),
+    <e1:ExpBin2_<B>> "/" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Div, e2),
     ExpBin2<B>,
 }
 

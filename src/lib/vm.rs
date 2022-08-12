@@ -5,10 +5,11 @@ use crate::vm_types::{
     Cont, Core, Counts, Local,
 };
 use im_rc::{HashMap, Vector};
+use serde::{Deserialize, Serialize};
 
 // Some ideas of how we could count and limit what the VM does,
 // to interject some "slow interactivity" into its execution.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Limits {
     pub step: Option<usize>,
     pub stack: Option<usize>,
@@ -17,7 +18,7 @@ pub struct Limits {
     pub send: Option<usize>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Limit {
     Step,
     Stack,
@@ -43,7 +44,7 @@ pub fn core_init(prog: Prog) -> Core {
 }
 
 // to do Q -- how much detail to provide about stepping?
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Step {
     // - new context ID?
     // - log of lexical regions of steps?
@@ -51,7 +52,7 @@ pub struct Step {
 }
 
 // interruptions are events that prevent steppping from progressing.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interruption {
     TypeMismatch,
     ParseError,
@@ -221,7 +222,7 @@ pub enum Signal {
     ReachedLimit(Limit),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Error {
     ICAgentError,
     // etc

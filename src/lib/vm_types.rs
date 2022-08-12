@@ -34,7 +34,7 @@ pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
 
 pub mod stack {
     use super::{Cont, Env};
-    use crate::ast::{BinOp, Exp, Exp_, Id_, Pat, Cases};
+    use crate::ast::{BinOp, Cases, Exp, Exp_, Id_, Pat, UnOp};
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 
@@ -43,12 +43,13 @@ pub mod stack {
     pub enum FrameCont {
         Let(Pat, Cont),
         Var(Pat, Cont),
+        UnOp(UnOp),
         BinOp1(BinOp, Exp_),
         BinOp2(Value, BinOp),
         Paren,
         Variant(Id_),
         Switch(Cases),
-        Block
+        Block,
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {

@@ -20,7 +20,14 @@ fn test_let() {
 fn test_binop() {
     assert_("1 + 1", "2");
     assert_("1 - 1", "0");
-    //assert_("3 - 2 - 1", "0");
+    assert_("3 - 2 - 1", "0");
     assert_("(3 - 2) - 1", "0");
     assert_("3 - (2 - 1)", "2");
+}
+
+
+#[test]
+fn test_switch() {
+    assert_("switch (#apple) { case (#apple) { 42 } }", "42");
+    assert_("switch (#apple(42)) { case (#apple(x)) { x } }", "42")
 }

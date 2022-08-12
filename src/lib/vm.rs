@@ -1,10 +1,11 @@
-use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Id_, Pat, Prog, Cases};
+use crate::ast::{BinOp, Cases, Dec, Exp, Id as Identifier, Id_, Pat, Prog, UnOp};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Canister, Cont, Core, Counts, Error, Interruption, Limits, Local, Signal, Step, Env,
+    Canister, Cont, Core, Counts, Env, Error, Interruption, Limits, Local, Signal, Step,
 };
 use im_rc::{HashMap, Vector};
+use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
 impl Limits {
@@ -41,6 +42,13 @@ fn pattern(env: Env, pat: &Pat, val: Value) -> Result<Env, MatchError> {
 }
 */
 
+fn unop(un: UnOp, v: Value) -> Result<Value, Interruption> {
+    match (un, v) {
+        (UnOp::Neg, Value::Nat(n)) => Ok(Value::Int(-BigInt::from(n))),
+        _ => todo!(),
+    }
+}
+
 fn binop(binop: BinOp, v1: Value, v2: Value) -> Result<Value, Interruption> {
     use BinOp::*;
     use Value::*;
@@ -55,8 +63,15 @@ fn binop(binop: BinOp, v1: Value, v2: Value) -> Result<Value, Interruption> {
             _ => todo!(),
         },
         Sub => match (v1, v2) {
-            (Nat(n1), Nat(n2)) => Ok(Nat(n1 - n2)),
+            (Nat(n1), Nat(n2)) => {
+                if n2 > n1 {
+                    Ok(Int(BigInt::from(n1) - BigInt::from(n2)))
+                } else {
+                    Ok(Nat(n1 - n2))
+                }
+            }
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
+            (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
             /*
                        (Int(i1), Nat(n2)) => Ok(Int(i1 + n2)),
                        (Nat(n1), Int(i2)) => Ok(Int(n1 + i2)),
@@ -89,6 +104,14 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
             core.cont = Cont::Exp_(e1);
             Ok(Step {})
         }
+        Un(un, e) => {
+            core.stack.push_back(Frame {
+                env: core.env.clone(),
+                cont: FrameCont::UnOp(un),
+            });
+            core.cont = Cont::Exp_(e);
+            Ok(Step {})
+        }
         Paren(e) => {
             core.stack.push_back(Frame {
                 env: core.env.clone(),
@@ -112,7 +135,7 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
         Switch(e1, cases) => {
             core.stack.push_back(Frame {
                 env: core.env.clone(),
-                cont: FrameCont::Switch(cases)
+                cont: FrameCont::Switch(cases),
             });
             core.cont = Cont::Exp_(e1);
             Ok(Step {})
@@ -120,7 +143,7 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
         Block(decs) => {
             core.stack.push_back(Frame {
                 env: core.env.clone(),
-                cont: FrameCont::Block
+                cont: FrameCont::Block,
             });
             core.cont = Cont::Decs(decs.vec.into());
             Ok(Step {})
@@ -131,23 +154,25 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
 
 fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
     match (pat, v) {
-        (Pat::Paren(p), v) => {
-            pattern_matches(env, &*p, v)
-        }
+        (Pat::Paren(p), v) => pattern_matches(env, &*p, v),
         (Pat::Var(x), v) => {
             let mut env = env.clone();
             env.insert(x.clone(), v.clone());
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if *id1 != **id2 { return None };
+            if *id1 != **id2 {
+                return None;
+            };
             Some(env.clone())
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if *id1 != **id2 { return None };
-            pattern_matches(env, &*pat_, &*v_)                
+            if *id1 != **id2 {
+                return None;
+            };
+            pattern_matches(env, &*pat_, &*v_)
         }
-        _ => None
+        _ => None,
     }
 }
 
@@ -156,8 +181,8 @@ fn switch(core: &mut Core, limits: &Limits, v: Value, cases: Cases) -> Result<St
         if let Some(env) = pattern_matches(&core.env, &case.pat, &v) {
             core.env = env;
             core.cont = Cont::Exp_(Box::new(case.exp));
-            return Ok(Step {})
-        }    
+            return Ok(Step {});
+        }
     }
     Err(Interruption::NoMatchingCase)
 }
@@ -180,6 +205,10 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
             } else {
                 use FrameCont::*;
                 match core.stack.pop_back().unwrap().cont {
+                    UnOp(un) => {
+                        core.cont = Cont::Value(unop(un, v)?);
+                        Ok(Step {})
+                    }
                     BinOp1(binop, e2) => {
                         core.stack.push_back(Frame {
                             env: core.env.clone(),
@@ -205,9 +234,7 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                         core.cont = Cont::Value(Value::Variant(i, Some(Box::new(v))));
                         Ok(Step {})
                     }
-                    Switch(cases) => {
-                        switch(core, limits, v, cases)
-                    }
+                    Switch(cases) => switch(core, limits, v, cases),
                     Block => {
                         core.cont = Cont::Value(v);
                         Ok(Step {})

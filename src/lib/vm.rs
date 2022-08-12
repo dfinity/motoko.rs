@@ -1,8 +1,8 @@
-use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Id_, Pat, Prog};
+use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Id_, Pat, Prog, Cases};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Canister, Cont, Core, Counts, Error, Interruption, Limits, Local, Signal, Step,
+    Canister, Cont, Core, Counts, Error, Interruption, Limits, Local, Signal, Step, Env,
 };
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
@@ -109,17 +109,69 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
             core.cont = Cont::Exp_(e);
             Ok(Step {})
         }
+        Switch(e1, cases) => {
+            core.stack.push_back(Frame {
+                env: core.env.clone(),
+                cont: FrameCont::Switch(cases)
+            });
+            core.cont = Cont::Exp_(e1);
+            Ok(Step {})
+        }
+        Block(decs) => {
+            core.stack.push_back(Frame {
+                env: core.env.clone(),
+                cont: FrameCont::Block
+            });
+            core.cont = Cont::Decs(decs.vec.into());
+            Ok(Step {})
+        }
         _ => todo!(),
     }
 }
 
+fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
+    match (pat, v) {
+        (Pat::Paren(p), v) => {
+            pattern_matches(env, &*p, v)
+        }
+        (Pat::Var(x), v) => {
+            let mut env = env.clone();
+            env.insert(x.clone(), v.clone());
+            Some(env)
+        }
+        (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
+            if *id1 != **id2 { return None };
+            Some(env.clone())
+        }
+        (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
+            if *id1 != **id2 { return None };
+            pattern_matches(env, &*pat_, &*v_)                
+        }
+        _ => None
+    }
+}
+
+fn switch(core: &mut Core, limits: &Limits, v: Value, cases: Cases) -> Result<Step, Interruption> {
+    for case in cases.vec.into_iter() {
+        if let Some(env) = pattern_matches(&core.env, &case.pat, &v) {
+            core.env = env;
+            core.cont = Cont::Exp_(Box::new(case.exp));
+            return Ok(Step {})
+        }    
+    }
+    Err(Interruption::NoMatchingCase)
+}
+
 // To advance the core Motoko state by a single step.
 pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
-    println!("{:?}", core);
-    let cont = std::mem::replace(&mut core.cont, Cont::Taken);
+    println!("cont = {:?}", core.cont);
+    println!("env = {:?}", core.env);
+    println!("stack = {:?}", core.stack);
+    let cont = core.cont.clone(); // to do -- avoid clone here.
+    core.cont = Cont::Taken;
     match cont {
         Cont::Exp_(e) => {
-            core.cont = Cont::Taken;
+            println!("exp_step(\"{:?}\")", &e);
             exp_step(core, *e, limits)
         }
         Cont::Value(v) => {
@@ -151,6 +203,13 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                     }
                     Variant(i) => {
                         core.cont = Cont::Value(Value::Variant(i, Some(Box::new(v))));
+                        Ok(Step {})
+                    }
+                    Switch(cases) => {
+                        switch(core, limits, v, cases)
+                    }
+                    Block => {
+                        core.cont = Cont::Value(v);
                         Ok(Step {})
                     }
                     _ => todo!(),
@@ -194,8 +253,7 @@ pub fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
         match core_step(&mut local.active, limits) {
             Ok(_step) => { /* to do */ }
             Err(Interruption::Done(v)) => return Ok(Signal::Done(v)),
-            Err(Interruption::Limit(limit)) => return Ok(Signal::ReachedLimit(limit)),
-            _ => unimplemented!(),
+            Err(other_interruption) => return Ok(Signal::Interruption(other_interruption)),
         }
     }
 }
@@ -209,7 +267,7 @@ pub fn eval(prog: &str) -> Result<Value, ()> {
     println!("final signal: {:?}", s);
     use crate::vm_types::Signal::*;
     match s {
-        ReachedLimit(_) => unreachable!(),
         Done(result) => Ok(result),
+        Interruption(_) => Err(()),
     }
 }

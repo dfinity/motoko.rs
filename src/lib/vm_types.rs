@@ -34,7 +34,7 @@ pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
 
 pub mod stack {
     use super::{Cont, Env};
-    use crate::ast::{BinOp, Exp, Exp_, Id_, Pat};
+    use crate::ast::{BinOp, Exp, Exp_, Id_, Pat, Cases};
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 
@@ -47,6 +47,8 @@ pub mod stack {
         BinOp2(Value, BinOp),
         Paren,
         Variant(Id_),
+        Switch(Cases),
+        Block
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
@@ -147,6 +149,7 @@ pub struct Step {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interruption {
     TypeMismatch,
+    NoMatchingCase,
     ParseError,
     UnboundIdentifer(Identifier),
     BlockedAwaiting,
@@ -158,7 +161,7 @@ pub enum Interruption {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Signal {
     Done(Value),
-    ReachedLimit(Limit),
+    Interruption(Interruption),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

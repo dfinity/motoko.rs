@@ -43,6 +43,7 @@ pub fn core_init(prog: Prog) -> Core {
 }
 
 // to do Q -- how much detail to provide about stepping?
+#[derive(Clone, Debug)]
 pub struct Step {
     // - new context ID?
     // - log of lexical regions of steps?
@@ -50,6 +51,7 @@ pub struct Step {
 }
 
 // interruptions are events that prevent steppping from progressing.
+#[derive(Clone, Debug)]
 pub enum Interruption {
     TypeMismatch,
     ParseError,

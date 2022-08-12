@@ -1,4 +1,4 @@
-use motoko::check::assert_vm_run as assert_;
+use motoko::check::assert_vm_eval as assert_;
 
 fn assert_is_value(v: &str) {
     assert_(v, v)
@@ -14,6 +14,7 @@ fn test_literals() {
 #[test]
 fn test_let() {
     assert_("let x = 1; x", "1");
+    assert_("let x = 1; let y = do {let x = 666; 42}; x + y", "43");
 }
 
 #[test]

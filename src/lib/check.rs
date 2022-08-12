@@ -41,7 +41,7 @@ pub fn assert_roundtrip(input: &str) {
     let _ = assert_parse(input, input);
 }
 
-pub fn assert_vm_run(input_prog: &str, expected_result: &str) {
+pub fn assert_vm_eval(input_prog: &str, expected_result: &str) {
     println!(
         "\nassert_vm_run(\"{}\", \"{}\")",
         input_prog, expected_result

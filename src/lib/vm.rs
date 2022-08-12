@@ -142,6 +142,14 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
             core.cont = Cont::Decs(decs.vec.into());
             Ok(Step {})
         }
+        Do(e) => {
+            core.stack.push_back(Frame {
+                env: core.env.clone(),
+                cont: FrameCont::Do,
+            });
+            core.cont = Cont::Exp_(e);
+            Ok(Step {})
+        }
         _ => todo!(),
     }
 }
@@ -221,6 +229,10 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             }
             Switch(cases) => switch(core, limits, v, cases),
             Block => {
+                core.cont = Cont::Value(v);
+                Ok(Step {})
+            }
+            Do => {
                 core.cont = Cont::Value(v);
                 Ok(Step {})
             }

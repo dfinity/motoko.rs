@@ -49,6 +49,7 @@ pub mod stack {
         Paren,
         Variant(Id_),
         Switch(Cases),
+        Do,
         Block,
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]

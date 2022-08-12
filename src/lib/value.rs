@@ -1,30 +1,31 @@
 use crate::ast::{Dec, Decs, Exp, Id_, Literal};
-use eq_float::F64;
 use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
 use num_bigint::{BigInt, BigUint, ParseBigIntError};
+use serde::{Deserialize, Serialize};
+// use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
 /// Permit sharing, and fast concats.
 pub type Text = Vector<String>;
 
-#[derive(Debug, Clone, PartialEq, Eq)] // , PartialEq, Eq
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mut(bool);
 
-#[derive(Debug, Clone, PartialEq, Eq)] // , PartialEq, Eq
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldValue {
     pub mut_: Mut,
     pub value: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Value {
     Null,
     Bool(bool),
     Unit,
     Nat(BigUint),
     Int(BigInt),
-    Float(F64), // TODO: test NaN equality compared to Motoko
+//    Float(f64),
     Char(char),
     Text(Text),
     Blob(Vec<u8>),

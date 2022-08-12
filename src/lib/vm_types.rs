@@ -1,14 +1,15 @@
 use im_rc::{HashMap, Vector};
+use serde::{Deserialize, Serialize};
 
 use crate::ast::{Dec, Exp_, Id as Identifier};
 use crate::value::Value;
 
 /// Or maybe a string?
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Id(u64);
 
 /// Or maybe a string?
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Pointer(u64);
 
 /// Local continuation as a Dec sequence.  This Vector permits
@@ -18,7 +19,7 @@ pub struct Pointer(u64);
 /// evaluate.  A single expression injects into this type as a
 /// singleton vector holding a Dec::Exp.  A fnal Value is not syntax
 /// (its extensional, not intensional) and stands as its own case.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Cont {
     Taken,
     Decs(Vector<Dec>),
@@ -35,9 +36,10 @@ pub mod stack {
     use super::{Cont, Env};
     use crate::ast::{BinOp, Exp, Exp_, Id_, Pat};
     use crate::value::Value;
+    use serde::{Deserialize, Serialize};
 
     /// Local continuation, stored in a stack frame.
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum FrameCont {
         Let(Pat, Cont),
         Var(Pat, Cont),
@@ -46,7 +48,7 @@ pub mod stack {
         Paren,
         Variant(Id_),
     }
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
         pub env: Env,
         pub cont: FrameCont,
@@ -66,7 +68,7 @@ pub type Store = HashMap<Pointer, Value>;
 
 /// Counts. Some ideas of how we could count and limit what the VM
 /// does, to interject some "slow interactivity" into its execution.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Counts {
     pub step: usize,
     pub stack: usize,
@@ -80,7 +82,7 @@ pub struct Counts {
 ///
 /// The cost of copying this state is O(1), permitting us to
 /// eventually version it and generate a DAG of relationships.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Core {
     pub store: Store,
     pub stack: Stack,
@@ -116,7 +118,7 @@ pub struct Canister {
 
 // Some ideas of how we could count and limit what the VM does,
 // to interject some "slow interactivity" into its execution.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Limits {
     pub step: Option<usize>,
     pub stack: Option<usize>,
@@ -125,7 +127,7 @@ pub struct Limits {
     pub send: Option<usize>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Limit {
     Step,
     Stack,
@@ -135,6 +137,7 @@ pub enum Limit {
 }
 
 // to do Q -- how much detail to provide about stepping?
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Step {
     // - new context ID?
     // - log of lexical regions of steps?
@@ -142,6 +145,7 @@ pub struct Step {
 }
 
 // interruptions are events that prevent steppping from progressing.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interruption {
     TypeMismatch,
     ParseError,
@@ -152,13 +156,13 @@ pub enum Interruption {
     Done(Value),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Signal {
     Done(Value),
     ReachedLimit(Limit),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Error {
     ICAgentError,
     // etc

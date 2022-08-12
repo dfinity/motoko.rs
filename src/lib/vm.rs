@@ -5,6 +5,7 @@ use crate::vm_types::{
     Cont, Core, Counts, Local, Error, Signal, Interruption, Step, Canister, Limits
 };
 use im_rc::{HashMap, Vector};
+use serde::{Deserialize, Serialize};
 
 impl Limits {    
     fn none() -> Limits {

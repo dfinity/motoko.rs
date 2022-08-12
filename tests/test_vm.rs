@@ -25,7 +25,6 @@ fn test_binop() {
     assert_("3 - (2 - 1)", "2");
 }
 
-
 #[test]
 fn test_switch() {
     assert_("switch (#apple) { case (#apple) { 42 } }", "42");

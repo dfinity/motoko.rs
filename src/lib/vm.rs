@@ -36,12 +36,6 @@ pub fn core_init(prog: Prog) -> Core {
     }
 }
 
-/*
-fn pattern(env: Env, pat: &Pat, val: Value) -> Result<Env, MatchError> {
-
-}
-*/
-
 fn unop(un: UnOp, v: Value) -> Result<Value, Interruption> {
     match (un, v) {
         (UnOp::Neg, Value::Nat(n)) => Ok(Value::Int(-BigInt::from(n))),
@@ -187,62 +181,66 @@ fn switch(core: &mut Core, limits: &Limits, v: Value, cases: Cases) -> Result<St
     Err(Interruption::NoMatchingCase)
 }
 
+// continue execution using the top-most stack frame, if any.
+fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interruption> {
+    if core.stack.len() == 0 {
+        Err(Interruption::Done(v.clone()))
+    } else {
+        use FrameCont::*;
+        let frame = core.stack.pop_back().unwrap();
+        core.env = frame.env;
+        match frame.cont {
+            UnOp(un) => {
+                core.cont = Cont::Value(unop(un, v)?);
+                Ok(Step {})
+            }
+            BinOp1(binop, e2) => {
+                core.stack.push_back(Frame {
+                    env: core.env.clone(),
+                    cont: BinOp2(v, binop),
+                });
+                core.cont = Cont::Exp_(e2);
+                Ok(Step {})
+            }
+            BinOp2(v1, bop) => {
+                core.cont = Cont::Value(binop(bop, v1, v)?);
+                Ok(Step {})
+            }
+            Let(Pat::Var(x), cont) => {
+                core.env.insert(x, v);
+                core.cont = cont;
+                Ok(Step {})
+            }
+            Paren => {
+                core.cont = Cont::Value(v);
+                Ok(Step {})
+            }
+            Variant(i) => {
+                core.cont = Cont::Value(Value::Variant(i, Some(Box::new(v))));
+                Ok(Step {})
+            }
+            Switch(cases) => switch(core, limits, v, cases),
+            Block => {
+                core.cont = Cont::Value(v);
+                Ok(Step {})
+            }
+            _ => todo!(),
+        }
+    }
+}
+
 // To advance the core Motoko state by a single step.
 pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
-    println!("cont = {:?}", core.cont);
-    println!("env = {:?}", core.env);
-    println!("stack = {:?}", core.stack);
+    println!("# step {}", core.counts.step);
+    println!(" - cont = {:?}", core.cont);
+    println!(" - env = {:?}", core.env);
+    println!(" - stack = {:?}", core.stack);
+    core.counts.step += 1;
     let cont = core.cont.clone(); // to do -- avoid clone here.
     core.cont = Cont::Taken;
     match cont {
-        Cont::Exp_(e) => {
-            println!("exp_step(\"{:?}\")", &e);
-            exp_step(core, *e, limits)
-        }
-        Cont::Value(v) => {
-            if core.stack.len() == 0 {
-                Err(Interruption::Done(v.clone()))
-            } else {
-                use FrameCont::*;
-                match core.stack.pop_back().unwrap().cont {
-                    UnOp(un) => {
-                        core.cont = Cont::Value(unop(un, v)?);
-                        Ok(Step {})
-                    }
-                    BinOp1(binop, e2) => {
-                        core.stack.push_back(Frame {
-                            env: core.env.clone(),
-                            cont: BinOp2(v, binop),
-                        });
-                        core.cont = Cont::Exp_(e2);
-                        Ok(Step {})
-                    }
-                    BinOp2(v1, bop) => {
-                        core.cont = Cont::Value(binop(bop, v1, v)?);
-                        Ok(Step {})
-                    }
-                    Let(Pat::Var(x), cont) => {
-                        core.env.insert(x, v);
-                        core.cont = cont;
-                        Ok(Step {})
-                    }
-                    Paren => {
-                        core.cont = Cont::Value(v);
-                        Ok(Step {})
-                    }
-                    Variant(i) => {
-                        core.cont = Cont::Value(Value::Variant(i, Some(Box::new(v))));
-                        Ok(Step {})
-                    }
-                    Switch(cases) => switch(core, limits, v, cases),
-                    Block => {
-                        core.cont = Cont::Value(v);
-                        Ok(Step {})
-                    }
-                    _ => todo!(),
-                }
-            }
-        }
+        Cont::Exp_(e) => exp_step(core, *e, limits),
+        Cont::Value(v) => stack_cont(core, limits, v),
         Cont::Decs(mut decs) => {
             if decs.len() == 0 {
                 core.cont = Cont::Value(Value::Unit);

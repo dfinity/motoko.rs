@@ -64,7 +64,7 @@ pub enum CliCommand {
     Echo {
         input: String,
     },
-    Step {
+    Eval {
         input: String,
     },
 }
@@ -105,21 +105,9 @@ fn main() -> OurResult<()> {
             let p = motoko::check::parse(&input)?;
             println!("{}", format_one_line(&p));
         }
-        CliCommand::Step { input } => {
-            let p = motoko::check::parse(&input)?;
-            let c = motoko::vm::core_init(p);
-            let mut l = motoko::vm::local_init(c);
-            let s = motoko::vm::local_run(
-                &mut l,
-                &Limits {
-                    step: None,
-                    stack: None,
-                    call: None,
-                    alloc: None,
-                    send: None,
-                },
-            )?;
-            println!("final signal: {:?}", s)
+        CliCommand::Eval { input } => {
+            let v = motoko::vm::eval(&input);
+            println!("final value: {:?}", v)
         }
     };
     Ok(())

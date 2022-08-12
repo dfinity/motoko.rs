@@ -2,28 +2,20 @@ use crate::ast::{BinOp, Dec, Exp, Id as Identifier, Id_, Pat, Prog};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Cont, Core, Counts, Local,
+    Cont, Core, Counts, Local, Error, Signal, Interruption, Step, Canister, Limits
 };
 use im_rc::{HashMap, Vector};
 
-// Some ideas of how we could count and limit what the VM does,
-// to interject some "slow interactivity" into its execution.
-#[derive(Clone, Debug)]
-pub struct Limits {
-    pub step: Option<usize>,
-    pub stack: Option<usize>,
-    pub call: Option<usize>,
-    pub alloc: Option<usize>,
-    pub send: Option<usize>,
-}
-
-#[derive(Clone, Debug)]
-pub enum Limit {
-    Step,
-    Stack,
-    Call,
-    Alloc,
-    Send,
+impl Limits {    
+    fn none() -> Limits {
+        Limits {
+            step: None,
+            stack: None,
+            call: None,
+            alloc: None,
+            send: None,
+        }
+    }
 }
 
 pub fn core_init(prog: Prog) -> Core {
@@ -40,24 +32,6 @@ pub fn core_init(prog: Prog) -> Core {
             send: 0,
         },
     }
-}
-
-// to do Q -- how much detail to provide about stepping?
-pub struct Step {
-    // - new context ID?
-    // - log of lexical regions of steps?
-    // - log of kind of steps (expression kinds)?
-}
-
-// interruptions are events that prevent steppping from progressing.
-pub enum Interruption {
-    TypeMismatch,
-    ParseError,
-    UnboundIdentifer(Identifier),
-    BlockedAwaiting,
-    Limit(Limit),
-    DivideByZero,
-    Done(Value),
 }
 
 /*
@@ -213,18 +187,6 @@ pub fn local_init(active: Core) -> Local {
     Local { active }
 }
 
-#[derive(Debug)]
-pub enum Signal {
-    Done(Value),
-    ReachedLimit(Limit),
-}
-
-#[derive(Clone, Debug)]
-pub enum Error {
-    ICAgentError,
-    // etc
-}
-
 // use ic-agent to do function calls.
 pub fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
     loop {
@@ -234,5 +196,22 @@ pub fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
             Err(Interruption::Limit(limit)) => return Ok(Signal::ReachedLimit(limit)),
             _ => unimplemented!(),
         }
+    }
+}
+
+/// Used for tests in check module.
+pub fn eval(prog: &str) -> Result<Value, ()> {
+    let p = crate::check::parse(&prog)?;
+    let c = core_init(p);
+    let mut l = local_init(c);
+    let s = local_run(
+        &mut l,
+        &Limits::none(),
+    ).map_err(|_|{()})?;
+    println!("final signal: {:?}", s);
+    use crate::vm_types::Signal::*;
+    match s {
+        ReachedLimit(_) => unreachable!(),
+        Done(result) => Ok(result)
     }
 }

@@ -5,7 +5,7 @@ use std::io;
 use structopt::{clap, clap::Shell};
 
 use motoko::format::format_one_line;
-use motoko::vm::Limits;
+use motoko::vm_types::Limits;
 
 pub type OurResult<X> = Result<X, OurError>;
 
@@ -15,8 +15,8 @@ impl From<()> for OurError {
     }
 }
 
-impl From<motoko::vm::Error> for OurError {
-    fn from(vm: motoko::vm::Error) -> Self {
+impl From<motoko::vm_types::Error> for OurError {
+    fn from(vm: motoko::vm_types::Error) -> Self {
         OurError::VM(vm)
     }
 }
@@ -25,7 +25,7 @@ impl From<motoko::vm::Error> for OurError {
 pub enum OurError {
     Unit,
     String(String),
-    VM(motoko::vm::Error),
+    VM(motoko::vm_types::Error),
 }
 
 /// Motoko tools in Rust.

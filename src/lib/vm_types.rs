@@ -112,3 +112,54 @@ pub struct Canister {
     // Q: Unclear how the use of the ic-agent is affected.
     // Unclear how these changes affect the state we need.
 }
+
+
+// Some ideas of how we could count and limit what the VM does,
+// to interject some "slow interactivity" into its execution.
+#[derive(Clone, Debug)]
+pub struct Limits {
+    pub step: Option<usize>,
+    pub stack: Option<usize>,
+    pub call: Option<usize>,
+    pub alloc: Option<usize>,
+    pub send: Option<usize>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Limit {
+    Step,
+    Stack,
+    Call,
+    Alloc,
+    Send,
+}
+
+// to do Q -- how much detail to provide about stepping?
+pub struct Step {
+    // - new context ID?
+    // - log of lexical regions of steps?
+    // - log of kind of steps (expression kinds)?
+}
+
+// interruptions are events that prevent steppping from progressing.
+pub enum Interruption {
+    TypeMismatch,
+    ParseError,
+    UnboundIdentifer(Identifier),
+    BlockedAwaiting,
+    Limit(Limit),
+    DivideByZero,
+    Done(Value),
+}
+
+#[derive(Debug)]
+pub enum Signal {
+    Done(Value),
+    ReachedLimit(Limit),
+}
+
+#[derive(Clone, Debug)]
+pub enum Error {
+    ICAgentError,
+    // etc
+}

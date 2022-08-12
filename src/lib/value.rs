@@ -8,16 +8,16 @@ use num_bigint::{BigInt, BigUint, ParseBigIntError};
 /// Permit sharing, and fast concats.
 pub type Text = Vector<String>;
 
-#[derive(Debug, Clone)] // , PartialEq, Eq
+#[derive(Debug, Clone, PartialEq, Eq)] // , PartialEq, Eq
 pub struct Mut(bool);
 
-#[derive(Debug, Clone)] // , PartialEq, Eq
+#[derive(Debug, Clone, PartialEq, Eq)] // , PartialEq, Eq
 pub struct FieldValue {
     pub mut_: Mut,
     pub value: Value,
 }
 
-#[derive(Debug, Clone)] // , PartialEq, Eq
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     Null,
     Bool(bool),

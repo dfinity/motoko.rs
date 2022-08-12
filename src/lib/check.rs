@@ -1,6 +1,7 @@
 use crate::ast::Prog;
 use crate::format::format_one_line;
 use crate::lexer::{create_lex_tree, TokenTree};
+use crate::vm_types::Limits;
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
     // crate::parser::ExpParser::new().parse(input).map_err(|_| ())
@@ -38,4 +39,10 @@ pub fn assert_parse(input: &str, expected: &str) -> Prog {
 
 pub fn assert_roundtrip(input: &str) {
     let _ = assert_parse(input, input);
+}
+
+pub fn assert_vm_run(input_prog: &str, expected_result: &str) {
+    let v1 = crate::vm::eval(input_prog).unwrap();
+    let v2 = crate::vm::eval(expected_result).unwrap();
+    assert_eq!(v1, v2)
 }

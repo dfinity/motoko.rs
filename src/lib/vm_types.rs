@@ -159,6 +159,7 @@ pub enum Interruption {
     Limit(Limit),
     DivideByZero,
     Done(Value),
+    Unknown
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

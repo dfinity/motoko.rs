@@ -17,6 +17,7 @@ fn test_ids() {
     assert_("xxx_");
     assert_("xXx_01");
     assert_("xxx_01_xxX");
+    assert_("_x"); // valid in OCaml Motoko
 
     // 'let' as a variable -- this is not a legal program, but we want a good parse error, so parse it as a variable.
     // currently results in a parse error

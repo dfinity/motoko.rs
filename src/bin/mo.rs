@@ -4,7 +4,7 @@ use log::info;
 use std::io;
 use structopt::{clap, clap::Shell};
 
-use motoko::format::format_one_line;
+use motoko::format::{format_one_line, format_pretty};
 use motoko::vm_types::Limits;
 
 pub type OurResult<X> = Result<X, OurError>;
@@ -64,6 +64,10 @@ pub enum CliCommand {
     Echo {
         input: String,
     },
+    Format {
+        input: String,
+        width: usize,
+    },
     Eval {
         input: String,
     },
@@ -104,6 +108,10 @@ fn main() -> OurResult<()> {
         CliCommand::Echo { input } => {
             let p = motoko::check::parse(&input)?;
             println!("{}", format_one_line(&p));
+        }
+        CliCommand::Format { input, width } => {
+            let p = motoko::lexer::create_token_tree(&input)?;
+            println!("{}", format_pretty(&p, width));
         }
         CliCommand::Eval { input } => {
             let v = motoko::vm::eval(&input);

@@ -1,6 +1,6 @@
 use crate::ast::Prog;
-use crate::format::format_one_line;
-use crate::lexer::{create_lex_tree, TokenTree};
+use crate::format::{format_one_line, format_pretty};
+use crate::lexer::{create_token_tree, TokenTree};
 use crate::vm_types::Limits;
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
@@ -9,20 +9,23 @@ pub fn parse(input: &str) -> Result<Prog, ()> {
 }
 
 #[allow(unused_variables)]
-pub fn assert_lex(input: &str, expected: &str) -> TokenTree {
+pub fn assert_lex(input: &str, expected: &str, width: Option<usize>) -> TokenTree {
     println!("testing {}", input);
-    let tree = create_lex_tree(input).unwrap();
+    let tree = create_token_tree(input).unwrap();
     println!(" * input {}", input);
     println!(" * parsed {:?}", tree);
-    let formatted = format!("{}", tree);
-    println!(" * formatted {}", formatted);
+    let result = width
+        .map(|width| format_pretty(&tree, width))
+        .unwrap_or_else(|| format_one_line(&tree));
+    let formatted = format!("{}", result);
+    println!(" * formatted:\n{}", formatted);
     assert_eq!(formatted, expected);
     tree
 }
 
 #[allow(unused_variables)]
-pub fn assert_lex_roundtrip(input: &str) -> TokenTree {
-    assert_lex(input, input)
+pub fn assert_lex_roundtrip(input: &str, width: Option<usize>) -> TokenTree {
+    assert_lex(input, input, width)
 }
 
 #[allow(unused_variables)]

@@ -12,7 +12,7 @@ NatIndex: usize = {
 }
 
 Id: Id = {
-    r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
+    r"[a-zA-Z_][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
 
 Id_: Id_ = {
@@ -309,7 +309,7 @@ ExpBin3<B>: Exp = {
 }
 
 TextId: String = {
-   r"[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
+   Id,
 }
 
 Cases: Cases = {

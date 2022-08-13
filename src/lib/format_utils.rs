@@ -90,3 +90,29 @@ pub fn quote_ident(id: &str) -> RcDoc {
         .append("'")
         .append(RcDoc::space())
 }
+
+// RcDoc shorthand functions
+
+pub fn nil<'a>() -> RcDoc<'a> {
+    RcDoc::nil()
+}
+
+pub fn space<'a>() -> RcDoc<'a> {
+    RcDoc::space()
+}
+
+pub fn line<'a>() -> RcDoc<'a> {
+    RcDoc::line()
+}
+
+pub fn line_<'a>() -> RcDoc<'a> {
+    RcDoc::line_()
+}
+
+pub fn wrap<'a>() -> RcDoc<'a> {
+    RcDoc::softline().nest(INDENT_SPACE)
+}
+
+pub fn wrap_<'a>() -> RcDoc<'a> {
+    RcDoc::softline_().nest(INDENT_SPACE)
+}

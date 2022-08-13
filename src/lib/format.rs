@@ -5,6 +5,7 @@ use crate::ast::{
     PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
+use crate::lexer::{is_keyword, GroupSort, Token, TokenTree};
 use pretty::RcDoc;
 
 fn format_(doc: RcDoc, width: usize) -> String {
@@ -45,7 +46,7 @@ fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
 fn delim_left<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
-        str(sep).append(doc)
+        str(sep).append(RcDoc::space()).append(doc)
     } else {
         doc
     }
@@ -476,5 +477,101 @@ impl ToDoc for ObjSort {
             ObjSort::Actor => "actor",
             ObjSort::Module => "module",
         })
+    }
+}
+
+// Token-based code formatter
+
+fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
+    let mut results = vec![];
+    filter_whitespace_(trees, &mut results);
+    results
+}
+
+fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTree>) {
+    for tt in trees {
+        if match tt {
+            TokenTree::Token(Token::Space(_), _) => false,
+            _ => true,
+        } {
+            results.push(tt);
+        }
+    }
+}
+
+fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
+    use crate::lexer::Token::*;
+    use GroupSort::*;
+    use TokenTree::*;
+    match (a, b) {
+        // TODO: refactor these rules to a text-based configuration file
+        (Token(Space(_), _), _) | (_, Token(Space(_), _)) => nil(),
+        (Token(MultiLineSpace(_), _), _) | (_, Token(MultiLineSpace(_), _)) => nil(),
+        (Token(Ident(s), _), Group(_, g, _))
+            if !is_keyword(s) && (g == &Paren || g == &Square || g == &Angle) =>
+        {
+            nil()
+        }
+        (Token(Open(_), _), _) | (_, Token(Close(_), _)) => nil(),
+        (_, Token(Delim(_), _)) => nil(),
+        (Token(Delim(_), _), _) => line(),
+        (Token(Dot(_), _), _) => nil(),
+        (Token(Operator(s), _), _) if s.eq("?") => nil(),
+        (_, Token(Operator(s), _)) if s.eq("!") => nil(),
+        (_, Token(Operator(s), _)) if s.starts_with(" ") => nil(),
+        (Token(Operator(s), _), Token(Ident(_), _)) if s.eq("#") => nil(),
+        (_, Token(Dot(_), _)) => wrap_(),
+        (Token(Assign(_), _), _) => wrap(),
+        (_, Group(_, Comment, _)) => wrap(),
+        (Group(_, Comment, _), _) => line(),
+        _ => space(),
+    }
+}
+
+impl ToDoc for TokenTree {
+    fn doc(&self) -> RcDoc {
+        use GroupSort::*;
+        use TokenTree::*;
+        match self {
+            Token(t, _) => t.doc(),
+            Group(trees, sort, pair) => {
+                let trees = filter_whitespace(trees);
+                let doc = match trees.first() {
+                    None => RcDoc::nil(),
+                    Some(tt) => {
+                        let mut doc = tt.doc();
+                        for i in 0..trees.len() - 1 {
+                            let (a, b) = (trees[i], trees[i + 1]);
+                            doc = doc.append(get_space(a, b)).append(b.doc());
+                        }
+                        doc
+                    }
+                };
+                // let concat = RcDoc::concat(docs);
+                let (open, close) = if let Some(((open, _), (close, _))) = pair {
+                    (&open.data().unwrap()[..], &close.data().unwrap()[..])
+                } else {
+                    ("", "") // TODO refactor GroupSort into Option
+                };
+                match sort {
+                    Unenclosed => doc,
+                    Curly => enclose_space(open, doc, close),
+                    Paren | Square | Angle => enclose(open, doc, close),
+                    // Comment => str(open).append(format!("{}", self)).append(close),
+                    Comment => str("").append(format!("{}", self)),
+                }
+            }
+        }
+    }
+}
+
+impl ToDoc for Token {
+    fn doc(&self) -> RcDoc {
+        use Token::*;
+        match self {
+            &MultiLineSpace(_) => RcDoc::hardline().append(RcDoc::hardline()),
+            t => str(t.data().unwrap()),
+        }
+        // str(self.data().unwrap())
     }
 }

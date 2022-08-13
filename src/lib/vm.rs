@@ -150,6 +150,23 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
             core.cont = Cont::Exp_(e);
             Ok(Step {})
         }
+        Tuple(es) => {
+            let mut es: Vector<_> = es.vec.into();
+            match es.pop_front() {
+                None => {
+                    core.cont = Cont::Value(Value::Unit);
+                    Ok(Step {})
+                }
+                Some(e1) => {
+                    core.stack.push_back(Frame {
+                        env: core.env.clone(),
+                        cont: FrameCont::Tuple(Vector::new(), es),
+                    });
+                    core.cont = Cont::Exp_(Box::new(e1));
+                    Ok(Step {})
+                }
+            }
+        }
         _ => todo!(),
     }
 }
@@ -235,6 +252,23 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             Do => {
                 core.cont = Cont::Value(v);
                 Ok(Step {})
+            }
+            Tuple(mut done, mut rest) => {
+                done.push_back(v);
+                match rest.pop_front() {
+                    None => {
+                        core.cont = Cont::Value(Value::Tuple(done));
+                        Ok(Step {})
+                    }
+                    Some(next) => {
+                        core.stack.push_back(Frame {
+                            env: core.env.clone(),
+                            cont: Tuple(done, rest),
+                        });
+                        core.cont = Cont::Exp_(Box::new(next));
+                        Ok(Step {})
+                    }
+                }
             }
             _ => todo!(),
         }

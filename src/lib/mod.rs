@@ -8,3 +8,5 @@ mod lexer_query;
 pub mod parser;
 mod parser_utils;
 pub mod value;
+pub mod vm;
+pub mod vm_types;

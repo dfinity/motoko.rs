@@ -5,6 +5,7 @@ use std::io;
 use structopt::{clap, clap::Shell};
 
 use motoko::format::{format_one_line, format_pretty};
+use motoko::vm_types::Limits;
 
 pub type OurResult<X> = Result<X, OurError>;
 
@@ -14,10 +15,17 @@ impl From<()> for OurError {
     }
 }
 
+impl From<motoko::vm_types::Error> for OurError {
+    fn from(vm: motoko::vm_types::Error) -> Self {
+        OurError::VM(vm)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum OurError {
     Unit,
     String(String),
+    VM(motoko::vm_types::Error),
 }
 
 /// Motoko tools in Rust.
@@ -60,6 +68,9 @@ pub enum CliCommand {
         input: String,
         width: usize,
     },
+    Eval {
+        input: String,
+    },
 }
 
 fn init_log(level_filter: log::LevelFilter) {
@@ -101,6 +112,10 @@ fn main() -> OurResult<()> {
         CliCommand::Format { input, width } => {
             let p = motoko::lexer::create_token_tree(&input)?;
             println!("{}", format_pretty(&p, width));
+        }
+        CliCommand::Eval { input } => {
+            let v = motoko::vm::eval(&input);
+            println!("final value: {:?}", v)
         }
     };
     Ok(())

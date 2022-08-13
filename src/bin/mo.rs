@@ -45,6 +45,10 @@ pub struct CliOpt {
     #[structopt(short = "L", long = "log")]
     pub log_info: bool,
 
+    /// Limit stepping where relevant (see eval command).
+    #[structopt(short = "s", long = "step-limit")]
+    pub step_limit: Option<usize>,
+
     #[structopt(subcommand)]
     pub command: CliCommand,
 }
@@ -114,7 +118,12 @@ fn main() -> OurResult<()> {
             println!("{}", format_pretty(&p, width));
         }
         CliCommand::Eval { input } => {
-            let v = motoko::vm::eval(&input);
+            let mut limits = Limits::none();
+            match cli_opt.step_limit {
+                None => {},
+                Some(limit) => limits.step(limit)
+            };
+            let v = motoko::vm::eval_limit(&input, &limits);
             println!("final value: {:?}", v)
         }
     };

@@ -31,3 +31,9 @@ fn test_switch() {
     assert_("switch (#apple) { case (#apple) { 42 } }", "42");
     assert_("switch (#apple(42)) { case (#apple(x)) { x } }", "42")
 }
+
+#[test]
+fn test_tuples() {
+    assert_("(1, 2, 3)", "(1, 2, 3)");
+    assert_("(1 + 1, 2 + 2, 3 + 3)", "(2, 4, 6)");
+}

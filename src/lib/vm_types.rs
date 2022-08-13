@@ -33,7 +33,7 @@ pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
 }
 
 pub mod stack {
-    use super::{Cont, Env};
+    use super::{Cont, Env, Vector};
     use crate::ast::{BinOp, Cases, Exp, Exp_, Id_, Pat, UnOp};
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
@@ -51,6 +51,7 @@ pub mod stack {
         Switch(Cases),
         Do,
         Block,
+        Tuple(Vector<Value>, Vector<Exp>),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
@@ -158,6 +159,7 @@ pub enum Interruption {
     Limit(Limit),
     DivideByZero,
     Done(Value),
+    Unknown
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

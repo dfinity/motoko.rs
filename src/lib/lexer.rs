@@ -75,7 +75,9 @@ fn find_closing(sort: &GroupSort, tokens: &[(Token, Span)], start: usize) -> Opt
         if let Token::Open((_, g)) = t {
             if g == sort {
                 depth += 1;
-            } else if /* sort!=&GroupSort::Comment */ g == &GroupSort::Comment {
+            } else if
+            /* sort!=&GroupSort::Comment */
+            g == &GroupSort::Comment {
                 // Skip depth check in block comments
                 if let Some(j) = find_closing(&g, tokens, i) {
                     i = j;

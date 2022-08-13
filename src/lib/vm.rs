@@ -2,14 +2,21 @@ use crate::ast::{BinOp, Cases, Dec, Exp, Id as Identifier, Id_, Pat, Prog, UnOp}
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Canister, Cont, Core, Counts, Env, Error, Interruption, Limits, Local, Signal, Step,
+    Canister, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Signal, Step,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
+impl From<()> for Interruption {
+    // try to avoid this conversion, except in temp code.
+    fn from(_x: ()) -> Interruption {
+        Interruption::Unknown
+    }
+}
+
 impl Limits {
-    fn none() -> Limits {
+    pub fn none() -> Limits {
         Limits {
             step: None,
             stack: None,
@@ -17,6 +24,9 @@ impl Limits {
             alloc: None,
             send: None,
         }
+    }
+    pub fn step(&mut self, s: usize) {
+        self.step = Some(s);
     }
 }
 
@@ -150,6 +160,23 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
             core.cont = Cont::Exp_(e);
             Ok(Step {})
         }
+        Tuple(es) => {
+            let mut es: Vector<_> = es.vec.into();
+            match es.pop_front() {
+                None => {
+                    core.cont = Cont::Value(Value::Unit);
+                    Ok(Step {})
+                }
+                Some(e1) => {
+                    core.stack.push_back(Frame {
+                        env: core.env.clone(),
+                        cont: FrameCont::Tuple(Vector::new(), es),
+                    });
+                    core.cont = Cont::Exp_(Box::new(e1));
+                    Ok(Step {})
+                }
+            }
+        }
         _ => todo!(),
     }
 }
@@ -236,6 +263,23 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(v);
                 Ok(Step {})
             }
+            Tuple(mut done, mut rest) => {
+                done.push_back(v);
+                match rest.pop_front() {
+                    None => {
+                        core.cont = Cont::Value(Value::Tuple(done));
+                        Ok(Step {})
+                    }
+                    Some(next) => {
+                        core.stack.push_back(Frame {
+                            env: core.env.clone(),
+                            cont: Tuple(done, rest),
+                        });
+                        core.cont = Cont::Exp_(Box::new(next));
+                        Ok(Step {})
+                    }
+                }
+            }
             _ => todo!(),
         }
     }
@@ -248,6 +292,11 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
     println!(" - env = {:?}", core.env);
     println!(" - stack = {:?}", core.stack);
     core.counts.step += 1;
+    if let Some(step_limit) = limits.step {
+        if core.counts.step > step_limit {
+            return Err(Interruption::Limit(Limit::Step));
+        }
+    }
     let cont = core.cont.clone(); // to do -- avoid clone here.
     core.cont = Cont::Taken;
     match cont {
@@ -296,15 +345,21 @@ pub fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
 }
 
 /// Used for tests in check module.
-pub fn eval(prog: &str) -> Result<Value, ()> {
+pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
     let p = crate::check::parse(&prog)?;
     let c = core_init(p);
     let mut l = local_init(c);
-    let s = local_run(&mut l, &Limits::none()).map_err(|_| ())?;
+    let s = local_run(&mut l, limits).map_err(|_| ())?;
     println!("final signal: {:?}", s);
     use crate::vm_types::Signal::*;
     match s {
         Done(result) => Ok(result),
-        Interruption(_) => Err(()),
+        Interruption(i) => Err(i),
     }
+}
+
+
+/// Used for tests in check module.
+pub fn eval(prog: &str) -> Result<Value, ()> {
+    eval_limit(prog, &Limits::none()).map_err(|_| ())
 }

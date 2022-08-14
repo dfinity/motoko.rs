@@ -54,7 +54,7 @@ impl Value {
         if decs.vec.len() > 1 {
             Err(ValueFromExpError::NotAValue)
         } else {
-            Value::from_dec(*decs.vec[0].0.clone())
+            Value::from_dec((*decs.vec[0].0).clone())
         }
     }
 

@@ -1,12 +1,11 @@
-use crate::ast::{BinOp, Cases, Dec, Exp, Id as Identifier, Id_, Pat, Prog, UnOp, Loc};
+use crate::ast::{BinOp, Cases, Dec, Exp, Loc, Pat, Prog, UnOp};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Canister, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Signal, Step,
+    Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Signal, Step,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::BigInt;
-use serde::{Deserialize, Serialize};
 
 impl From<()> for Interruption {
     // try to avoid this conversion, except in temp code.
@@ -90,11 +89,12 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
     use Exp::*;
     match exp {
         Literal(l) => {
-            core.cont = Cont::Value(Value::from_literal(l).map_err(|_| Interruption::ParseError)?);
+            core.cont =
+                Cont::Value(Value::from_literal(*l.0).map_err(|_| Interruption::ParseError)?);
             Ok(Step {})
         }
-        Var(x) => match core.env.get(&x) {
-            None => Err(Interruption::UnboundIdentifer(x.clone())),
+        Var(x) => match core.env.get(&*x.0) {
+            None => Err(Interruption::UnboundIdentifer((*x.0).clone())),
             Some(v) => {
                 core.cont = Cont::Value(v.clone());
                 Ok(Step {})
@@ -172,7 +172,7 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
                         env: core.env.clone(),
                         cont: FrameCont::Tuple(Vector::new(), es),
                     });
-                    core.cont = Cont::Exp_(Box::new(e1));
+                    core.cont = Cont::Exp_(e1);
                     Ok(Step {})
                 }
             }
@@ -183,23 +183,23 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
 
 fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
     match (pat, v) {
-        (Pat::Paren(p), v) => pattern_matches(env, &*p, v),
+        (Pat::Paren(p), v) => pattern_matches(env, &*p.0, v),
         (Pat::Var(x), v) => {
             let mut env = env.clone();
-            env.insert(x.clone(), v.clone());
+            env.insert((*x.0).clone(), v.clone());
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if *id1 != **id2 {
+            if *id1 != **id2.0 {
                 return None;
             };
             Some(env.clone())
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if *id1 != **id2 {
+            if *id1 != **id2.0 {
                 return None;
             };
-            pattern_matches(env, &*pat_, &*v_)
+            pattern_matches(env, &*pat_.0, &*v_)
         }
         _ => None,
     }
@@ -207,9 +207,9 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
 
 fn switch(core: &mut Core, limits: &Limits, v: Value, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
-        if let Some(env) = pattern_matches(&core.env, &case.pat, &v) {
+        if let Some(env) = pattern_matches(&core.env, &*case.0.pat.0, &v) {
             core.env = env;
-            core.cont = Cont::Exp_(Box::new(case.exp));
+            core.cont = Cont::Exp_(case.0.exp);
             return Ok(Step {});
         }
     }
@@ -242,7 +242,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Ok(Step {})
             }
             Let(Pat::Var(x), cont) => {
-                core.env.insert(x, v);
+                core.env.insert(*x.0, v);
                 core.cont = cont;
                 Ok(Step {})
             }
@@ -275,7 +275,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                             env: core.env.clone(),
                             cont: Tuple(done, rest),
                         });
-                        core.cont = Cont::Exp_(Box::new(next));
+                        core.cont = Cont::Exp_(next);
                         Ok(Step {})
                     }
                 }
@@ -300,22 +300,22 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
     let cont = core.cont.clone(); // to do -- avoid clone here.
     core.cont = Cont::Taken;
     match cont {
-        Cont::Exp_(e) => exp_step(core, e, limits),
+        Cont::Exp_(e) => exp_step(core, *e.0, limits),
         Cont::Value(v) => stack_cont(core, limits, v),
         Cont::Decs(mut decs) => {
             if decs.len() == 0 {
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             } else {
-                let d = decs.pop_front().unwrap();
-                match *d.0 {
+                let dec_ = decs.pop_front().unwrap();
+                match *dec_.0 {
                     Dec::Exp(e) => {
-                        core.cont = Cont::Exp_(Loc(e, d.1));
+                        core.cont = Cont::Exp_(Loc(Box::new(e), dec_.1));
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {
                         core.stack.push_back(Frame {
-                            cont: FrameCont::Let(p, Cont::Decs(decs)),
+                            cont: FrameCont::Let(*p.0, Cont::Decs(decs)),
                             env: core.env.clone(),
                         });
                         core.cont = Cont::Exp_(e);
@@ -358,7 +358,6 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
         Interruption(i) => Err(i),
     }
 }
-
 
 /// Used for tests in check module.
 pub fn eval(prog: &str) -> Result<Value, ()> {

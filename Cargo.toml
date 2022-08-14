@@ -18,6 +18,7 @@ num-bigint = { version = "0.4.3", features = ["serde"] }
 float-cmp = "0.9.0"
 pretty = "0.11.3"
 logos = "0.12.1"
+line-col = "0.2.1"
 im-rc = { version = "15.1.0", features = ["serde"] }
 serde = { version = "1.0.143", features = ["derive"] }
 

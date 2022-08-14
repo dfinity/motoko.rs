@@ -1,6 +1,7 @@
 use crate::ast::Prog;
 use crate::format::{format_one_line, format_pretty};
-use crate::lexer::{create_token_tree, TokenTree};
+use crate::lexer::{create_token_tree};
+use crate::lexer_types::TokenTree;
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
     // crate::parser::ExpParser::new().parse(input).map_err(|_| ())

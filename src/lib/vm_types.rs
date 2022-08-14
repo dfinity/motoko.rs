@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec, Exp_, Id as Identifier};
+use crate::ast::{Dec_, Exp_, Id as Identifier};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -24,7 +24,7 @@ pub enum Cont {
     Taken,
     Decs(Vector<Dec_>),
     Exp_(Exp_),
-    Value(Value),
+    Value(Value), // Should we retain source locations for these values?
 }
 
 /// Some(Value) exists if and only if the continuation is fully evaluated.
@@ -159,7 +159,7 @@ pub enum Interruption {
     Limit(Limit),
     DivideByZero,
     Done(Value),
-    Unknown
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

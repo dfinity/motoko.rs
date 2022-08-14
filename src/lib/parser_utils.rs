@@ -11,14 +11,14 @@ pub fn get_one<T>(d: Delim<T>) -> Result<Box<T>, Delim<T>> {
 }
 
 pub fn dec_into_exp(d: Dec_) -> Exp_ {
-    Located(
-        match d.0 {
+    Located(Box::new(
+        match *d.0 {
             Dec::Exp(e) => e,
-            d => Exp::Block(Delim {
+            _ => Exp::Block(Delim {
                 vec: vec![d],
                 has_trailing: false,
             }),
-        },
+        }),
         d.1,
     )
 }

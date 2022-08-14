@@ -12,6 +12,16 @@ pub struct Location {
     pub col: usize,
 }
 
+impl Location {
+    pub fn expand(&self, other: &Location) -> Location {
+        Location {
+            span: self.span.start..other.span.end,
+            line: self.line,
+            col: self.col,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Delim<X> {
     pub vec: Vec<X>,

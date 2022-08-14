@@ -45,7 +45,7 @@ pub enum ValueFromExpError {
 impl Value {
     pub fn from_dec(dec: Dec) -> Result<Value, ValueFromExpError> {
         match dec {
-            Dec::Exp(e) => Value::from_exp(*e.0),
+            Dec::Exp(e) => Value::from_exp(e),
             _ => Err(ValueFromExpError::NotAValue),
         }
     }

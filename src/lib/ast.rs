@@ -6,18 +6,31 @@ use serde::{Deserialize, Serialize};
 pub struct Located<X>(pub Box<X>, pub Location);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Location {
-    pub span: Range<usize>,
-    pub line: usize,
-    pub col: usize,
+pub enum Location {
+    Known {
+        span: Range<usize>,
+        line: usize,
+        col: usize,
+    },
+    Unknown,
 }
 
 impl Location {
     pub fn expand(&self, other: &Location) -> Location {
-        Location {
-            span: self.span.start..other.span.end,
-            line: self.line,
-            col: self.col,
+        match (self, other) {
+            (
+                Location::Known { span, line, col },
+                Location::Known {
+                    span: other_span, ..
+                },
+            ) => Location::Known {
+                span: span.start..other_span.end,
+                line: *line,
+                col: *col,
+            },
+            (_, Location::Unknown) => self.clone(),
+            (Location::Unknown, _) => other.clone(),
+            _ => Location::Unknown,
         }
     }
 }

@@ -22,7 +22,7 @@ pub struct Pointer(u64);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Cont {
     Taken,
-    Decs(Vector<Dec>),
+    Decs(Vector<Dec_>),
     Exp_(Exp_),
     Value(Value),
 }

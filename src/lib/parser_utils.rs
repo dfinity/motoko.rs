@@ -1,4 +1,4 @@
-use crate::ast::{Dec, Dec_, Delim, Exp, Exp_, Located};
+use crate::ast::{Dec, Dec_, Delim, Exp, Exp_, Loc};
 
 pub fn get_one<T>(d: Delim<T>) -> Result<Box<T>, Delim<T>> {
     if d.vec.len() == 1 && !d.has_trailing
@@ -11,7 +11,7 @@ pub fn get_one<T>(d: Delim<T>) -> Result<Box<T>, Delim<T>> {
 }
 
 pub fn dec_into_exp(d: Dec_) -> Exp_ {
-    Located(Box::new(
+    Loc(Box::new(
         match *d.0 {
             Dec::Exp(e) => e,
             _ => Exp::Block(Delim {

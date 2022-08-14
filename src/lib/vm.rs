@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Cases, Dec, Exp, Id as Identifier, Id_, Pat, Prog, UnOp, Located};
+use crate::ast::{BinOp, Cases, Dec, Exp, Id as Identifier, Id_, Pat, Prog, UnOp, Loc};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
@@ -310,7 +310,7 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                 let d = decs.pop_front().unwrap();
                 match *d.0 {
                     Dec::Exp(e) => {
-                        core.cont = Cont::Exp_(Located(e, d.1));
+                        core.cont = Cont::Exp_(Loc(e, d.1));
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {

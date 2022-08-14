@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Located, Location},
+    ast::{Loc, Source},
     lexer_types::{GroupSort, Token, TokenTree, Tokens},
 };
 use line_col::LineColLookup;
@@ -71,7 +71,7 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
                 t => t,
             };
             let (line, col) = line_col.get(span.start);
-            Located(t, Location::Known { span, line, col })
+            Loc(t, Source::Known { span, line, col })
         })
         .collect();
     Ok(tokens)
@@ -85,12 +85,12 @@ pub fn group(tokens: Tokens) -> LexResult<TokenTree> {
     ))
 }
 
-fn group_(tokens: &[Located<Token>]) -> LexResult<Vec<TokenTree>> {
+fn group_(tokens: &[Loc<Token>]) -> LexResult<Vec<TokenTree>> {
     let mut result = vec![];
     let mut i = 0;
     while i < tokens.len() {
         let token = &tokens[i];
-        let Located(t, s) = token;
+        let Loc(t, s) = token;
         result.push(match t {
             Token::Open((_, g)) => {
                 let start = i;
@@ -114,12 +114,12 @@ fn group_(tokens: &[Located<Token>]) -> LexResult<Vec<TokenTree>> {
     Ok(result)
 }
 
-fn find_closing(sort: &GroupSort, tokens: &[Located<Token>], start: usize) -> Option<usize> {
+fn find_closing(sort: &GroupSort, tokens: &[Loc<Token>], start: usize) -> Option<usize> {
     // println!(">  {:?} {}", sort, start);///////
     let mut i = start + 1;
     let mut depth: usize = 0;
     while i < tokens.len() {
-        let Located(t, _) = &tokens[i];
+        let Loc(t, _) = &tokens[i];
 
         if let Token::Open((_, g)) = t {
             if g == sort {

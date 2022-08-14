@@ -1,7 +1,7 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Located, Mut,
+    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Loc, Mut,
     ObjSort, Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
@@ -97,9 +97,9 @@ impl ToDoc for String {
     }
 }
 
-impl<T: ToDoc> ToDoc for Located<T> {
+impl<T: ToDoc> ToDoc for Loc<T> {
     fn doc(&self) -> RcDoc {
-        let Located(t, _) = self;
+        let Loc(t, _) = self;
         t.doc()
     }
 }
@@ -499,7 +499,7 @@ fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
 fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTree>) {
     for tt in trees {
         if match tt {
-            TokenTree::Token(Located(Token::Space(_), _)) => false,
+            TokenTree::Token(Loc(Token::Space(_), _)) => false,
             _ => true,
         } {
             results.push(tt);
@@ -513,23 +513,23 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
     use TokenTree::*;
     match (a, b) {
         // TODO: refactor these rules to a text-based configuration file
-        (Token(Located(Space(_), _)), _) | (_, Token(Located(Space(_), _))) => nil(),
-        (Token(Located(MultiLineSpace(_), _)), _) | (_, Token(Located(MultiLineSpace(_), _))) => nil(),
-        (Token(Located(Ident(s), _)), Group(_, g, _))
+        (Token(Loc(Space(_), _)), _) | (_, Token(Loc(Space(_), _))) => nil(),
+        (Token(Loc(MultiLineSpace(_), _)), _) | (_, Token(Loc(MultiLineSpace(_), _))) => nil(),
+        (Token(Loc(Ident(s), _)), Group(_, g, _))
             if !is_keyword(s) && (g == &Paren || g == &Square || g == &Angle) =>
         {
             nil()
         }
-        (Token(Located(Open(_), _)), _) | (_, Token(Located(Close(_), _))) => nil(),
-        (_, Token(Located(Delim(_), _))) => nil(),
-        (Token(Located(Delim(_), _)), _) => line(),
-        (Token(Located(Dot(_), _)), _) => nil(),
-        (Token(Located(Operator(s), _)), _) if s.eq("?") => nil(),
-        (_, Token(Located(Operator(s), _))) if s.eq("!") => nil(),
-        (_, Token(Located(Operator(s), _))) if s.starts_with(" ") => nil(),
-        (Token(Located(Operator(s), _)), Token(Located(Ident(_), _))) if s.eq("#") => nil(),
-        (_, Token(Located(Dot(_), _))) => wrap_(),
-        (Token(Located(Assign(_), _)), _) => wrap(),
+        (Token(Loc(Open(_), _)), _) | (_, Token(Loc(Close(_), _))) => nil(),
+        (_, Token(Loc(Delim(_), _))) => nil(),
+        (Token(Loc(Delim(_), _)), _) => line(),
+        (Token(Loc(Dot(_), _)), _) => nil(),
+        (Token(Loc(Operator(s), _)), _) if s.eq("?") => nil(),
+        (_, Token(Loc(Operator(s), _))) if s.eq("!") => nil(),
+        (_, Token(Loc(Operator(s), _))) if s.starts_with(" ") => nil(),
+        (Token(Loc(Operator(s), _)), Token(Loc(Ident(_), _))) if s.eq("#") => nil(),
+        (_, Token(Loc(Dot(_), _))) => wrap_(),
+        (Token(Loc(Assign(_), _)), _) => wrap(),
         (_, Group(_, Comment, _)) => wrap(),
         (Group(_, Comment, _), _) => line(),
         _ => space(),
@@ -556,7 +556,7 @@ impl ToDoc for TokenTree {
                     }
                 };
                 // let concat = RcDoc::concat(docs);
-                let (open, close) = if let Some((Located(open, _), Located(close, _))) = pair {
+                let (open, close) = if let Some((Loc(open, _), Loc(close, _))) = pair {
                     (&open.data().unwrap()[..], &close.data().unwrap()[..])
                 } else {
                     ("", "") // TODO refactor GroupSort into Option

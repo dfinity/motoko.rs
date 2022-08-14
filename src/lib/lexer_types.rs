@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Located, PrimType, Location},
+    ast::{Loc, PrimType, Source},
     lexer::LexResult,
 };
 use logos::{Lexer, Logos};
@@ -17,7 +17,7 @@ macro_rules! data {
     };
 }
 
-pub type Token_ = Located<Token>;
+pub type Token_ = Loc<Token>;
 pub type Tokens = Vec<Token_>;
 
 #[derive(Logos, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,9 +180,9 @@ impl std::fmt::Debug for TokenTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use TokenTree::*;
         match self {
-            Token(Located(t, s)) => match s {
-                Location::Known { line, col, .. } => write!(f, "<{:?} {}:{}>", t, line, col),
-                Location::Unknown => write!(f, "<{:?}>", t),
+            Token(Loc(t, s)) => match s {
+                Source::Known { line, col, .. } => write!(f, "<{:?} {}:{}>", t, line, col),
+                Source::Unknown => write!(f, "<{:?}>", t),
             },
             Group(trees, sort, _pair) => {
                 write!(f, "{:?}(", sort)?;
@@ -205,7 +205,7 @@ impl std::fmt::Display for TokenTree {
         match self {
             Token(t) => write!(f, "{}", t.0),
             Group(trees, _, pair) => {
-                if let Some((Located(open, _), Located(close, _))) = pair {
+                if let Some((Loc(open, _), Loc(close, _))) = pair {
                     write!(f, "{}", open)?;
                     for t in trees {
                         write!(f, "{}", t)?;

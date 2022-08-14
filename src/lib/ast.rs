@@ -259,9 +259,9 @@ pub type Exp_ = Loc<Box<Exp>>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Exp {
     Hole,
-    Prim(Id_),
-    Var(Id_),
-    Literal(Literal_),
+    Prim(Id),
+    Var(Id),
+    Literal(Literal),
     ActorUrl(Exp_),
     Un(UnOp, Exp_),
     Bin(Exp_, BinOp, Exp_),
@@ -313,7 +313,7 @@ pub type Pat_ = Loc<Box<Pat>>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Pat {
     Wild,
-    Var(Id_),
+    Var(Id),
     Literal(Literal_),
     Signed(UnOp, Pat_),
     Tuple(Delim<Pat_>),

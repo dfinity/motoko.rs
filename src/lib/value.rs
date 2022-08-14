@@ -61,7 +61,7 @@ impl Value {
     pub fn from_exp(e: Exp) -> Result<Value, ValueFromExpError> {
         use Exp::*;
         match e {
-            Literal(l) => Value::from_literal(*l.0).map_err(ValueFromExpError::ParseBigIntError),
+            Literal(l) => Value::from_literal(l).map_err(ValueFromExpError::ParseBigIntError),
             Paren(e) => Value::from_exp(*e.0),
             Annot(e, _) => Value::from_exp(*e.0),
             Return(e) => Value::from_exp(*e.0),

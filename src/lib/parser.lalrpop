@@ -1,6 +1,6 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_into_exp, get_one};
+use crate::parser_utils::{dec_into_exp, get_one, loc_box};
 use crate::ast::{Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
 
 grammar;
@@ -16,7 +16,7 @@ Id: Id = {
 };
 
 Id_: Id_ = {
-    Id => Box::new(<>)
+    Id => loc_box(<>)
 }
 
 VarExp: Exp = {
@@ -24,7 +24,7 @@ VarExp: Exp = {
 }
 
 VarExp_: Exp_ = {
-    Id => Box::new(Exp::Var(<>)),
+    Id => loc_box(Exp::Var(<>)),
 }
 
 // --- Helper Functions --- //
@@ -94,7 +94,7 @@ pub PatNullary: Pat = {
     // to do -- copy more cases from parser.mly
 }
 
-pub PatBin_: Pat_ = { PatBin => Box::new(<>) }
+pub PatBin_: Pat_ = { PatBin => loc_box(<>) }
 
 pub PatBin: Pat = {
     <p:PatBin_> ":" <t:Type> => Pat::Annot(p, t),
@@ -105,7 +105,7 @@ pub PatBin: Pat = {
 pub PatUn: Pat = {
     PatNullary,
     "#" <s:Id> => Pat::Variant(s, None),
-    "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(Box::new(p))),
+    "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(loc_box(p))),
 
 }
 
@@ -120,13 +120,13 @@ pub Pat = {
 //     // TODO: Signed(Vec<UnOp>, Pat_)
 //     "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
 //     // TODO: Object(Vec<(Id, Pat)>)
-//     "?" <p:PatBeforeType> => Pat::Optional(Box::new(p)),
-//     "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, Box::new(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
+//     "?" <p:PatBeforeType> => Pat::Optional(loc_box(p)),
+//     "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, loc_box(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
 // }
 
 // pub PatBeforeAlt: Pat = {
 //     PatBeforeType,
-//     <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(Box::new(p), t),
+//     <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(loc_box(p), t),
 // }
 
 // --- Types --- //
@@ -149,7 +149,7 @@ pub PrimType: PrimType = {
 }
 
 pub Type_: Type_ = {
-    Type => Box::new(<>),
+    Type => loc_box(<>),
 }
 
 pub Type: Type = {
@@ -166,11 +166,11 @@ pub Prog: Decs = {
 // --- Expressions --- //
 
 Exp_<B>: Exp_ = {
-    Exp<B> => Box::new(<>)
+    Exp<B> => loc_box(<>)
 }
 
 ExpPlain_: Exp_ = {
-    ExpPlain => Box::new(<>),
+    ExpPlain => loc_box(<>),
 }
 
 ExpPlain: Exp = {
@@ -181,7 +181,7 @@ ExpPlain: Exp = {
 
 #[inline]
 ExpNullary_<B>: Exp_ = {
-    ExpNullary<B> => Box::new(<>),
+    ExpNullary<B> => loc_box(<>),
 }
 
 ExpNullary<B>: Exp = {
@@ -192,7 +192,7 @@ ExpNullary<B>: Exp = {
 }
 
 ExpPost_<B>: Exp_ = {
-    ExpPost<B> => Box::new(<>),
+    ExpPost<B> => loc_box(<>),
 }
 
 VarOpt: Mut = {
@@ -202,10 +202,10 @@ VarOpt: Mut = {
 
 ExpPost<B>: Exp = {
     ExpNullary<B>,
-    "[" <v:VarOpt> <es:Delim0<ExpNonVar<Ob>, ",">> "]" => Exp::Array(v, es),
+    "[" <v:VarOpt> <es:Delim0<ExpNonVar_<Ob>, ",">> "]" => Exp::Array(v, es),
     <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Idx(e1, e2),
     <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
-    <e1:ExpPost_<B>> "." <i:Id> => Exp::Dot(e1, i),
+    <e1:ExpPost_<B>> "." <i:Id_> => Exp::Dot(e1, i),
     <e1:ExpPost_<B>> <e2:ExpNullary_<Ob>> => Exp::Call(e1, Delim{vec:vec!(), has_trailing:false}, e2),
     <e:ExpPost_<B>> "!" => Exp::Bang(e),
 }
@@ -219,11 +219,11 @@ ExpUn<B>: Exp = {
 }
 
 ExpUn_<B>: Exp_ = {
-    ExpUn<B> => Box::new(<>),
+    ExpUn<B> => loc_box(<>),
 }
 
 ExpNest_: Exp_ = {
-    ExpNest => Box::new(<>),
+    ExpNest => loc_box(<>),
 }
 
 ExpNest: Exp = {
@@ -240,10 +240,14 @@ Block: Exp = {
     "{" <ds:Decs> "}" => Exp::Block(ds)
 }
 
-Block_: Exp_ = { Block => Box::new(<>) }
+Block_: Exp_ = { Block => loc_box(<>) }
 
 ExpObj: Exp = {
     "{" <efs:Delim0<ExpField, ";">> "}" => Exp::Object(efs)
+}
+
+ExpNonVar_<B>: Exp_ = {
+    ExpNonVar<B> => loc_box(<>)
 }
 
 ExpNonVar<B>: Exp = {
@@ -258,7 +262,7 @@ ExpNonDec<B>: Exp = {
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
     // if without an else -- TEMP -- using semi here but it doesn't belong.
-    "return" => Exp::Return(Box::new(Exp::Literal(Literal::Unit))),
+    "return" => Exp::Return(loc_box(Exp::Literal(Literal::Unit))),
     "return" <e:Exp_<B>> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
@@ -267,11 +271,11 @@ ExpNonDec<B>: Exp = {
 }
 
 ExpVar_: Exp_ = {
-    <x:Id> => Box::new(Exp::Var(x)),
+    <x:Id> => loc_box(Exp::Var(x)),
 }
 
 ExpBin_<B>: Exp_ = {
-    ExpBin<B> => Box::new(<>),
+    ExpBin<B> => loc_box(<>),
 }
 
 ExpBin<B>: Exp = {
@@ -281,7 +285,7 @@ ExpBin<B>: Exp = {
 }
 
 ExpBin1_<B>: Exp_ = {
-    ExpBin1<B> => Box::new(<>),
+    ExpBin1<B> => loc_box(<>),
 }
 
 ExpBin1<B>: Exp = {
@@ -291,7 +295,7 @@ ExpBin1<B>: Exp = {
 }
 
 ExpBin2_<B>: Exp_ = {
-    ExpBin2<B> => Box::new(<>),
+    ExpBin2<B> => loc_box(<>),
 }
 
 ExpBin2<B>: Exp = {
@@ -300,7 +304,7 @@ ExpBin2<B>: Exp = {
 }
 
 ExpBin3_<B>: Exp_ = {
-    ExpBin3<B> => Box::new(<>),
+    ExpBin3<B> => loc_box(<>),
 }
 
 ExpBin3<B>: Exp = {

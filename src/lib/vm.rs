@@ -90,11 +90,11 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
     match exp {
         Literal(l) => {
             core.cont =
-                Cont::Value(Value::from_literal(*l.0).map_err(|_| Interruption::ParseError)?);
+                Cont::Value(Value::from_literal(l).map_err(|_| Interruption::ParseError)?);
             Ok(Step {})
         }
-        Var(x) => match core.env.get(&*x.0) {
-            None => Err(Interruption::UnboundIdentifer((*x.0).clone())),
+        Var(x) => match core.env.get(&x) {
+            None => Err(Interruption::UnboundIdentifer(x.clone())),
             Some(v) => {
                 core.cont = Cont::Value(v.clone());
                 Ok(Step {})
@@ -186,7 +186,7 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
         (Pat::Paren(p), v) => pattern_matches(env, &*p.0, v),
         (Pat::Var(x), v) => {
             let mut env = env.clone();
-            env.insert((*x.0).clone(), v.clone());
+            env.insert(x.clone(), v.clone());
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
@@ -242,7 +242,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Ok(Step {})
             }
             Let(Pat::Var(x), cont) => {
-                core.env.insert(*x.0, v);
+                core.env.insert(x, v);
                 core.cont = cont;
                 Ok(Step {})
             }

@@ -300,7 +300,7 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
     let cont = core.cont.clone(); // to do -- avoid clone here.
     core.cont = Cont::Taken;
     match cont {
-        Cont::Exp_(e) => exp_step(core, *e, limits),
+        Cont::Exp_(e) => exp_step(core, e, limits),
         Cont::Value(v) => stack_cont(core, limits, v),
         Cont::Decs(mut decs) => {
             if decs.len() == 0 {
@@ -309,7 +309,7 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
             } else {
                 match decs.pop_front().unwrap() {
                     Dec::Exp(e) => {
-                        core.cont = Cont::Exp_(Box::new(e));
+                        core.cont = Cont::Exp_(e);
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {
@@ -317,7 +317,7 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                             cont: FrameCont::Let(p, Cont::Decs(decs)),
                             env: core.env.clone(),
                         });
-                        core.cont = Cont::Exp_(Box::new(e));
+                        core.cont = Cont::Exp_(e);
                         Ok(Step {})
                     }
                     _ => todo!(),

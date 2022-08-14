@@ -2,7 +2,7 @@
 
 use crate::ast::{
     BinOp, BindSort, Case, Dec, DecField, Delim, Exp, ExpField, Literal, Located, Mut, ObjSort,
-    Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
+    Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis, Dec_,
 };
 use crate::format_utils::*;
 use crate::lexer::{is_keyword, GroupSort, Token, TokenTree};
@@ -293,7 +293,7 @@ impl ToDoc for Exp {
     }
 }
 
-impl ToDoc for Delim<Dec> {
+impl ToDoc for Delim<Dec_> {
     fn doc(&self) -> RcDoc {
         delim(self, ";")
     }

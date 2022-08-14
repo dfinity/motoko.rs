@@ -51,8 +51,8 @@ pub type FuncSort = Shared<SharedSort>;
 pub type TypId = Id;
 pub type TypId_ = Located<TypId>;
 
-pub type Decs = Delim<Dec>;
-pub type Cases = Delim<Case>;
+pub type Decs = Delim<Dec_>;
+pub type Cases = Delim<Case_>;
 
 pub type Prog = Decs;
 
@@ -60,7 +60,7 @@ pub type Dec_ = Located<Dec>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Dec {
-    Exp(Exp_),
+    Exp(Exp),
     Let(Pat_, Exp_),
     Var(Pat_, Exp_),
     Typ(TypId_, TypBinds, Type_),

@@ -45,7 +45,7 @@ pub enum ValueFromExpError {
 impl Value {
     pub fn from_dec(dec: Dec) -> Result<Value, ValueFromExpError> {
         match dec {
-            Dec::Exp(e) => Value::from_exp(e),
+            Dec::Exp(e) => Value::from_exp(*e.0),
             _ => Err(ValueFromExpError::NotAValue),
         }
     }
@@ -54,18 +54,18 @@ impl Value {
         if decs.vec.len() > 1 {
             Err(ValueFromExpError::NotAValue)
         } else {
-            Value::from_dec(decs.vec[0].clone())
+            Value::from_dec(*decs.vec[0].0.clone())
         }
     }
 
     pub fn from_exp(e: Exp) -> Result<Value, ValueFromExpError> {
         use Exp::*;
         match e {
-            Literal(l) => Value::from_literal(l).map_err(ValueFromExpError::ParseBigIntError),
-            Paren(e) => Value::from_exp(*e),
-            Annot(e, _) => Value::from_exp(*e),
-            Return(e) => Value::from_exp(*e),
-            Do(e) => Value::from_exp(*e),
+            Literal(l) => Value::from_literal(*l.0).map_err(ValueFromExpError::ParseBigIntError),
+            Paren(e) => Value::from_exp(*e.0),
+            Annot(e, _) => Value::from_exp(*e.0),
+            Return(e) => Value::from_exp(*e.0),
+            Do(e) => Value::from_exp(*e.0),
             Block(decs) => Value::from_decs(decs),
             _ => Err(ValueFromExpError::NotAValue),
         }

@@ -1,8 +1,8 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, BindSort, Case, Dec, DecField, Delim, Exp, ExpField, Literal, Mut, ObjSort, Pat,
-    PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
+    BinOp, BindSort, Case, Dec, DecField, Delim, Exp, ExpField, Literal, Located, Mut, ObjSort,
+    Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
 use crate::lexer::{is_keyword, GroupSort, Token, TokenTree};
@@ -93,6 +93,13 @@ fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
 impl ToDoc for String {
     fn doc(&self) -> RcDoc {
         str(&self)
+    }
+}
+
+impl<T: ToDoc> ToDoc for Located<T> {
+    fn doc(&self) -> RcDoc {
+        let Located(t, _) = self;
+        t.doc()
     }
 }
 
@@ -194,7 +201,7 @@ impl ToDoc for Exp {
             Bin(e1, b, e2) => bin_op(e1, b.doc(), e2),
             Tuple(es) => tuple(es),
             Prim(_) => unimplemented!(),
-            Var(id) => str(id),
+            Var(id) => id.doc(),
             ActorUrl(_) => todo!(),
             Rel(e1, r, e2) => bin_op(e1, r.doc(), e2),
             Show(e) => kwd("debug_show").append(e.doc()),
@@ -210,7 +217,7 @@ impl ToDoc for Exp {
                 None => RcDoc::nil(),
                 Some(e) => RcDoc::space().append(e.doc()),
             }),
-            Dot(e, s) => e.doc().append(".").append(s),
+            Dot(e, s) => e.doc().append(".").append(s.doc()),
             Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),
             Array(m, es) => array(m, es),
             Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
@@ -248,14 +255,14 @@ impl ToDoc for Exp {
                 .append(RcDoc::space())
                 .append(e.doc()),
             Label(id, t, e) => kwd("label")
-                .append(id)
+                .append(id.doc())
                 .append(match t {
                     None => RcDoc::nil(),
                     Some(t) => str(" : ").append(t.doc()),
                 })
                 .append(RcDoc::space())
                 .append(e.doc()),
-            Break(id, e) => kwd("break").append(id).append(match e {
+            Break(id, e) => kwd("break").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
                 Some(e) => RcDoc::space().append(e.doc()),
             }),
@@ -264,7 +271,7 @@ impl ToDoc for Exp {
             Await(e) => kwd("await").append(e.doc()),
             Assert(e) => kwd("assert").append(e.doc()),
             Annot(e, t) => e.doc().append(" : ").append(t.doc()),
-            Import(s, _) => kwd("import").append(s), // new permissive syntax?
+            Import(s, _) => kwd("import").append(s.doc()), // new permissive syntax?
             Throw(e) => kwd("throw").append(e.doc()),
             Try(e, cs) => {
                 let mut doc = kwd("try").append(e.doc());
@@ -273,9 +280,9 @@ impl ToDoc for Exp {
                     doc = doc
                         .append(RcDoc::line())
                         .append(kwd("catch"))
-                        .append(c.pat.doc())
+                        .append(c.0.pat.doc())
                         .append(RcDoc::space())
-                        .append(c.exp.doc())
+                        .append(c.0.exp.doc())
                 }
                 doc
             }
@@ -306,7 +313,7 @@ impl ToDoc for Dec {
                 .append(str(" = "))
                 .append(e.doc()),
             Typ(i, b, t) => kwd("type")
-                .append(i)
+                .append(i.doc())
                 .append(bind(b))
                 .append(" = ")
                 .append(t.doc()),
@@ -330,7 +337,7 @@ impl ToDoc for Type {
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),
-            Named(id, t) => str(id).append(" : ").append(t.doc()),
+            Named(id, t) => id.doc().append(" : ").append(t.doc()),
         }
     }
 }
@@ -367,7 +374,7 @@ impl ToDoc for TypeBind {
             Scope => str("$"), // ?
             Type => RcDoc::nil(),
         }
-        .append(&self.var)
+        .append(self.var.doc())
         .append(" : ")
         .append(self.bound.doc())
     }
@@ -378,7 +385,7 @@ impl ToDoc for Pat {
         use Pat::*;
         match self {
             Wild => str("_"),
-            Var(s) => str(s),
+            Var(s) => s.doc(),
             Literal(l) => l.doc(),
             Signed(u, p) => u.doc().append(p.doc()),
             Tuple(ps) => tuple(ps),
@@ -406,7 +413,7 @@ impl ToDoc for Case {
 
 impl ToDoc for TypeField {
     fn doc(&self) -> RcDoc {
-        str(&self.id).append(" = ").append(self.typ.doc())
+        self.id.doc().append(" = ").append(self.typ.doc())
     }
 }
 

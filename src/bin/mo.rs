@@ -70,6 +70,7 @@ pub enum CliCommand {
     },
     Format {
         input: String,
+        #[structopt(short = "w")]
         width: usize,
     },
     Eval {
@@ -120,8 +121,8 @@ fn main() -> OurResult<()> {
         CliCommand::Eval { input } => {
             let mut limits = Limits::none();
             match cli_opt.step_limit {
-                None => {},
-                Some(limit) => limits.step(limit)
+                None => {}
+                Some(limit) => limits.step(limit),
             };
             let v = motoko::vm::eval_limit(&input, &limits);
             println!("final value: {:?}", v)

@@ -45,10 +45,6 @@ pub struct CliOpt {
     #[structopt(short = "L", long = "log")]
     pub log_info: bool,
 
-    /// Limit stepping where relevant (see eval command).
-    #[structopt(short = "s", long = "step-limit")]
-    pub step_limit: Option<usize>,
-
     #[structopt(subcommand)]
     pub command: CliCommand,
 }
@@ -73,6 +69,9 @@ pub enum CliCommand {
         width: usize,
     },
     Eval {
+        #[structopt(short = "s", long = "step-limit")]
+        step_limit: Option<usize>,
+
         input: String,
     },
 }
@@ -117,9 +116,9 @@ fn main() -> OurResult<()> {
             let p = motoko::lexer::create_token_tree(&input)?;
             println!("{}", format_pretty(&p, width));
         }
-        CliCommand::Eval { input } => {
+        CliCommand::Eval { input, step_limit } => {
             let mut limits = Limits::none();
-            match cli_opt.step_limit {
+            match step_limit {
                 None => {},
                 Some(limit) => limits.step(limit)
             };

@@ -5,6 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Loc<X>(pub X, pub Source);
 
+impl<X> Loc<X> {
+    fn map_into<T>(self, map_fn: &dyn Fn(X) -> T) -> Loc<T> {
+        Loc(map_fn(self.0), self.1)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Source {
     Known {

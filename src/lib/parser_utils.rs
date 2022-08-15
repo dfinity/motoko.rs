@@ -1,4 +1,4 @@
-use crate::ast::{Dec, Dec_, Delim, Exp, Exp_, Loc, Source};
+use crate::ast::{Dec, Dec_, Delim, Exp, Exp_, Loc, Source, Node};
 
 pub fn get_one<T>(d: Delim<T>) -> Result<Box<T>, Delim<T>> {
     if d.vec.len() == 1 && !d.has_trailing
@@ -23,6 +23,6 @@ pub fn dec_into_exp(d: Dec_) -> Exp_ {
     )
 }
 
-pub fn loc_box<T>(value: T) -> Loc<Box<T>> {
+pub fn loc_box<T>(value: T) -> Node<T> {
     Loc(Box::new(value), Source::Unknown) // TODO: pass source
 }

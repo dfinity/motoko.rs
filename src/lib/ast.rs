@@ -5,9 +5,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Loc<X>(pub X, pub Source);
 
+pub type Node<X> = Loc<Box<X>>;
+
 impl<X> Loc<X> {
     fn map_into<T>(self, map_fn: &dyn Fn(X) -> T) -> Loc<T> {
         Loc(map_fn(self.0), self.1)
+    }
+}
+
+impl<X> Node<X> {
+    fn map_box_into<T>(self, map_fn: &dyn Fn(X) -> T) -> Node<T> {
+        Loc(Box::new(map_fn(*self.0)), self.1)
     }
 }
 
@@ -47,7 +55,7 @@ pub struct Delim<X> {
     pub has_trailing: bool,
 }
 
-pub type Literal_ = Loc<Box<Literal>>;
+pub type Literal_ = Node<Literal>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Literal {
@@ -78,14 +86,14 @@ pub enum Shared<T /*: std::fmt::Debug + Clone + PartialEq + Eq*/> {
 pub type FuncSort = Shared<SharedSort>;
 
 pub type TypId = Id;
-pub type TypId_ = Loc<Box<TypId>>;
+pub type TypId_ = Node<TypId>;
 
 pub type Decs = Delim<Dec_>;
 pub type Cases = Delim<Case_>;
 
 pub type Prog = Decs;
 
-pub type Dec_ = Loc<Box<Dec>>;
+pub type Dec_ = Node<Dec>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Dec {
@@ -105,7 +113,7 @@ pub enum Dec {
     ),
 }
 
-pub type SortPat_ = Loc<Box<SortPat>>;
+pub type SortPat_ = Node<SortPat>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SortPat {
@@ -125,7 +133,7 @@ pub enum BindSort {
     Type,
 }
 
-pub type TypeBind_ = Loc<Box<TypeBind>>;
+pub type TypeBind_ = Node<TypeBind>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TypeBind {
@@ -147,7 +155,7 @@ pub type ExpFields = Delim<ExpField_>;
 pub type PatFields = Delim<PatField_>;
 pub type TypeFields = Delim<TypeField_>;
 
-pub type Case_ = Loc<Box<Case>>;
+pub type Case_ = Node<Case>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Case {
@@ -155,7 +163,7 @@ pub struct Case {
     pub exp: Exp_,
 }
 
-pub type ExpField_ = Loc<Box<ExpField>>;
+pub type ExpField_ = Node<ExpField>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpField {
@@ -165,7 +173,7 @@ pub struct ExpField {
     pub exp: Exp_,
 }
 
-pub type DecField_ = Loc<Box<DecField>>;
+pub type DecField_ = Node<DecField>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecField {
@@ -174,7 +182,7 @@ pub struct DecField {
     pub stab: Option<Stab>,
 }
 
-pub type PatField_ = Loc<Box<PatField>>;
+pub type PatField_ = Node<PatField>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatField {
@@ -182,7 +190,7 @@ pub struct PatField {
     pub pat: Pat_,
 }
 
-pub type TypeField_ = Loc<Box<TypeField>>;
+pub type TypeField_ = Node<TypeField>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TypeField {
@@ -236,7 +244,7 @@ pub enum PrimType {
     Principal,
 }
 
-pub type Type_ = Loc<Box<Type>>;
+pub type Type_ = Node<Type>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Type {
@@ -260,7 +268,7 @@ pub type Inst = Delim<Type_>;
 // Convention: Foo_ = Located<Box<Foo>
 // where Foo is an enum for an AST subsort, like Exp.
 
-pub type Exp_ = Loc<Box<Exp>>;
+pub type Exp_ = Node<Exp>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Exp {
@@ -314,7 +322,7 @@ pub enum Exp {
     Paren(Exp_),
 }
 
-pub type Pat_ = Loc<Box<Pat>>;
+pub type Pat_ = Node<Pat>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Pat {
@@ -373,4 +381,4 @@ pub enum RelOp {
 }
 
 pub type Id = String;
-pub type Id_ = Loc<Box<Id>>;
+pub type Id_ = Node<Id>;

@@ -3,7 +3,7 @@
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one, node};
 use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, Delim, Mut};
-use crate::lexer_types::{Token, GroupType};
+use crate::lexer_types::Token;
 
 grammar;
 
@@ -21,14 +21,14 @@ extern {
         r"'([^']|')'" => Token::Literal((<String>, PrimType::Char)),
         r#""(?:[^\\"]|\.)*""# => Token::Literal((<String>, PrimType::Text)),
         "_" => Token::Wild(<String>),
-        "(" => Token::Open((<String>, GroupType::Paren)),
-        "{" => Token::Open((<String>, GroupType::Curly)),
-        "[" => Token::Open((<String>, GroupType::Square)),
-        "<" => Token::Open((<String>, GroupType::Angle)),
-        ")" => Token::Close((<String>, GroupType::Paren)),
-        "}" => Token::Open((<String>, GroupType::Curly)),
-        "]" => Token::Open((<String>, GroupType::Square)),
-        ">" => Token::Open((<String>, GroupType::Angle)),
+        "(" => Token::Open((<String>, crate::lexer_types::GroupType::Paren)),
+        "{" => Token::Open((<String>, crate::lexer_types::GroupType::Curly)),
+        "[" => Token::Open((<String>, crate::lexer_types::GroupType::Square)),
+        "<" => Token::Open((<String>, crate::lexer_types::GroupType::Angle)),
+        ")" => Token::Close((<String>, crate::lexer_types::GroupType::Paren)),
+        "}" => Token::Open((<String>, crate::lexer_types::GroupType::Curly)),
+        "]" => Token::Open((<String>, crate::lexer_types::GroupType::Square)),
+        ">" => Token::Open((<String>, crate::lexer_types::GroupType::Angle)),
         "," => Token::Delim((<String>, crate::lexer_types::Delim::Comma)),
         ";" => Token::Delim((<String>, crate::lexer_types::Delim::Semi)),
         ":" => Token::Colon(<String>),

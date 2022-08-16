@@ -1,11 +1,19 @@
-use crate::ast::Prog;
+use crate::ast::{Prog, Loc};
 use crate::format::{format_one_line, format_pretty};
 use crate::lexer::create_token_tree;
 use crate::lexer_types::TokenTree;
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
-    let lexer = crate::parser_utils::Lexer::new(input);
-    Ok(crate::parser::ProgParser::new().parse(lexer).unwrap())
+    let tt = create_token_tree(input)?;
+    let tokens = tt.flatten();
+
+    Ok(crate::parser::ProgParser::new()
+        .parse(
+            tokens
+                .into_iter()
+                .map(|Loc(t, s)| (s.clone(), t, s)),
+        )
+        .unwrap())
 }
 
 #[allow(unused_variables)]

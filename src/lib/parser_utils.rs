@@ -1,34 +1,4 @@
-use crate::{
-    ast::{Dec, Dec_, Delim, Exp, Loc, Node, Source},
-    lexer::create_token_vec,
-    lexer_types::{Token, Tokens},
-};
-
-pub struct Lexer<'input> {
-    tokens: Tokens,
-    index: usize,
-    input: &'input str,
-}
-
-impl<'input> Lexer<'input> {
-    pub fn new(input: &'input str) -> Self {
-        Lexer {
-            tokens: create_token_vec(input).unwrap(), ////
-            index: 0,
-            input,
-        }
-    }
-}
-
-impl<'input> Iterator for Lexer<'input> {
-    type Item = (Source, Token, Source);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let Loc(token, src) = self.tokens.get(self.index)?;
-        self.index += 1;
-        Some((src.clone(), token.clone(), src.clone())) // TODO: optimize?
-    }
-}
+use crate::ast::{Dec, Dec_, Delim, Exp, Loc, Node, Source};
 
 pub fn get_one<T>(d: Delim<T>) -> Result<T, Delim<T>> {
     /* preserve trailing delim for parenthesized w/delim */

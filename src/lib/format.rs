@@ -6,7 +6,7 @@ use crate::ast::{
 };
 use crate::format_utils::*;
 use crate::lexer::is_keyword;
-use crate::lexer_types::{GroupSort, Token, TokenTree};
+use crate::lexer_types::{GroupType, Token, TokenTree};
 use pretty::RcDoc;
 
 fn format_(doc: RcDoc, width: usize) -> String {
@@ -509,7 +509,7 @@ fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTre
 
 fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
     use crate::lexer_types::Token::*;
-    use GroupSort::*;
+    use GroupType::*;
     use TokenTree::*;
     match (a, b) {
         // TODO: refactor these rules to a text-based configuration file
@@ -538,7 +538,7 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
 
 impl ToDoc for TokenTree {
     fn doc(&self) -> RcDoc {
-        use GroupSort::*;
+        use GroupType::*;
         use TokenTree::*;
         match self {
             Token(t) => t.doc(),
@@ -559,7 +559,7 @@ impl ToDoc for TokenTree {
                 let (open, close) = if let Some((Loc(open, _), Loc(close, _))) = pair {
                     (&open.data().unwrap()[..], &close.data().unwrap()[..])
                 } else {
-                    ("", "") // TODO refactor GroupSort into Option
+                    ("", "") // TODO refactor GroupType into Option
                 };
                 match sort {
                     Unenclosed => doc,

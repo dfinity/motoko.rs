@@ -8,13 +8,13 @@ pub struct Loc<X>(pub X, pub Source);
 pub type Node<X> = Loc<Box<X>>;
 
 impl<X> Loc<X> {
-    fn map_into<T>(self, map_fn: &dyn Fn(X) -> T) -> Loc<T> {
+    fn map<T>(self, map_fn: &dyn Fn(X) -> T) -> Loc<T> {
         Loc(map_fn(self.0), self.1)
     }
 }
 
 impl<X> Node<X> {
-    fn map_box_into<T>(self, map_fn: &dyn Fn(X) -> T) -> Node<T> {
+    fn map_box<T>(self, map_fn: &dyn Fn(X) -> T) -> Node<T> {
         Loc(Box::new(map_fn(*self.0)), self.1)
     }
 }
@@ -46,6 +46,12 @@ impl Source {
             (Source::Unknown, _) => other.clone(),
             (Source::Unknown, Source::Unknown) => Source::Unknown,
         }
+    }
+}
+
+impl std::default::Default for Source {
+    fn default() -> Self {
+        Source::Unknown
     }
 }
 

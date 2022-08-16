@@ -26,19 +26,19 @@ pub enum Token {
     #[regex(r"//[^\n]*", data)]
     LineComment(Data),
 
-    #[token("(", data!(GroupSort::Paren))]
-    #[token("{", data!(GroupSort::Curly))]
-    #[token("[", data!(GroupSort::Square))]
-    // #[token("<", data!(GroupType::Angle))]
-    #[token("/*", data!(GroupSort::Comment))]
-    Open((Data, GroupSort)),
+    #[token("(", data!(GroupType::Paren))]
+    #[token("{", data!(GroupType::Curly))]
+    #[token("[", data!(GroupType::Square))]
+    #[token("<", data!(GroupType::Angle))]
+    #[token("/*", data!(GroupType::Comment))]
+    Open((Data, GroupType)),
 
-    #[token(")", data!(GroupSort::Paren))]
-    #[token("}", data!(GroupSort::Curly))]
-    #[token("]", data!(GroupSort::Square))]
-    // #[token(">", data!(GroupType::Angle))]
-    #[token("*/", data!(GroupSort::Comment))]
-    Close((Data, GroupSort)),
+    #[token(")", data!(GroupType::Paren))]
+    #[token("}", data!(GroupType::Curly))]
+    #[token("]", data!(GroupType::Square))]
+    #[token(">", data!(GroupType::Angle))]
+    #[token("*/", data!(GroupType::Comment))]
+    Close((Data, GroupType)),
 
     #[token(".", data)]
     Dot(Data),
@@ -53,13 +53,19 @@ pub enum Token {
     #[token(";", data!(Delim::Semi))]
     Delim((Data, Delim)),
 
-    #[regex(r"[+\-*/%&|^!?:<>@#]+=?", data)]
+    #[token("?", data)]
+    #[token("!", data)]
+    #[regex(r"[+\-*/%&|^:<>@#]+=?", data)]
+    #[regex(r"\s[<>]\s", data)]
     #[token("==", data)]
     // #[regex(r" >>=?", data)]
     Operator(Data),
 
-    #[regex(r"[a-zA-Z_][a-zA-Z_0-9]*", data)]
+    #[regex(r"_?[a-zA-Z][a-zA-Z_0-9]*", data)]
     Ident(Data),
+
+    #[token("_", data)]
+    Wild(Data),
 
     #[token("true", data!(PrimType::Bool))]
     #[token("false", data!(PrimType::Bool))]
@@ -89,15 +95,15 @@ impl Token {
         use Token::*;
         match self {
             Error => Err(()),
-            LineComment(x) | Open((x, _)) | Close((x, _)) | Dot(x) | Colon(x) | Assign(x)
-            | Operator(x) | Ident(x) | Delim((x, _)) | Literal((x, _)) | Space(x)
-            | MultiLineSpace(x) | Unknown(x) => Ok(x),
+            LineComment(s) | Open((s, _)) | Close((s, _)) | Dot(s) | Colon(s) | Assign(s)
+            | Operator(s) | Ident(s) | Wild(s) | Delim((s, _)) | Literal((s, _)) | Space(s)
+            | MultiLineSpace(s) | Unknown(s) => Ok(s),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GroupSort {
+pub enum GroupType {
     Unenclosed,
     Paren,
     Curly,
@@ -112,10 +118,10 @@ pub enum Delim {
     Semi,
 }
 
-impl GroupSort {
+impl GroupType {
     pub fn token_pair(&self) -> Option<(Token, Token)> {
         match self {
-            GroupSort::Unenclosed => None,
+            GroupType::Unenclosed => None,
             _ => Some((
                 Token::Open((self.left_str().to_string(), self.clone())),
                 Token::Close((self.right_str().to_string(), self.clone())),
@@ -125,22 +131,22 @@ impl GroupSort {
 
     pub fn left_str(&self) -> &'static str {
         match self {
-            GroupSort::Unenclosed => "",
-            GroupSort::Paren => "(",
-            GroupSort::Curly => "{",
-            GroupSort::Square => "[",
-            GroupSort::Angle => "<",
-            GroupSort::Comment => "/*",
+            GroupType::Unenclosed => "",
+            GroupType::Paren => "(",
+            GroupType::Curly => "{",
+            GroupType::Square => "[",
+            GroupType::Angle => "<",
+            GroupType::Comment => "/*",
         }
     }
     pub fn right_str(&self) -> &'static str {
         match self {
-            GroupSort::Unenclosed => "",
-            GroupSort::Paren => ")",
-            GroupSort::Curly => "}",
-            GroupSort::Square => "]",
-            GroupSort::Angle => ">",
-            GroupSort::Comment => "*/",
+            GroupType::Unenclosed => "",
+            GroupType::Paren => ")",
+            GroupType::Curly => "}",
+            GroupType::Square => "]",
+            GroupType::Angle => ">",
+            GroupType::Comment => "*/",
         }
     }
 }
@@ -148,7 +154,7 @@ impl GroupSort {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TokenTree {
     Token(Token_),
-    Group(Vec<TokenTree>, GroupSort, Option<(Token_, Token_)>),
+    Group(Vec<TokenTree>, GroupType, Option<(Token_, Token_)>),
 }
 
 impl TokenTree {

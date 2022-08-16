@@ -1,9 +1,90 @@
 use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_into_exp, get_one, loc_box};
-use crate::ast::{Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
+use crate::parser_utils::{dec_into_exp, get_one, node, Lexer};
+use crate::ast::{Node, Loc, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
+use crate::lexer_types::{Token};
 
 grammar;
+
+extern {
+    type Location = Source;
+    // type Error = crate::lexer::LexError;
+
+    enum Token {
+        r"_?[a-zA-Z][a-zA-Z_0-9]*" => Token::Ident(<String>),
+        r"[0-9]+" => Token::Literal((<String>, PrimType::Nat)),
+        "null" => Token::Literal((<String>, PrimType::Null)),
+        "true" => Token::Literal((<String>, PrimType::Bool)),
+        "false" => Token::Literal((<String>, PrimType::False)),
+        r"[0-9]+\.[0-9]*" => Token::Literal((<String>, PrimType::Float)),
+        r"'([^']|')'" => Token::Literal((<String>, PrimType::Char)),
+        r#""(?:[^\\"]|\.)*""# => Token::Literal((<String>, PrimType::Text)),
+        "_" => Token::Wild(<String>),
+        "(" => Token::Open((<String>, GroupType::Parentheses)),
+        "{" => Token::Open((<String>, GroupType::Curly)),
+        "[" => Token::Open((<String>, GroupType::Square)),
+        "<" => Token::Open((<String>, GroupType::Angle)),
+        ")" => Token::Close((<String>, GroupType::Parentheses)),
+        "}" => Token::Open((<String>, GroupType::Curly)),
+        "]" => Token::Open((<String>, GroupType::Square)),
+        ">" => Token::Open((<String>, GroupType::Angle)),
+        ":" => Token::Colon(<String>),
+        "=" => Token::Assign(<String>),
+        "." => Token::Dot(<String>),
+        "#" => Token::Variant(<String>),
+        "," => Token::Delim((<String>, Delim::Comma)),
+        ";" => Token::Delim((<String>, Delim::Semicolon)),
+        "Bool" => Token::Ident(<String>), // TODO: ensure these work properly
+        "Nat" => Token::Ident(<String>),
+        "Nat8" => Token::Ident(<String>),
+        "Nat16" => Token::Ident(<String>),
+        "Nat32" => Token::Ident(<String>),
+        "Nat64" => Token::Ident(<String>),
+        "Int" => Token::Ident(<String>),
+        "Int8" => Token::Ident(<String>),
+        "Int16" => Token::Ident(<String>),
+        "Int32" => Token::Ident(<String>),
+        "Int64" => Token::Ident(<String>),
+        "Principal" => Token::Ident(<String>),
+        "Text" => Token::Ident(<String>),
+        "`" => Token::Symbol(<String>),
+        "var" => Token::Ident(<String>),
+        "case" => Token::Ident(<String>),
+        "let" => Token::Ident(<String>),
+        "if" => Token::Ident(<String>),
+        "else" => Token::Ident(<String>),
+        "\\no_else" => Token::Ident(<String>), // TODO: remove
+        "return" => Token::Ident(<String>),
+        "ignore" => Token::Ident(<String>),
+        "do" => Token::Ident(<String>),
+        "switch" => Token::Ident(<String>),
+        "not" => Token::Ident(<String>), // ?
+        "and" => Token::Ident(<String>), // ?
+        "or" => Token::Ident(<String>), // ?
+        "+" => Token::Symbol(<String>),
+        "-" => Token::Symbol(<String>),
+        "*" => Token::Symbol(<String>),
+        "/" => Token::Symbol(<String>),
+        "^" => Token::Symbol(<String>),
+        "%" => Token::Symbol(<String>),
+        "**" => Token::Symbol(<String>),
+        "+%" => Token::Symbol(<String>),
+        "-%" => Token::Symbol(<String>),
+        "*%" => Token::Symbol(<String>),
+        "/%" => Token::Symbol(<String>),
+        "**%" => Token::Symbol(<String>),
+        "&" => Token::Symbol(<String>),
+        "|" => Token::Symbol(<String>),
+        "<<" => Token::Symbol(<String>),
+        ">>" => Token::Symbol(<String>),
+        "<<>" => Token::Symbol(<String>),
+        "<>>" => Token::Symbol(<String>),
+        ":=" => Token::Symbol(<String>),
+        "?" => Token::Symbol(<String>),
+        "!" => Token::Symbol(<String>),
+        r"\\\\BIG.FART." => Token::Error,
+    }
+}
 
 // Terminals
 
@@ -12,22 +93,19 @@ NatIndex: usize = {
 }
 
 Id: Id = {
-    r"[a-zA-Z_][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
+    r"_?[a-zA-Z][a-zA-Z_0-9]*" => String::from_str(<>).unwrap()
 };
 
-Id_: Id_ = {
-    Id => loc_box(<>)
-}
-
-VarExp: Exp = {
-    Id => Exp::Var(<>),
-}
-
-VarExp_: Exp_ = {
-    Id => loc_box(Exp::Var(<>)),
-}
+#[inline]
+Id_: Id_ = Node<Id>;
 
 // --- Helper Functions --- //
+
+#[inline]
+Node<T> = {
+    // <t:T> => Loc(Box::new(t), Source::Unknown),
+    <start:@L> <t:T> <end:@R> => Loc(Box::new(t), start.to(end)),
+}
 
 /// One or more `T`s, delimited by interposed separator `S`.
 Delim1<T, S>: Delim<T> = {
@@ -59,6 +137,13 @@ Delim0<T, S>: Delim<T> = {
     }
 };
 
+#[inline]
+VarExp_: Exp_ = Node<VarExp>;
+
+VarExp: Exp = {
+    Id => Exp::Var(<>),
+}
+
 Bl : Exp = {
     r"\\\\BIG.FART." => unreachable!()
 }
@@ -82,30 +167,34 @@ pub Literal: Literal = {
 
 // --- Patterns --- //
 
-pub PatPlain: Pat = {
+PatPlain: Pat = {
     "_" => Pat::Wild,
     Id => Pat::Var(<>),
     Literal => Pat::Literal(<>),
     "(" <ps:Delim1<PatBin, ",">> ")" => get_one(ps).map(Pat::Paren).unwrap_or_else(Pat::Tuple),
 }
 
-pub PatNullary: Pat = {
+#[inline]
+PatNullary_: Pat_ = Node<PatNullary>;
+
+PatNullary: Pat = {
     PatPlain,
     // to do -- copy more cases from parser.mly
 }
 
-pub PatBin_: Pat_ = { PatBin => loc_box(<>) }
+#[inline]
+PatBin_: Pat_ = Node<PatBin>;
 
-pub PatBin: Pat = {
-    <p:PatBin_> ":" <t:Type> => Pat::Annot(p, t),
+PatBin: Pat = {
+    <p:PatBin_> ":" <t:Type_> => Pat::Annot(p, t),
     PatUn,
     // to do -- copy more cases from parser.mly
 }
 
-pub PatUn: Pat = {
+PatUn: Pat = {
     PatNullary,
     "#" <s:Id> => Pat::Variant(s, None),
-    "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(loc_box(p))),
+    "#" <s:Id> <p:PatNullary> => Pat::Variant(s, Some(node(p))),
 
 }
 
@@ -120,13 +209,13 @@ pub Pat = {
 //     // TODO: Signed(Vec<UnOp>, Pat_)
 //     "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
 //     // TODO: Object(Vec<(Id, Pat)>)
-//     "?" <p:PatBeforeType> => Pat::Optional(loc_box(p)),
-//     "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, loc_box(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
+//     "?" <p:PatBeforeType> => Pat::Optional(node(p)),
+//     "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, node(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
 // }
 
 // pub PatBeforeAlt: Pat = {
 //     PatBeforeType,
-//     <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(loc_box(p), t),
+//     <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(node(p), t),
 // }
 
 // --- Types --- //
@@ -148,9 +237,8 @@ pub PrimType: PrimType = {
     "Text" => PrimType::Text,
 }
 
-pub Type_: Type_ = {
-    Type => loc_box(<>),
-}
+#[inline]
+Type_: Type_ = Node<Type>;
 
 pub Type: Type = {
     PrimType => Type::Prim(<>),
@@ -165,13 +253,11 @@ pub Prog: Decs = {
 
 // --- Expressions --- //
 
-Exp_<B>: Exp_ = {
-    Exp<B> => loc_box(<>)
-}
+#[inline]
+Exp_<B>: Exp_ = Node<Exp<B>>;
 
-ExpPlain_: Exp_ = {
-    ExpPlain => loc_box(<>),
-}
+#[inline]
+ExpPlain_: Exp_ = Node<ExpPlain>;
 
 ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
@@ -180,9 +266,7 @@ ExpPlain: Exp = {
 }
 
 #[inline]
-ExpNullary_<B>: Exp_ = {
-    ExpNullary<B> => loc_box(<>),
-}
+ExpNullary_<B>: Exp_ = ExpNullary<B>;
 
 ExpNullary<B>: Exp = {
     B,
@@ -191,9 +275,8 @@ ExpNullary<B>: Exp = {
     // Prim
 }
 
-ExpPost_<B>: Exp_ = {
-    ExpPost<B> => loc_box(<>),
-}
+#[inline]
+ExpPost_<B>: Exp_ = Node<ExpPost<B>>;
 
 VarOpt: Mut = {
     "var" => Mut::Var,
@@ -218,13 +301,11 @@ ExpUn<B>: Exp = {
     "not" <e:ExpUn_<B>> => Exp::Not(e),
 }
 
-ExpUn_<B>: Exp_ = {
-    ExpUn<B> => loc_box(<>),
-}
+#[inline]
+ExpUn_<B>: Exp_ = Node<ExpUn<B>>;
 
-ExpNest_: Exp_ = {
-    ExpNest => loc_box(<>),
-}
+#[inline]
+ExpNest_: Exp_ = Node<ExpNest>;
 
 ExpNest: Exp = {
     Block,
@@ -240,15 +321,15 @@ Block: Exp = {
     "{" <ds:Decs> "}" => Exp::Block(ds)
 }
 
-Block_: Exp_ = { Block => loc_box(<>) }
+#[inline]
+Block_: Exp_ = Node<Block>;
 
 ExpObj: Exp = {
     "{" <efs:Delim0<ExpField, ";">> "}" => Exp::Object(efs)
 }
 
-ExpNonVar_<B>: Exp_ = {
-    ExpNonVar<B> => loc_box(<>)
-}
+#[inline]
+ExpNonVar_<B>: Exp_ = Node<ExpNonVar<B>>;
 
 ExpNonVar<B>: Exp = {
     ExpNonDec<B>,
@@ -260,9 +341,9 @@ ExpNonDec<B>: Exp = {
     <e1:ExpUn_<B>> ":=" <e2:ExpUn_<B>> => Exp::Assign(e1, e2),
     // TODO: remove 
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
+    // if without an else -- TEMP -- using placeholder token here but it doesn't belong.
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
-    // if without an else -- TEMP -- using semi here but it doesn't belong.
-    "return" => Exp::Return(loc_box(Exp::Literal(Literal::Unit))),
+    "return" <src:@R> => Exp::Return(node(Exp::Literal(Literal::Unit), src)),
     "return" <e:Exp_<B>> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
@@ -270,13 +351,13 @@ ExpNonDec<B>: Exp = {
     "do" <e:Block_> => Exp::Do(e),
 }
 
+#[inline]
 ExpVar_: Exp_ = {
-    <x:Id> => loc_box(Exp::Var(x)),
+    <x:Node<Id>> => x.map_box(Exp::Var),
 }
 
-ExpBin_<B>: Exp_ = {
-    ExpBin<B> => loc_box(<>),
-}
+#[inline]
+ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 
 ExpBin<B>: Exp = {
     <e1:ExpBin_<B>> "+" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Add, e2),
@@ -284,9 +365,8 @@ ExpBin<B>: Exp = {
     ExpBin1<B>,
 }
 
-ExpBin1_<B>: Exp_ = {
-    ExpBin1<B> => loc_box(<>),
-}
+#[inline]
+ExpBin1_<B>: Exp_ = Node<ExpBin1<B>>;
 
 ExpBin1<B>: Exp = {
     <e1:ExpBin2_<B>> "*" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Mul, e2),
@@ -294,18 +374,16 @@ ExpBin1<B>: Exp = {
     ExpBin2<B>,
 }
 
-ExpBin2_<B>: Exp_ = {
-    ExpBin2<B> => loc_box(<>),
-}
+#[inline]
+ExpBin2_<B>: Exp_ = Node<ExpBin2<B>>;
 
 ExpBin2<B>: Exp = {
     <e1:ExpBin3_<B>> "|" <e2:ExpBin2_<B>> => Exp::Bin(e1, BinOp::BitOr, e2),
     ExpBin3<B>,
 }
 
-ExpBin3_<B>: Exp_ = {
-    ExpBin3<B> => loc_box(<>),
-}
+#[inline]
+ExpBin3_<B>: Exp_ = Node<ExpBin3<B>>;
 
 ExpBin3<B>: Exp = {
     <e1:ExpUn_<B>> "&" <e2:ExpBin3_<B>> => Exp::Bin(e1, BinOp::BitAnd, e2),
@@ -321,7 +399,7 @@ Cases: Cases = {
 }
 
 Case: Case = {
-    "case" <pat:PatNullary> <exp:ExpNest> => Case{pat, exp},
+    "case" <pat:PatNullary_> <exp:Node<ExpNest>> => Case{pat, exp},
 }
 
 ExpField: ExpField = {

@@ -1,6 +1,6 @@
 use crate::{
     ast::{Loc, Source},
-    lexer_types::{GroupSort, Token, TokenTree, Tokens},
+    lexer_types::{GroupType, Token, TokenTree, Tokens},
 };
 use line_col::LineColLookup;
 use logos::Logos;
@@ -80,7 +80,7 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
 pub fn group(tokens: Tokens) -> LexResult<TokenTree> {
     Ok(TokenTree::Group(
         group_(&tokens)?,
-        GroupSort::Unenclosed,
+        GroupType::Unenclosed,
         None,
     ))
 }
@@ -114,7 +114,7 @@ fn group_(tokens: &[Loc<Token>]) -> LexResult<Vec<TokenTree>> {
     Ok(result)
 }
 
-fn find_closing(sort: &GroupSort, tokens: &[Loc<Token>], start: usize) -> Option<usize> {
+fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option<usize> {
     // println!(">  {:?} {}", sort, start);///////
     let mut i = start + 1;
     let mut depth: usize = 0;
@@ -125,8 +125,8 @@ fn find_closing(sort: &GroupSort, tokens: &[Loc<Token>], start: usize) -> Option
             if g == sort {
                 depth += 1;
             } else if
-            /* sort!=&GroupSort::Comment */
-            g == &GroupSort::Comment {
+            /* sort!=&GroupType::Comment */
+            g == &GroupType::Comment {
                 // Skip depth check in block comments
                 if let Some(j) = find_closing(&g, tokens, i) {
                     i = j;

@@ -1,10 +1,9 @@
 use crate::ast::Prog;
 use crate::format::{format_one_line, format_pretty};
-use crate::lexer::{create_token_tree};
+use crate::lexer::create_token_tree;
 use crate::lexer_types::TokenTree;
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
-    // crate::parser::ExpParser::new().parse(input).map_err(|_| ())
     Ok(crate::parser::ProgParser::new().parse(input).unwrap())
 }
 
@@ -46,7 +45,7 @@ pub fn assert_roundtrip(input: &str) {
 
 pub fn assert_vm_eval(input_prog: &str, expected_result: &str) {
     println!(
-        "\nassert_vm_run(\"{}\", \"{}\")",
+        "\nassert_vm_eval(\"{}\", \"{}\")",
         input_prog, expected_result
     );
     let v1 = crate::vm::eval(input_prog).unwrap();

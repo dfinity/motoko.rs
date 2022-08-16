@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec, Exp_, Id as Identifier};
+use crate::ast::{Dec, Exp_, Id as Identifier, PrimType, Type};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -27,14 +27,9 @@ pub enum Cont {
     Value(Value),
 }
 
-/// Some(Value) exists if and only if the continuation is fully evaluated.
-pub fn cont_is_value(_env: &Env, _c: Cont) -> Option<Value> {
-    unimplemented!()
-}
-
 pub mod stack {
     use super::{Cont, Env, Vector};
-    use crate::ast::{BinOp, Cases, Exp, Exp_, Id_, Pat, UnOp};
+    use crate::ast::{BinOp, Cases, Exp, Exp_, Id_, Pat, PrimType, Type, Type_, UnOp};
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 
@@ -52,11 +47,13 @@ pub mod stack {
         Do,
         Block,
         Tuple(Vector<Value>, Vector<Exp>),
+        Annot(Type_),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
         pub env: Env,
         pub cont: FrameCont,
+        pub cont_prim_type: Option<PrimType>,
     }
     pub type Frames = im_rc::Vector<Frame>;
 }
@@ -93,6 +90,9 @@ pub struct Core {
     pub stack: Stack,
     pub env: Env,
     pub cont: Cont,
+    /// `Some(t)` when evaluating under an annotation of type `t`.
+    /// (`e : Nat8`  makes `Nat8` the `cont_prim_type` for `e`)
+    pub cont_prim_type: Option<PrimType>,
     pub counts: Counts,
 }
 
@@ -131,7 +131,7 @@ pub struct Limits {
     pub send: Option<usize>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Limit {
     Step,
     Stack,
@@ -149,7 +149,7 @@ pub struct Step {
 }
 
 // interruptions are events that prevent steppping from progressing.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Interruption {
     TypeMismatch,
     NoMatchingCase,
@@ -159,7 +159,8 @@ pub enum Interruption {
     Limit(Limit),
     DivideByZero,
     Done(Value),
-    Unknown
+    AmbiguousOperation,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

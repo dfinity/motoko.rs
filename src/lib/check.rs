@@ -1,7 +1,7 @@
 use crate::ast::Prog;
 use crate::format::{format_one_line, format_pretty};
 use crate::lexer::{create_token_tree, TokenTree};
-use crate::vm_types::Limits;
+use crate::vm_types::{Interruption, Limits};
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
     // crate::parser::ExpParser::new().parse(input).map_err(|_| ())
@@ -46,10 +46,23 @@ pub fn assert_roundtrip(input: &str) {
 
 pub fn assert_vm_eval(input_prog: &str, expected_result: &str) {
     println!(
-        "\nassert_vm_run(\"{}\", \"{}\")",
+        "\nassert_vm_eval(\"{}\", \"{}\")",
         input_prog, expected_result
     );
     let v1 = crate::vm::eval(input_prog).unwrap();
     let v2 = crate::vm::eval(expected_result).unwrap();
     assert_eq!(v1, v2)
+}
+
+pub fn assert_vm_interruption(input_prog: &str, expected_interruption: &Interruption) {
+    println!(
+        "\nassert_vm_interruption(\"{:?}\", \"{:?}\")",
+        input_prog, expected_interruption
+    );
+    match crate::vm::eval_(input_prog) {
+        Err(ref i) => assert_eq!(i, expected_interruption),
+        Ok(ref v) => {
+            unreachable!("expected Err({:?}), not Ok({:?})", expected_interruption, v)
+        }
+    }
 }

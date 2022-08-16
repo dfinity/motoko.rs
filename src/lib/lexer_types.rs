@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Loc, PrimType, Source},
+    ast::{Loc, PrimType},
     lexer::LexResult,
 };
 use logos::{Lexer, Logos};

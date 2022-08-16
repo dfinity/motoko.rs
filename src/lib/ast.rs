@@ -8,13 +8,13 @@ pub struct Loc<X>(pub X, pub Source);
 pub type Node<X> = Loc<Box<X>>;
 
 impl<X> Loc<X> {
-    fn map<T>(self, map_fn: &dyn Fn(X) -> T) -> Loc<T> {
+    pub fn map<F: Fn(X) -> T, T>(self, map_fn: F) -> Loc<T> {
         Loc(map_fn(self.0), self.1)
     }
 }
 
 impl<X> Node<X> {
-    fn map_box<T>(self, map_fn: &dyn Fn(X) -> T) -> Node<T> {
+    pub fn map_box<F: Fn(X) -> T, T>(self, map_fn: F) -> Node<T> {
         Loc(Box::new(map_fn(*self.0)), self.1)
     }
 }
@@ -174,7 +174,7 @@ pub type ExpField_ = Node<ExpField>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpField {
     pub mut_: Mut,
-    pub id: Id,
+    pub id: Id_,
     pub typ: Option<Type_>,
     pub exp: Exp_,
 }

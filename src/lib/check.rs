@@ -4,7 +4,8 @@ use crate::lexer::create_token_tree;
 use crate::lexer_types::TokenTree;
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
-    Ok(crate::parser::ProgParser::new().parse(input).unwrap())
+    let lexer = crate::parser_utils::Lexer::new(input);
+    Ok(crate::parser::ProgParser::new().parse(lexer).unwrap())
 }
 
 #[allow(unused_variables)]

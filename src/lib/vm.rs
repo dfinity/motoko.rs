@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Cases, Dec, Exp, Id as Identifier, Id_, Pat, Prog, UnOp};
+use crate::ast::{BinOp, Cases, Dec, Exp, Id as Identifier, Id_, Pat, Prog, UnOp, Type, PrimType};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
@@ -36,6 +36,7 @@ pub fn core_init(prog: Prog) -> Core {
         stack: Vector::new(),
         env: HashMap::new(),
         cont: Cont::Decs(prog.vec.into()),
+        cont_prim_type: None : Option<PrimType>,
         counts: Counts {
             step: 0,
             stack: 0,
@@ -86,6 +87,21 @@ fn binop(binop: BinOp, v1: Value, v2: Value) -> Result<Value, Interruption> {
     }
 }
 
+fn exp_conts_(core: &mut Core, frame_cont: FrameCont, next_cont: Cont) -> Result<Step, Interruption> {
+    core.stack.push_back(Frame {
+        env: core.env.clone(),
+        cont: frame_cont,
+        cont_prim_type: core.cont_prim_type,
+    });
+    core.cont = next_cont;
+    Ok(Step {})
+}
+
+fn exp_conts(core: &mut Core, frame_cont: FrameCont, next_cont: _Exp) -> Result<Step, Interruption> {
+    exp_conts_(core, frame_cont, Cont::Exp_(next_cont))
+}
+
+
 fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interruption> {
     use Exp::*;
     match exp {
@@ -101,64 +117,32 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
             }
         },
         Bin(e1, binop, e2) => {
-            core.stack.push_back(Frame {
-                env: core.env.clone(),
-                cont: FrameCont::BinOp1(binop, e2),
-            });
-            core.cont = Cont::Exp_(e1);
-            Ok(Step {})
+            exp_conts(core, 
+                      FrameCont::BinOp1(binop, e2),
+                      e1)
         }
         Un(un, e) => {
-            core.stack.push_back(Frame {
-                env: core.env.clone(),
-                cont: FrameCont::UnOp(un),
-            });
-            core.cont = Cont::Exp_(e);
-            Ok(Step {})
+            exp_conts(core, FrameCont::UnOp(un),
+                      e)
         }
         Paren(e) => {
-            core.stack.push_back(Frame {
-                env: core.env.clone(),
-                cont: FrameCont::Paren,
-            });
-            core.cont = Cont::Exp_(e);
-            Ok(Step {})
+            exp_conts(FrameCont::Paren, e)
         }
         Variant(id, None) => {
             core.cont = Cont::Value(Value::Variant(id, None));
             Ok(Step {})
         }
         Variant(id, Some(e)) => {
-            core.stack.push_back(Frame {
-                env: core.env.clone(),
-                cont: FrameCont::Variant(id),
-            });
-            core.cont = Cont::Exp_(e);
-            Ok(Step {})
+            exp_conts(FrameCont::Variant(id), e)
         }
         Switch(e1, cases) => {
-            core.stack.push_back(Frame {
-                env: core.env.clone(),
-                cont: FrameCont::Switch(cases),
-            });
-            core.cont = Cont::Exp_(e1);
-            Ok(Step {})
+            exp_conts(FrameCont::Switch(cases),e1)
         }
         Block(decs) => {
-            core.stack.push_back(Frame {
-                env: core.env.clone(),
-                cont: FrameCont::Block,
-            });
-            core.cont = Cont::Decs(decs.vec.into());
-            Ok(Step {})
+            exp_conts_(FrameCont::Block, Cont::Decs(decs.vec.into())
         }
         Do(e) => {
-            core.stack.push_back(Frame {
-                env: core.env.clone(),
-                cont: FrameCont::Do,
-            });
-            core.cont = Cont::Exp_(e);
-            Ok(Step {})
+            exp_conts(FrameCont::Do, e)
         }
         Tuple(es) => {
             let mut es: Vector<_> = es.vec.into();
@@ -168,14 +152,19 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
                     Ok(Step {})
                 }
                 Some(e1) => {
-                    core.stack.push_back(Frame {
-                        env: core.env.clone(),
-                        cont: FrameCont::Tuple(Vector::new(), es),
-                    });
-                    core.cont = Cont::Exp_(Box::new(e1));
-                    Ok(Step {})
+                    exp_conts(FrameCont::Tuple(Vector::new(), es),
+                              Box::new(e1))
                 }
             }
+        }
+        Annot(e, t) => {
+            match *t {
+                Type::PrimType(pt) => {
+                    core.cont_prim_type = Some(pt.clone())
+                }
+                _ => {}
+            };
+            exp_conts(FrameCont::Annot(t), e)
         }
         _ => todo!(),
     }
@@ -224,6 +213,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
         use FrameCont::*;
         let frame = core.stack.pop_back().unwrap();
         core.env = frame.env;
+        core.cont_prim_type = frame.cont_prim_type;
         match frame.cont {
             UnOp(un) => {
                 core.cont = Cont::Value(unop(un, v)?);
@@ -271,12 +261,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                         Ok(Step {})
                     }
                     Some(next) => {
-                        core.stack.push_back(Frame {
-                            env: core.env.clone(),
-                            cont: Tuple(done, rest),
-                        });
-                        core.cont = Cont::Exp_(Box::new(next));
-                        Ok(Step {})
+                        exp_conts(core, Tuple(done, rest), Cont::Exp_(Box::new(next)))
                     }
                 }
             }

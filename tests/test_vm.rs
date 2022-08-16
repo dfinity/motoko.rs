@@ -44,5 +44,6 @@ fn test_tuples() {
 fn test_prim_ops() {
     assert_("255 + 1 : Nat", "256");
     assert_("255 +% 1 : Nat8", "0");
+    assert_("(255 +% 1) +% (255 +% 1) : Nat8", "0");
     assert_x("255 +% 1", &Interruption::AmbiguousOperation);
 }

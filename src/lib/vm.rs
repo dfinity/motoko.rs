@@ -1,4 +1,6 @@
-use crate::ast::{BinOp, Cases, Dec, Exp, Id as Identifier, Id_, Pat, Prog, UnOp, Type, PrimType};
+use crate::ast::{
+    BinOp, Cases, Dec, Exp, Exp_, Id as Identifier, Id_, Pat, PrimType, Prog, Type, UnOp,
+};
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
@@ -6,6 +8,7 @@ use crate::vm_types::{
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::BigInt;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
 impl From<()> for Interruption {
@@ -31,12 +34,13 @@ impl Limits {
 }
 
 pub fn core_init(prog: Prog) -> Core {
+    let cont_prim_type: Option<PrimType> = None;
     Core {
         store: HashMap::new(),
         stack: Vector::new(),
         env: HashMap::new(),
         cont: Cont::Decs(prog.vec.into()),
-        cont_prim_type: None : Option<PrimType>,
+        cont_prim_type,
         counts: Counts {
             step: 0,
             stack: 0,
@@ -54,7 +58,12 @@ fn unop(un: UnOp, v: Value) -> Result<Value, Interruption> {
     }
 }
 
-fn binop(binop: BinOp, v1: Value, v2: Value) -> Result<Value, Interruption> {
+fn binop(
+    cont_prim_type: &Option<PrimType>,
+    binop: BinOp,
+    v1: Value,
+    v2: Value,
+) -> Result<Value, Interruption> {
     use BinOp::*;
     use Value::*;
     match binop {
@@ -83,24 +92,42 @@ fn binop(binop: BinOp, v1: Value, v2: Value) -> Result<Value, Interruption> {
             */
             _ => todo!(),
         },
+        WAdd => match (cont_prim_type, v1, v2) {
+            (None, _, _) => Err(Interruption::AmbiguousOperation),
+            (Some(t), Value::Nat(n1), Value::Nat(n2)) => match t {
+                PrimType::Nat => Ok(Value::Nat(n1 + n2)),
+                PrimType::Nat8 => Ok(Value::Nat(
+                    (n1 + n2) % BigUint::parse_bytes(b"256", 10).unwrap(),
+                )),
+                _ => todo!(),
+            },
+            _ => todo!(),
+        },
         _ => todo!(),
     }
 }
 
-fn exp_conts_(core: &mut Core, frame_cont: FrameCont, next_cont: Cont) -> Result<Step, Interruption> {
+fn exp_conts_(
+    core: &mut Core,
+    frame_cont: FrameCont,
+    next_cont: Cont,
+) -> Result<Step, Interruption> {
     core.stack.push_back(Frame {
         env: core.env.clone(),
         cont: frame_cont,
-        cont_prim_type: core.cont_prim_type,
+        cont_prim_type: core.cont_prim_type.clone(),
     });
     core.cont = next_cont;
     Ok(Step {})
 }
 
-fn exp_conts(core: &mut Core, frame_cont: FrameCont, next_cont: _Exp) -> Result<Step, Interruption> {
+fn exp_conts(
+    core: &mut Core,
+    frame_cont: FrameCont,
+    next_cont: Exp_,
+) -> Result<Step, Interruption> {
     exp_conts_(core, frame_cont, Cont::Exp_(next_cont))
 }
-
 
 fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interruption> {
     use Exp::*;
@@ -116,34 +143,17 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
                 Ok(Step {})
             }
         },
-        Bin(e1, binop, e2) => {
-            exp_conts(core, 
-                      FrameCont::BinOp1(binop, e2),
-                      e1)
-        }
-        Un(un, e) => {
-            exp_conts(core, FrameCont::UnOp(un),
-                      e)
-        }
-        Paren(e) => {
-            exp_conts(FrameCont::Paren, e)
-        }
+        Bin(e1, binop, e2) => exp_conts(core, FrameCont::BinOp1(binop, e2), e1),
+        Un(un, e) => exp_conts(core, FrameCont::UnOp(un), e),
+        Paren(e) => exp_conts(core, FrameCont::Paren, e),
         Variant(id, None) => {
             core.cont = Cont::Value(Value::Variant(id, None));
             Ok(Step {})
         }
-        Variant(id, Some(e)) => {
-            exp_conts(FrameCont::Variant(id), e)
-        }
-        Switch(e1, cases) => {
-            exp_conts(FrameCont::Switch(cases),e1)
-        }
-        Block(decs) => {
-            exp_conts_(FrameCont::Block, Cont::Decs(decs.vec.into())
-        }
-        Do(e) => {
-            exp_conts(FrameCont::Do, e)
-        }
+        Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id), e),
+        Switch(e1, cases) => exp_conts(core, FrameCont::Switch(cases), e1),
+        Block(decs) => exp_conts_(core, FrameCont::Block, Cont::Decs(decs.vec.into())),
+        Do(e) => exp_conts(core, FrameCont::Do, e),
         Tuple(es) => {
             let mut es: Vector<_> = es.vec.into();
             match es.pop_front() {
@@ -151,20 +161,15 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
                     core.cont = Cont::Value(Value::Unit);
                     Ok(Step {})
                 }
-                Some(e1) => {
-                    exp_conts(FrameCont::Tuple(Vector::new(), es),
-                              Box::new(e1))
-                }
+                Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), Box::new(e1)),
             }
         }
         Annot(e, t) => {
-            match *t {
-                Type::PrimType(pt) => {
-                    core.cont_prim_type = Some(pt.clone())
-                }
+            match &*t {
+                Type::Prim(pt) => core.cont_prim_type = Some(pt.clone()),
                 _ => {}
             };
-            exp_conts(FrameCont::Annot(t), e)
+            exp_conts(core, FrameCont::Annot(t), e)
         }
         _ => todo!(),
     }
@@ -219,16 +224,9 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(unop(un, v)?);
                 Ok(Step {})
             }
-            BinOp1(binop, e2) => {
-                core.stack.push_back(Frame {
-                    env: core.env.clone(),
-                    cont: BinOp2(v, binop),
-                });
-                core.cont = Cont::Exp_(e2);
-                Ok(Step {})
-            }
+            BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), e2),
             BinOp2(v1, bop) => {
-                core.cont = Cont::Value(binop(bop, v1, v)?);
+                core.cont = Cont::Value(binop(&core.cont_prim_type, bop, v1, v)?);
                 Ok(Step {})
             }
             Let(Pat::Var(x), cont) => {
@@ -260,10 +258,12 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                         core.cont = Cont::Value(Value::Tuple(done));
                         Ok(Step {})
                     }
-                    Some(next) => {
-                        exp_conts(core, Tuple(done, rest), Cont::Exp_(Box::new(next)))
-                    }
+                    Some(next) => exp_conts(core, Tuple(done, rest), Box::new(next)),
                 }
+            }
+            Annot(_t) => {
+                core.cont = Cont::Value(v);
+                Ok(Step {})
             }
             _ => todo!(),
         }
@@ -298,12 +298,7 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {
-                        core.stack.push_back(Frame {
-                            cont: FrameCont::Let(p, Cont::Decs(decs)),
-                            env: core.env.clone(),
-                        });
-                        core.cont = Cont::Exp_(Box::new(e));
-                        Ok(Step {})
+                        exp_conts(core, FrameCont::Let(p, Cont::Decs(decs)), Box::new(e))
                     }
                     _ => todo!(),
                 }
@@ -343,8 +338,12 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
     }
 }
 
-
 /// Used for tests in check module.
 pub fn eval(prog: &str) -> Result<Value, ()> {
     eval_limit(prog, &Limits::none()).map_err(|_| ())
+}
+
+/// Used for tests in check module.
+pub fn eval_(prog: &str) -> Result<Value, Interruption> {
+    eval_limit(prog, &Limits::none())
 }

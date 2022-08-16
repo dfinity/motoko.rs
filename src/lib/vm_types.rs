@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec, Exp_, Id as Identifier, Type};
+use crate::ast::{Dec, Exp_, Id as Identifier, PrimType, Type};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -29,7 +29,7 @@ pub enum Cont {
 
 pub mod stack {
     use super::{Cont, Env, Vector};
-    use crate::ast::{BinOp, Cases, Exp, Exp_, Id_, Pat, UnOp, PrimType, Type};
+    use crate::ast::{BinOp, Cases, Exp, Exp_, Id_, Pat, PrimType, Type, Type_, UnOp};
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 
@@ -47,7 +47,7 @@ pub mod stack {
         Do,
         Block,
         Tuple(Vector<Value>, Vector<Exp>),
-        Annot(Type),
+        Annot(Type_),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
@@ -131,7 +131,7 @@ pub struct Limits {
     pub send: Option<usize>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Limit {
     Step,
     Stack,
@@ -149,7 +149,7 @@ pub struct Step {
 }
 
 // interruptions are events that prevent steppping from progressing.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Interruption {
     TypeMismatch,
     NoMatchingCase,
@@ -159,7 +159,8 @@ pub enum Interruption {
     Limit(Limit),
     DivideByZero,
     Done(Value),
-    Unknown
+    AmbiguousOperation,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

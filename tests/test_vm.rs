@@ -1,4 +1,6 @@
 use motoko::check::assert_vm_eval as assert_;
+use motoko::check::assert_vm_interruption as assert_x;
+use motoko::vm_types::Interruption;
 
 fn assert_is_value(v: &str) {
     assert_(v, v)
@@ -36,4 +38,11 @@ fn test_switch() {
 fn test_tuples() {
     assert_("(1, 2, 3)", "(1, 2, 3)");
     assert_("(1 + 1, 2 + 2, 3 + 3)", "(2, 4, 6)");
+}
+
+#[test]
+fn test_prim_ops() {
+    assert_("255 + 1 : Nat", "256");
+    assert_("255 +% 1 : Nat8", "0");
+    assert_x("255 +% 1", &Interruption::AmbiguousOperation);
 }

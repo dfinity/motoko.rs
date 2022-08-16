@@ -19,7 +19,7 @@ impl<X> Node<X> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Source {
     Known {
         span: Range<usize>,
@@ -32,6 +32,7 @@ pub enum Source {
 impl Source {
     pub fn expand(&self, other: &Source) -> Source {
         match (self, other) {
+            (Source::Unknown, Source::Unknown) => Source::Unknown,
             (
                 Source::Known { span, line, col },
                 Source::Known {
@@ -44,8 +45,22 @@ impl Source {
             },
             (_, Source::Unknown) => self.clone(),
             (Source::Unknown, _) => other.clone(),
-            (Source::Unknown, Source::Unknown) => Source::Unknown,
         }
+    }
+}
+
+impl std::fmt::Display for Source {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Source::Known { line, col, .. } => write!(f, "{}:{}", line, col),
+            Source::Unknown => write!(f, "(unknown source)"),
+        }
+    }
+}
+
+impl std::fmt::Debug for Source {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

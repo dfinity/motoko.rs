@@ -2,8 +2,14 @@ use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Loc<X>(pub X, pub Source);
+
+impl<X: std::fmt::Debug> std::fmt::Debug for Loc<X> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}@{:?}", self.0, self.1)
+    }
+}
 
 pub type Node<X> = Loc<Box<X>>;
 

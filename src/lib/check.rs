@@ -1,18 +1,43 @@
-use crate::ast::{Prog, Loc};
+use crate::ast::{Loc, Prog};
 use crate::format::{format_one_line, format_pretty};
 use crate::lexer::create_token_tree;
-use crate::lexer_types::TokenTree;
+use crate::lexer_types::{GroupType, Token, TokenTree};
+
+// TODO: refactor lalrpop lexer details
+impl crate::parser::__ToTriple for Loc<Token> {
+    fn to_triple(
+        Loc(token, src): Self,
+    ) -> Result<
+        (crate::ast::Source, Token, crate::ast::Source),
+        lalrpop_util::ParseError<crate::ast::Source, Token, &'static str>,
+    > {
+        Ok((src.clone(), token, src))
+    }
+}
+
+fn filter_token_tree(tt: TokenTree) -> Option<TokenTree> {
+    match tt {
+        TokenTree::Token(Loc(ref t, _)) => match t {
+            Token::Space(_) | Token::LineComment(_) | Token::MultiLineSpace(_) => None,
+            _ => Some(tt),
+        },
+        TokenTree::Group(_, GroupType::Comment, _) => None,
+        TokenTree::Group(trees, group, open_close) => Some(TokenTree::Group(
+            trees.into_iter().filter_map(filter_token_tree).collect(),
+            group,
+            open_close,
+        )),
+    }
+}
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
     let tt = create_token_tree(input)?;
-    let tokens = tt.flatten();
+    let tokens = filter_token_tree(tt).ok_or(())?.flatten();
+
+    println!("{:?}", tokens); ////
 
     Ok(crate::parser::ProgParser::new()
-        .parse(
-            tokens
-                .into_iter()
-                .map(|Loc(t, s)| (s.clone(), t, s)),
-        )
+        .parse(tokens.into_iter())
         .unwrap())
 }
 

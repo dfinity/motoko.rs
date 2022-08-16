@@ -1,4 +1,5 @@
 pub mod ast;
+mod ast_utils;
 pub mod check;
 pub mod format;
 mod format_utils;

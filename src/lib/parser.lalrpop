@@ -1,8 +1,9 @@
-use std::str::FromStr;
+// use std::str::FromStr;
 //use std::collections::HashMap;
-use crate::parser_utils::{dec_node_into_exp, get_one, node, Lexer};
-use crate::ast::{Node, Loc, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, UnOp, BinOp, Delim, Mut};
-use crate::lexer_types::{Token};
+// use crate::ast_utils::Syntax;
+use crate::parser_utils::{dec_node_into_exp, get_one, node};
+use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, Delim, Mut};
+use crate::lexer_types::{Token, GroupType};
 
 grammar;
 
@@ -15,25 +16,25 @@ extern {
         r"[0-9]+" => Token::Literal((<String>, PrimType::Nat)),
         "null" => Token::Literal((<String>, PrimType::Null)),
         "true" => Token::Literal((<String>, PrimType::Bool)),
-        "false" => Token::Literal((<String>, PrimType::False)),
+        "false" => Token::Literal((<String>, PrimType::Bool)),
         r"[0-9]+\.[0-9]*" => Token::Literal((<String>, PrimType::Float)),
         r"'([^']|')'" => Token::Literal((<String>, PrimType::Char)),
         r#""(?:[^\\"]|\.)*""# => Token::Literal((<String>, PrimType::Text)),
         "_" => Token::Wild(<String>),
-        "(" => Token::Open((<String>, GroupType::Parentheses)),
+        "(" => Token::Open((<String>, GroupType::Paren)),
         "{" => Token::Open((<String>, GroupType::Curly)),
         "[" => Token::Open((<String>, GroupType::Square)),
         "<" => Token::Open((<String>, GroupType::Angle)),
-        ")" => Token::Close((<String>, GroupType::Parentheses)),
+        ")" => Token::Close((<String>, GroupType::Paren)),
         "}" => Token::Open((<String>, GroupType::Curly)),
         "]" => Token::Open((<String>, GroupType::Square)),
         ">" => Token::Open((<String>, GroupType::Angle)),
+        "," => Token::Delim((<String>, crate::lexer_types::Delim::Comma)),
+        ";" => Token::Delim((<String>, crate::lexer_types::Delim::Semi)),
         ":" => Token::Colon(<String>),
         "=" => Token::Assign(<String>),
         "." => Token::Dot(<String>),
-        "#" => Token::Variant(<String>),
-        "," => Token::Delim((<String>, Delim::Comma)),
-        ";" => Token::Delim((<String>, Delim::Semicolon)),
+        "#" => Token::Operator(<String>),
         "Bool" => Token::Ident(<String>), // TODO: ensure these work properly
         "Nat" => Token::Ident(<String>),
         "Nat8" => Token::Ident(<String>),
@@ -205,22 +206,6 @@ pub Pat: Pat = {
     PatBin,
 }
 
-// pub PatBeforeType: Pat = {
-//     "_" => Pat::Wild,
-//     Id => Pat::Var(<>),
-//     Literal => Pat::Literal(<>),
-//     // TODO: Signed(Vec<UnOp>, Pat_)
-//     "(" <ps:Delim1<Pat, ",">> ")" => get_one(ps).unwrap_or_else(Pat::Tuple),
-//     // TODO: Object(Vec<(Id, Pat)>)
-//     "?" <p:PatBeforeType> => Pat::Optional(node(p)),
-//     "#" <s:Id> ":" <p:PatBeforeType?> => Pat::Variant(s, node(p.unwrap_or(Pat::Wild))), // should we allow whitespace after '#' symbol?
-// }
-
-// pub PatBeforeAlt: Pat = {
-//     PatBeforeType,
-//     <p:PatBeforeType> <t:TypeAnnot> => Pat::Annot(node(p), t),
-// }
-
 // --- Types --- //
 
 pub PrimType: PrimType = {
@@ -264,7 +249,7 @@ ExpPlain_: Exp_ = Node<ExpPlain>;
 
 ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
-    "(" <es:Delim1<Exp_<Ob>, ",">> ")" => get_one(es).map(|e| Exp::Paren(e.0)).unwrap_or_else(Exp::Tuple),
+    "(" <es:Delim1<Exp_<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
     "`" "(" <e:Exp<Ob>> ")" => e,
 }
 

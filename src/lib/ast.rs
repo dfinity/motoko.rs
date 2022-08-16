@@ -334,7 +334,7 @@ pub type Pat_ = Node<Pat>;
 pub enum Pat {
     Wild,
     Var(Id),
-    Literal(Literal_),
+    Literal(Literal),
     Signed(UnOp, Pat_),
     Tuple(Delim<Pat_>),
     Object(Delim<PatFields>),

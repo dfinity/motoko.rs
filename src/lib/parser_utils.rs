@@ -21,12 +21,12 @@ impl<'input> Lexer<'input> {
 }
 
 impl<'input> Iterator for Lexer<'input> {
-    type Item = &'input (Source, Token, Source);
+    type Item = (Source, Token, Source);
 
     fn next(&mut self) -> Option<Self::Item> {
         let Loc(token, src) = self.tokens.get(self.index)?;
         self.index += 1;
-        Some(&(src.clone(), token.clone(), src.clone())) // TODO: optimize?
+        Some((src.clone(), token.clone(), src.clone())) // TODO: optimize?
     }
 }
 

@@ -18,23 +18,24 @@ impl crate::parser::__ToTriple for Loc<Token> {
 fn filter_token_tree(tt: TokenTree) -> Option<TokenTree> {
     match tt {
         TokenTree::Token(Loc(ref t, _)) => match t {
-            Token::Space(_) | Token::LineComment(_) | Token::MultiLineSpace(_) => None,
+            Token::Space(_) | Token::LineComment(_) | Token::MultiLineSpace(_) | Token::Error => {
+                None
+            }
             _ => Some(tt),
         },
         TokenTree::Group(_, GroupType::Comment, _) => None,
-        TokenTree::Group(trees, group, open_close) => Some(TokenTree::Group(
+        TokenTree::Group(trees, group, pair) => Some(TokenTree::Group(
             trees.into_iter().filter_map(filter_token_tree).collect(),
             group,
-            open_close,
+            pair,
         )),
     }
 }
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
     let tt = create_token_tree(input)?;
+    println!("TT: {:?}", tt); ////
     let tokens = filter_token_tree(tt).ok_or(())?.flatten();
-
-    println!("{:?}", tokens); ////
 
     Ok(crate::parser::ProgParser::new()
         .parse(tokens.into_iter())

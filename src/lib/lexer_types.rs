@@ -160,22 +160,22 @@ pub enum TokenTree {
 impl TokenTree {
     pub fn flatten(self) -> Tokens {
         let mut vec = vec![];
-        self.flatten_(&mut vec);
+        Self::flatten_(self, &mut vec);
         vec
     }
 
-    fn flatten_(self, tokens: &mut Tokens) {
-        match self {
+    fn flatten_(value: Self, tokens: &mut Tokens) {
+        match value {
             TokenTree::Token(t) => tokens.push(t),
             TokenTree::Group(trees, _, pair) => {
+                if let Some((ref open, _)) = pair {
+                    tokens.push(open.clone()); // TODO no clone?
+                }
                 for tt in trees {
-                    if let Some((open, close)) = /* TODO no clone */ pair.clone() {
-                        tokens.push(open);
-                        tt.flatten_(tokens);
-                        tokens.push(close);
-                    } else {
-                        tt.flatten_(tokens);
-                    }
+                    Self::flatten_(tt, tokens);
+                }
+                if let Some((_, ref close)) = pair {
+                    tokens.push(close.clone()); // TODO no clone?
                 }
             }
         }
@@ -186,10 +186,9 @@ impl std::fmt::Debug for TokenTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use TokenTree::*;
         match self {
-            Token(Loc(t, s)) => match s {
-                Source::Known { line, col, .. } => write!(f, "<{:?} {}:{}>", t, line, col),
-                Source::Unknown => write!(f, "<{:?}>", t),
-            },
+            Token(token) => {
+                write!(f, "{:?}", token)
+            }
             Group(trees, sort, _pair) => {
                 write!(f, "{:?}(", sort)?;
                 for (i, tt) in trees.iter().enumerate() {

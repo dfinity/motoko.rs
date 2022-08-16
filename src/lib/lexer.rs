@@ -90,8 +90,7 @@ fn group_(tokens: &[Loc<Token>]) -> LexResult<Vec<TokenTree>> {
     let mut i = 0;
     while i < tokens.len() {
         let token = &tokens[i];
-        let Loc(t, s) = token;
-        result.push(match t {
+        result.push(match &token.0 {
             Token::Open((_, g)) => {
                 let start = i;
                 if let Some(end) = find_closing(g, tokens, i) {
@@ -107,7 +106,7 @@ fn group_(tokens: &[Loc<Token>]) -> LexResult<Vec<TokenTree>> {
                     TokenTree::Token(token.clone())
                 }
             }
-            t => TokenTree::Token(token.clone()),
+            _ => TokenTree::Token(token.clone()),
         });
         i += 1;
     }

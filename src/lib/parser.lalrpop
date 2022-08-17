@@ -6,7 +6,7 @@ use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Ty
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
 
-grammar(lookup: LineColLookup<'input>);
+grammar(lookup: &LineColLookup<'input>);
 
 // extern {
 //     type Location = Source;
@@ -120,7 +120,8 @@ Delim1<T, S>: Delim<T> = {
 Delim0<T, S>: Delim<T> = {
     <mut v:(<T> S)*> <e:T?> => match e {
         None => {
-            Delim{ vec:v, has_trailing: v.len() > 0 }
+            let has_trailing = v.len() > 0;
+            Delim{ vec:v, has_trailing }
         },
         Some(e) => {
             v.push(e);
@@ -255,7 +256,7 @@ ExpNullary_<B>: Exp_ = ExpNullary<B>;
 
 ExpNullary<B>: Exp = {
     B,
-    ExpPlain => <>,
+    ExpPlain,
     Id => Exp::Var(<>),
     // Prim
 }
@@ -327,8 +328,8 @@ ExpNonDec_<B>: Exp_ = Node<ExpNonDec<B>>;
 ExpNonDec<B>: Exp = {
     ExpBin<B>,
     <e1:ExpUn_<B>> ":=" <e2:ExpUn_<B>> => Exp::Assign(e1, e2),
-    // TODO: remove 
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
+    // TODO: possibly use lookahead / lookbehind (=>@L, =>@R) for if without else
     // if without an else -- TEMP -- using placeholder token here but it doesn't belong.
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
     // "return" => Exp::Return(None),

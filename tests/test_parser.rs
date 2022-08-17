@@ -271,3 +271,15 @@ fn test_call() {
     assert_to("(f)(x)", "(f)((x))");
     assert_to("(f)x", "(f)(x)");
 }
+
+#[test]
+fn test_line_comments() {
+    assert_to("//\n0//", "0");
+    assert_to("//0\n0//0\n//0", "0");
+}
+
+#[test]
+fn test_block_comments() {
+    assert_to("#/**/a", "#a");
+    assert_to("/*(*/", "");
+}

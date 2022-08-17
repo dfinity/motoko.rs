@@ -21,9 +21,8 @@ use crate::vm_types::Interruption;
 fn filter_token_tree(tt: TokenTree) -> Option<TokenTree> {
     match tt {
         TokenTree::Token(Loc(ref t, _)) => match t {
-            Token::Space(_) | Token::LineComment(_) | Token::MultiLineSpace(_) | Token::Error => {
-                None
-            }
+            Token::LineComment(_) | Token::Error => None,
+            // Token::Space(_) | Token::MultiLineSpace(_) => None,
             _ => Some(tt),
         },
         TokenTree::Group(_, GroupType::Comment, _) => None,
@@ -47,7 +46,7 @@ pub fn parse(input: &str) -> Result<Prog, ()> {
 
     Ok(crate::parser::ProgParser::new()
         // .parse(tokens.into_iter())
-        .parse(LineColLookup::new(&input), &input)
+        .parse(&LineColLookup::new(&input), &input)
         .unwrap())
 }
 

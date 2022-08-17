@@ -126,7 +126,7 @@ fn exp_conts(
     exp_conts_(core, frame_cont, Cont::Exp_(next_cont))
 }
 
-fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interruption> {
+fn exp_step(core: &mut Core, exp: Exp, _limits: &Limits) -> Result<Step, Interruption> {
     use Exp::*;
     match exp {
         Literal(l) => {
@@ -196,7 +196,7 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
     }
 }
 
-fn switch(core: &mut Core, limits: &Limits, v: Value, cases: Cases) -> Result<Step, Interruption> {
+fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
         if let Some(env) = pattern_matches(&core.env, &*case.0.pat.0, &v) {
             core.env = env;

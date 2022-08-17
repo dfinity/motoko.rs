@@ -48,7 +48,7 @@ extern {
         "Int64" => Token::Ident(<String>),
         "Principal" => Token::Ident(<String>),
         "Text" => Token::Ident(<String>),
-        "`" => Token::Unknown(<String>),
+        "`" => Token::Unknown(<String>), // TODO: new token or operator?
         "var" => Token::Ident(<String>),
         "case" => Token::Ident(<String>),
         "let" => Token::Ident(<String>),
@@ -115,8 +115,7 @@ Delim1<T, S>: Delim<T> = {
 Delim0<T, S>: Delim<T> = {
     <mut v:(<T> S)*> <e:T?> => match e {
         None => {
-            let has_trailing = v.len() > 0;
-            Delim{ vec:v, has_trailing }
+            Delim{ vec:v, has_trailing: v.len() > 0 }
         },
         Some(e) => {
             v.push(e);
@@ -194,8 +193,8 @@ PatBin: Pat = {
 
 PatUn: Pat = {
     PatNullary,
-    "#" <s:Id> => Pat::Variant(s, None),
-    "#" <s:Id> <p:PatNullary_> => Pat::Variant(s, Some(p)),
+    "#" <s:Id_> => Pat::Variant(s, None),
+    "#" <s:Id_> <p:PatNullary_> => Pat::Variant(s, Some(p)),
 
 }
 
@@ -250,7 +249,7 @@ ExpPlain_: Exp_ = Node<ExpPlain>;
 ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
     "(" <es:Delim1<Exp_<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
-    "`" "(" <e:Exp<Ob>> ")" => e,
+    // "`" "(" <e:Exp<Ob>> ")" => e,
 }
 
 #[inline]

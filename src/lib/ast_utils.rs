@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
-
 use crate::ast::{Dec, Dec_, Exp, Exp_, Loc, Node, Pat, Pat_, Source, Type, Type_};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyntaxTree {

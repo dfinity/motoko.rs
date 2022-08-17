@@ -181,13 +181,13 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if *id1 != **id2.0 {
+            if **id1.0 != **id2.0 {
                 return None;
             };
             Some(env.clone())
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if *id1 != **id2.0 {
+            if **id1.0 != **id2.0 {
                 return None;
             };
             pattern_matches(env, &*pat_.0, &*v_)

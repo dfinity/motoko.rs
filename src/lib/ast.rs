@@ -360,7 +360,7 @@ pub enum Pat {
     Tuple(Delim<Pat_>),
     Object(Delim<PatFields>),
     Optional(Pat_),
-    Variant(Id, Option<Pat_>),
+    Variant(Id_, Option<Pat_>),
     Alt(Delim<Pat_>),
     Annot(Pat_, Type_),
     Paren(Pat_),

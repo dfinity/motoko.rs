@@ -1,4 +1,4 @@
-use crate::ast::{Dec, Decs, Exp, Id_, Literal};
+use crate::ast::{Dec, Decs, Exp, Id, Id_, Literal};
 use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -18,29 +18,27 @@ pub struct FieldValue {
     pub value: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub type Value_ = Box<Value>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Null,
     Bool(bool),
     Unit,
     Nat(BigUint),
     Int(BigInt),
-    //    Float(f64),
+    Float(f64),
     Char(char),
     Text(Text),
     Blob(Vec<u8>),
     Array(Mut, Vector<Value>),
     Tuple(Vector<Value>),
-    Object(HashMap<String, FieldValue>),
+    Object(HashMap<Id, FieldValue>),
     Variant(Id_, Option<Value_>),
 }
 
-pub type Value_ = Box<Value>;
-
-pub enum ValueFromExpError {
-    ParseBigIntError(ParseBigIntError),
-    NotAValue,
-}
+// TODO: custom `PartialEq` implementation for approximate f64 equality?
+impl Eq for Value {}
 
 impl Value {
     pub fn from_dec(dec: Dec) -> Result<Value, ValueFromExpError> {
@@ -84,4 +82,9 @@ impl Value {
             _ => unimplemented!(),
         })
     }
+}
+
+pub enum ValueFromExpError {
+    ParseBigIntError(ParseBigIntError),
+    NotAValue,
 }

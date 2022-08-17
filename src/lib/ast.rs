@@ -2,6 +2,7 @@ use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 
+/// A "located `X`" has a source location of type `Source`.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Loc<X>(pub X, pub Source);
 

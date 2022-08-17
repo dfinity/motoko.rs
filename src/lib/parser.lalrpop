@@ -252,7 +252,7 @@ ExpPlain: Exp = {
 }
 
 #[inline]
-ExpNullary_<B>: Exp_ = ExpNullary<B>;
+ExpNullary_<B>: Exp_ = Node<ExpNullary<B>>;
 
 ExpNullary<B>: Exp = {
     B,

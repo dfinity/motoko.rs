@@ -110,6 +110,7 @@ pub struct Local {
     // to do
     // - one "active" Core.
     pub active: Core,
+    //pub breakpoints: Breakpoints,
     // - a DAG of inactive Cores, related to the active one.
     // - DAG is initially empty.
 }

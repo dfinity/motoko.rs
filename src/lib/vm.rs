@@ -276,7 +276,7 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
     println!("# step {}", core.counts.step);
     println!(" - cont = {:?}", core.cont);
     println!(" - env = {:?}", core.env);
-    println!(" - stack = {:?}", core.stack);
+    println!(" - stack = {:#?}", core.stack);
     core.counts.step += 1;
     if let Some(step_limit) = limits.step {
         if core.counts.step > step_limit {

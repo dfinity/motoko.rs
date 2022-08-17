@@ -333,8 +333,8 @@ ExpNonDec<B>: Exp = {
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
     // if without an else -- TEMP -- using placeholder token here but it doesn't belong.
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
-    "return" <src:@R> => Exp::Return(node(Exp::Literal(Literal::Unit), src)),
-    "return" <e:Exp_<B>> => Exp::Return(e),
+    // "return" => Exp::Return(None),
+    "return" <e:Exp_<B>?> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
     "ignore" <e:ExpNest_> => Exp::Ignore(e),

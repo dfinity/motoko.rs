@@ -336,7 +336,7 @@ pub enum Exp {
     For(Pat_, Exp_, Exp_),
     Label(Id_, Option<Type_>, Exp_),
     Break(Id_, Option<Exp_>),
-    Return(Exp_),
+    Return(Option<Exp_>),
     Debug(Exp_),
     Async(TypeBind_, Exp_),
     Await(Exp_),

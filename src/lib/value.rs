@@ -62,7 +62,10 @@ impl Value {
             Literal(l) => Value::from_literal(l).map_err(ValueFromExpError::ParseBigIntError),
             Paren(e) => Value::from_exp(*e.0),
             Annot(e, _) => Value::from_exp(*e.0),
-            Return(e) => Value::from_exp(*e.0),
+            Return(e) => match e {
+                Some(e) => Value::from_exp(*e.0),
+                None => Ok(Value::Unit),
+            },
             Do(e) => Value::from_exp(*e.0),
             Block(decs) => Value::from_decs(decs),
             _ => Err(ValueFromExpError::NotAValue),

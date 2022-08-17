@@ -1,3 +1,5 @@
+use line_col::LineColLookup;
+
 use crate::ast::{Loc, Prog};
 use crate::format::{format_one_line, format_pretty};
 use crate::lexer::create_token_tree;
@@ -5,16 +7,16 @@ use crate::lexer_types::{GroupType, Token, TokenTree};
 use crate::vm_types::Interruption;
 
 // TODO: refactor lalrpop lexer details
-impl crate::parser::__ToTriple for Loc<Token> {
-    fn to_triple(
-        Loc(token, src): Self,
-    ) -> Result<
-        (crate::ast::Source, Token, crate::ast::Source),
-        lalrpop_util::ParseError<crate::ast::Source, Token, &'static str>,
-    > {
-        Ok((src.clone(), token, src))
-    }
-}
+// impl crate::parser::__ToTriple for Loc<Token> {
+//     fn to_triple(
+//         Loc(token, src): Self,
+//     ) -> Result<
+//         (crate::ast::Source, Token, crate::ast::Source),
+//         lalrpop_util::ParseError<crate::ast::Source, Token, &'static str>,
+//     > {
+//         Ok((src.clone(), token, src))
+//     }
+// }
 
 fn filter_token_tree(tt: TokenTree) -> Option<TokenTree> {
     match tt {
@@ -35,13 +37,17 @@ fn filter_token_tree(tt: TokenTree) -> Option<TokenTree> {
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
     let tt = create_token_tree(input)?;
-    println!("TT: {:?}", tt); ////
-    let tokens = filter_token_tree(tt)
-        .map(TokenTree::flatten)
-        .unwrap_or_else(|| vec![]);
+    println!("TT: {:?}", tt);
+    // let tokens = filter_token_tree(tt)
+    //     .map(TokenTree::flatten)
+    //     .unwrap_or_else(|| vec![]);
+    let input = filter_token_tree(tt)
+        .map(|tt| format!("{}", tt))
+        .unwrap_or("".to_string());
 
     Ok(crate::parser::ProgParser::new()
-        .parse(tokens.into_iter())
+        // .parse(tokens.into_iter())
+        .parse(LineColLookup::new(&input), &input)
         .unwrap())
 }
 

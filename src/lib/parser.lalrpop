@@ -3,96 +3,101 @@
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one, node};
 use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, Delim, Mut};
-use crate::lexer_types::Token;
+// use crate::lexer_types::Token;
+use line_col::LineColLookup;
 
-grammar;
+grammar(lookup: LineColLookup<'input>);
 
-extern {
-    type Location = Source;
-    // type Error = crate::lexer::LexError;
+// extern {
+//     type Location = Source;
+//     // type Error = crate::lexer::LexError;
 
-    enum Token {
-        r"_?[a-zA-Z][a-zA-Z_0-9]*" => Token::Ident(<String>),
-        r"[0-9]+" => Token::Literal((<String>, PrimType::Nat)),
-        "null" => Token::Literal((<String>, PrimType::Null)),
-        "true" => Token::Literal((<String>, PrimType::Bool)),
-        "false" => Token::Literal((<String>, PrimType::Bool)),
-        r"[0-9]+\.[0-9]*" => Token::Literal((<String>, PrimType::Float)),
-        r"'([^']|')'" => Token::Literal((<String>, PrimType::Char)),
-        r#""(?:[^\\"]|\.)*""# => Token::Literal((<String>, PrimType::Text)),
-        "_" => Token::Wild(<String>),
-        "(" => Token::Open((<String>, crate::lexer_types::GroupType::Paren)),
-        "{" => Token::Open((<String>, crate::lexer_types::GroupType::Curly)),
-        "[" => Token::Open((<String>, crate::lexer_types::GroupType::Square)),
-        "<" => Token::Open((<String>, crate::lexer_types::GroupType::Angle)),
-        ")" => Token::Close((<String>, crate::lexer_types::GroupType::Paren)),
-        "}" => Token::Open((<String>, crate::lexer_types::GroupType::Curly)),
-        "]" => Token::Open((<String>, crate::lexer_types::GroupType::Square)),
-        ">" => Token::Open((<String>, crate::lexer_types::GroupType::Angle)),
-        "," => Token::Delim((<String>, crate::lexer_types::Delim::Comma)),
-        ";" => Token::Delim((<String>, crate::lexer_types::Delim::Semi)),
-        ":" => Token::Colon(<String>),
-        "=" => Token::Assign(<String>),
-        "." => Token::Dot(<String>),
-        "#" => Token::Operator(<String>),
-        "Bool" => Token::Ident(<String>), // TODO: ensure these work properly
-        "Nat" => Token::Ident(<String>),
-        "Nat8" => Token::Ident(<String>),
-        "Nat16" => Token::Ident(<String>),
-        "Nat32" => Token::Ident(<String>),
-        "Nat64" => Token::Ident(<String>),
-        "Int" => Token::Ident(<String>),
-        "Int8" => Token::Ident(<String>),
-        "Int16" => Token::Ident(<String>),
-        "Int32" => Token::Ident(<String>),
-        "Int64" => Token::Ident(<String>),
-        "Principal" => Token::Ident(<String>),
-        "Text" => Token::Ident(<String>),
-        "`" => Token::Unknown(<String>), // TODO: new token or operator?
-        "var" => Token::Ident(<String>),
-        "case" => Token::Ident(<String>),
-        "let" => Token::Ident(<String>),
-        "if" => Token::Ident(<String>),
-        "else" => Token::Ident(<String>),
-        "\\no_else" => Token::Ident(<String>), // TODO: remove
-        "return" => Token::Ident(<String>),
-        "ignore" => Token::Ident(<String>),
-        "do" => Token::Ident(<String>),
-        "switch" => Token::Ident(<String>),
-        "not" => Token::Ident(<String>), // ?
-        "and" => Token::Ident(<String>), // ?
-        "or" => Token::Ident(<String>), // ?
-        "+" => Token::Operator(<String>),
-        "-" => Token::Operator(<String>),
-        "*" => Token::Operator(<String>),
-        "/" => Token::Operator(<String>),
-        "^" => Token::Operator(<String>),
-        "%" => Token::Operator(<String>),
-        "**" => Token::Operator(<String>),
-        "+%" => Token::Operator(<String>),
-        "-%" => Token::Operator(<String>),
-        "*%" => Token::Operator(<String>),
-        "/%" => Token::Operator(<String>),
-        "**%" => Token::Operator(<String>),
-        "&" => Token::Operator(<String>),
-        "|" => Token::Operator(<String>),
-        "<<" => Token::Operator(<String>),
-        ">>" => Token::Operator(<String>),
-        "<<>" => Token::Operator(<String>),
-        "<>>" => Token::Operator(<String>),
-        ":=" => Token::Operator(<String>),
-        "?" => Token::Operator(<String>),
-        "!" => Token::Operator(<String>),
-        r"\\\\BIG.FART." => Token::Error,
-    }
-}
+//     enum Token {
+//         r"_?[a-zA-Z][a-zA-Z_0-9]*" => Token::Ident(<String>),
+//         r"[0-9]+" => Token::Literal((<String>, PrimType::Nat)),
+//         "null" => Token::Literal((<String>, PrimType::Null)),
+//         "true" => Token::Literal((<String>, PrimType::Bool)),
+//         "false" => Token::Literal((<String>, PrimType::Bool)),
+//         r"[0-9]+\.[0-9]*" => Token::Literal((<String>, PrimType::Float)),
+//         r"'([^']|')'" => Token::Literal((<String>, PrimType::Char)),
+//         r#""(?:[^\\"]|\.)*""# => Token::Literal((<String>, PrimType::Text)),
+//         "_" => Token::Wild(<String>),
+//         "(" => Token::Open((<String>, crate::lexer_types::GroupType::Paren)),
+//         "{" => Token::Open((<String>, crate::lexer_types::GroupType::Curly)),
+//         "[" => Token::Open((<String>, crate::lexer_types::GroupType::Square)),
+//         "<" => Token::Open((<String>, crate::lexer_types::GroupType::Angle)),
+//         ")" => Token::Close((<String>, crate::lexer_types::GroupType::Paren)),
+//         "}" => Token::Open((<String>, crate::lexer_types::GroupType::Curly)),
+//         "]" => Token::Open((<String>, crate::lexer_types::GroupType::Square)),
+//         ">" => Token::Open((<String>, crate::lexer_types::GroupType::Angle)),
+//         "," => Token::Delim((<String>, crate::lexer_types::Delim::Comma)),
+//         ";" => Token::Delim((<String>, crate::lexer_types::Delim::Semi)),
+//         ":" => Token::Colon(<String>),
+//         "=" => Token::Assign(<String>),
+//         "." => Token::Dot(<String>),
+//         "#" => Token::Operator(<String>),
+//         "Bool" => Token::Ident(<String>), // TODO: ensure these work properly
+//         "Nat" => Token::Ident(<String>),
+//         "Nat8" => Token::Ident(<String>),
+//         "Nat16" => Token::Ident(<String>),
+//         "Nat32" => Token::Ident(<String>),
+//         "Nat64" => Token::Ident(<String>),
+//         "Int" => Token::Ident(<String>),
+//         "Int8" => Token::Ident(<String>),
+//         "Int16" => Token::Ident(<String>),
+//         "Int32" => Token::Ident(<String>),
+//         "Int64" => Token::Ident(<String>),
+//         "Principal" => Token::Ident(<String>),
+//         "Text" => Token::Ident(<String>),
+//         "`" => Token::Unknown(<String>), // TODO: new token or operator?
+//         "var" => Token::Ident(<String>),
+//         "case" => Token::Ident(<String>),
+//         "let" => Token::Ident(<String>),
+//         "if" => Token::Ident(<String>),
+//         "else" => Token::Ident(<String>),
+//         "\\no_else" => Token::Ident(<String>), // TODO: remove
+//         "return" => Token::Ident(<String>),
+//         "ignore" => Token::Ident(<String>),
+//         "do" => Token::Ident(<String>),
+//         "switch" => Token::Ident(<String>),
+//         "not" => Token::Ident(<String>), // ?
+//         "and" => Token::Ident(<String>), // ?
+//         "or" => Token::Ident(<String>), // ?
+//         "+" => Token::Operator(<String>),
+//         "-" => Token::Operator(<String>),
+//         "*" => Token::Operator(<String>),
+//         "/" => Token::Operator(<String>),
+//         "^" => Token::Operator(<String>),
+//         "%" => Token::Operator(<String>),
+//         "**" => Token::Operator(<String>),
+//         "+%" => Token::Operator(<String>),
+//         "-%" => Token::Operator(<String>),
+//         "*%" => Token::Operator(<String>),
+//         "/%" => Token::Operator(<String>),
+//         "**%" => Token::Operator(<String>),
+//         "&" => Token::Operator(<String>),
+//         "|" => Token::Operator(<String>),
+//         "<<" => Token::Operator(<String>),
+//         ">>" => Token::Operator(<String>),
+//         "<<>" => Token::Operator(<String>),
+//         "<>>" => Token::Operator(<String>),
+//         ":=" => Token::Operator(<String>),
+//         "?" => Token::Operator(<String>),
+//         "!" => Token::Operator(<String>),
+//         r"\\\\BIG.FART." => Token::Error,
+//     }
+// }
 
 // --- Helper Functions --- //
 
 #[inline]
 Node<T>: Node<T> = {
-    // <t:T> => Loc(Box::new(t), Source::Unknown),
-    <start:@L> <t:T> <end:@R> => node(t, start.expand(&end)),
+    // <start:@L> <t:T> <end:@R> => node(t, start.expand(&end)),
+    <start:@L> <t:T> <end:@R> => {
+        let (line, col) = lookup.get(start);
+        node(t, Source::Known { span: start..end, line, col })
+    },
+    // <t:T> => node(t, Source::Unknown),
 }
 
 /// One or more `T`s, delimited by interposed separator `S`.
@@ -139,7 +144,7 @@ NatIndex: usize = {
 }
 
 Id: Id = {
-    r"_?[a-zA-Z][a-zA-Z_0-9]*",
+    r"_?[a-zA-Z][a-zA-Z_0-9]*" => <>.to_string(),
 };
 
 #[inline]

@@ -29,7 +29,7 @@ pub enum Cont {
 
 pub mod stack {
     use super::{Cont, Env, Vector};
-    use crate::ast::{BinOp, Cases, Exp_, Id_, Pat, PrimType, Type_, UnOp};
+    use crate::ast::{BinOp, Cases, Exp_, Id_, Pat, PrimType, Source, Type_, UnOp};
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 
@@ -54,6 +54,7 @@ pub mod stack {
         pub env: Env,
         pub cont: FrameCont,
         pub cont_prim_type: Option<PrimType>,
+        pub source: Source,
     }
     pub type Frames = im_rc::Vector<Frame>;
 }

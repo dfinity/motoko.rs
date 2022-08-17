@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Cases, Dec, Exp, Exp_, Pat, PrimType, Prog, Type, UnOp};
+use crate::ast::{BinOp, Cases, Dec, Exp, Exp_, Pat, PrimType, Prog, Source, Type, UnOp};
 use crate::ast_utils::Syntax;
 use crate::value::Value;
 use crate::vm_types::{
@@ -106,6 +106,7 @@ fn binop(
 
 fn exp_conts_(
     core: &mut Core,
+    source: Source,
     frame_cont: FrameCont,
     next_cont: Cont,
 ) -> Result<Step, Interruption> {
@@ -113,6 +114,7 @@ fn exp_conts_(
         env: core.env.clone(),
         cont: frame_cont,
         cont_prim_type: core.cont_prim_type.clone(),
+        source,
     });
     core.cont = next_cont;
     Ok(Step {})
@@ -123,12 +125,14 @@ fn exp_conts(
     frame_cont: FrameCont,
     next_cont: Exp_,
 ) -> Result<Step, Interruption> {
-    exp_conts_(core, frame_cont, Cont::Exp_(next_cont))
+    let source = next_cont.1.clone();
+    exp_conts_(core, source, frame_cont, Cont::Exp_(next_cont))
 }
 
-fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interruption> {
+fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interruption> {
     use Exp::*;
-    match exp {
+    let source = exp.1.clone();
+    match *exp.0 {
         Literal(l) => {
             core.cont = Cont::Value(Value::from_literal(l).map_err(|_| Interruption::ParseError)?);
             Ok(Step {})
@@ -149,7 +153,7 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
         }
         Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id), e),
         Switch(e1, cases) => exp_conts(core, FrameCont::Switch(cases), e1),
-        Block(decs) => exp_conts_(core, FrameCont::Block, Cont::Decs(decs.vec.into())),
+        Block(decs) => exp_conts_(core, source, FrameCont::Block, Cont::Decs(decs.vec.into())),
         Do(e) => exp_conts(core, FrameCont::Do, e),
         Tuple(es) => {
             let mut es: Vector<_> = es.vec.into();
@@ -196,7 +200,7 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
     }
 }
 
-fn switch(core: &mut Core, limits: &Limits, v: Value, cases: Cases) -> Result<Step, Interruption> {
+fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
         if let Some(env) = pattern_matches(&core.env, &*case.0.pat.0, &v) {
             core.env = env;
@@ -282,7 +286,7 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
     let cont = core.cont.clone(); // to do -- avoid clone here.
     core.cont = Cont::Taken;
     match cont {
-        Cont::Exp_(e) => exp_step(core, *e.0, limits),
+        Cont::Exp_(e) => exp_step(core, e, limits),
         Cont::Value(v) => stack_cont(core, limits, v),
         Cont::Decs(mut decs) => {
             if decs.len() == 0 {

@@ -217,8 +217,7 @@ impl std::fmt::Display for TokenTree {
                         write!(f, "{}", t)?;
                     }
                     write!(f, "{}", close)?;
-                }
-                else {
+                } else {
                     for t in trees {
                         write!(f, "{}", t)?;
                     }

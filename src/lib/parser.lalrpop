@@ -124,13 +124,6 @@ Delim0<T, S>: Delim<T> = {
     }
 };
 
-#[inline]
-VarExp_: Exp_ = Node<VarExp>;
-
-VarExp: Exp = {
-    Id => Exp::Var(<>),
-}
-
 Bl : Exp = {
     r"\\\\BIG.FART." => unreachable!()
 }
@@ -159,7 +152,7 @@ pub Literal: Literal = {
     "true" => Literal::Bool(true),
     "false" => Literal::Bool(false),
     "(" ")" => Literal::Unit,
-    r"[0-9]+\.[0-9]*" => Literal::Float(<>.to_string()), // TODO: possibly use JSON parser for float and string literals?
+    r"[0-9]+\.[0-9]*" => Literal::Float(<>.to_string()),
     r"[0-9]+" => Literal::Nat(<>.to_string()),
     r"'([^']|')'" => Literal::Char(<>.to_string()), // TODO: more test cases
     r#""(?:[^\\"]|\.)*""# => Literal::Text(<>.to_string()), // TODO more test cases
@@ -339,11 +332,6 @@ ExpNonDec<B>: Exp = {
     // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
     "do" <e:Block_> => Exp::Do(e),
-}
-
-#[inline]
-ExpVar_: Exp_ = {
-    <x:Id_> => x.map_box(Exp::Var),
 }
 
 #[inline]

@@ -1,8 +1,8 @@
 use crate::ast::{Loc, Prog};
 use crate::format::{format_one_line, format_pretty};
-use crate::lexer::{create_token_tree};
+use crate::lexer::create_token_tree;
 use crate::lexer_types::{GroupType, Token, TokenTree};
-use crate::vm_types::{Interruption};
+use crate::vm_types::Interruption;
 
 // TODO: refactor lalrpop lexer details
 impl crate::parser::__ToTriple for Loc<Token> {
@@ -36,7 +36,9 @@ fn filter_token_tree(tt: TokenTree) -> Option<TokenTree> {
 pub fn parse(input: &str) -> Result<Prog, ()> {
     let tt = create_token_tree(input)?;
     println!("TT: {:?}", tt); ////
-    let tokens = filter_token_tree(tt).ok_or(())?.flatten();
+    let tokens = filter_token_tree(tt)
+        .map(TokenTree::flatten)
+        .unwrap_or_else(|| vec![]);
 
     Ok(crate::parser::ProgParser::new()
         .parse(tokens.into_iter())

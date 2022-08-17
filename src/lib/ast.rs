@@ -59,7 +59,8 @@ impl Source {
 impl std::fmt::Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Source::Known { line, col, .. } => write!(f, "{}:{}", line, col),
+            //Source::Known { line, col, .. } => write!(f, "{}:{}", line, col),
+            Source::Known { span, line, col } => write!(f, "{}..{} @ {}:{}", span.start, span.end, line, col),
             Source::Unknown => write!(f, "(unknown source)"),
         }
     }

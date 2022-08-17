@@ -323,7 +323,7 @@ pub enum Exp {
     Array(Mut, Delim<Exp_>),
     Idx(Exp_, Exp_),
     Function(Id, SortPat_, TypBinds, Pat_, Option<Type_>, Sugar, Exp_),
-    Call(Exp_, Inst, Exp_),
+    Call(Exp_, Option<Inst>, Exp_),
     Block(Delim<Dec_>),
     Do(Exp_),
     Not(Exp_),

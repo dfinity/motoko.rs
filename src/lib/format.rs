@@ -1,8 +1,8 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Loc, Mut,
-    ObjSort, Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
+    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Loc, Mut, ObjSort,
+    Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
 use crate::lexer::is_keyword;
@@ -223,7 +223,10 @@ impl ToDoc for Exp {
             Array(m, es) => array(m, es),
             Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
             Function(_, _, _, _, _, _, _) => todo!(),
-            Call(e, b, a) => e.doc().append(bind(b)).append(enclose("(", a.doc(), ")")),
+            Call(e, b, a) => e
+                .doc()
+                .append(b.as_ref().map(bind).unwrap_or(RcDoc::nil()))
+                .append(enclose("(", a.doc(), ")")),
             Block(decs) => block(decs),
             Do(e) => kwd("do").append(e.doc()),
             Not(e) => kwd("not").append(e.doc()),

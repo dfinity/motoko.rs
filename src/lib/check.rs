@@ -1,11 +1,53 @@
-use crate::ast::Prog;
+use line_col::LineColLookup;
+
+use crate::ast::{Loc, Prog};
 use crate::format::{format_one_line, format_pretty};
-use crate::lexer::{create_token_tree, TokenTree};
-use crate::vm_types::{Interruption, Limits};
+use crate::lexer::create_token_tree;
+use crate::lexer_types::{GroupType, Token, TokenTree};
+use crate::vm_types::Interruption;
+
+// TODO: refactor lalrpop lexer details
+// impl crate::parser::__ToTriple for Loc<Token> {
+//     fn to_triple(
+//         Loc(token, src): Self,
+//     ) -> Result<
+//         (crate::ast::Source, Token, crate::ast::Source),
+//         lalrpop_util::ParseError<crate::ast::Source, Token, &'static str>,
+//     > {
+//         Ok((src.clone(), token, src))
+//     }
+// }
+
+fn filter_token_tree(tt: TokenTree) -> Option<TokenTree> {
+    match tt {
+        TokenTree::Token(Loc(ref t, _)) => match t {
+            Token::LineComment(_) | Token::Error => None,
+            // Token::Space(_) | Token::MultiLineSpace(_) => None,
+            _ => Some(tt),
+        },
+        TokenTree::Group(_, GroupType::Comment, _) => None,
+        TokenTree::Group(trees, group, pair) => Some(TokenTree::Group(
+            trees.into_iter().filter_map(filter_token_tree).collect(),
+            group,
+            pair,
+        )),
+    }
+}
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
-    // crate::parser::ExpParser::new().parse(input).map_err(|_| ())
-    Ok(crate::parser::ProgParser::new().parse(input).unwrap())
+    let tt = create_token_tree(input)?;
+    println!("TT: {:?}", tt);
+    // let tokens = filter_token_tree(tt)
+    //     .map(TokenTree::flatten)
+    //     .unwrap_or_else(|| vec![]);
+    let input = filter_token_tree(tt)
+        .map(|tt| format!("{}", tt))
+        .unwrap_or("".to_string());
+
+    Ok(crate::parser::ProgParser::new()
+        // .parse(tokens.into_iter())
+        .parse(&LineColLookup::new(&input), &input)
+        .unwrap())
 }
 
 #[allow(unused_variables)]

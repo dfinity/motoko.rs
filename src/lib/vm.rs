@@ -1,15 +1,12 @@
-use crate::ast::{
-    BinOp, Cases, Dec, Exp, Exp_, Id as Identifier, Id_, Pat, PrimType, Prog, Type, UnOp,
-};
+use crate::ast::{BinOp, Cases, Dec, Exp, Exp_, Pat, PrimType, Prog, Type, UnOp};
+use crate::ast_utils::Syntax;
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Canister, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Signal, Step,
+    Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Signal, Step,
 };
 use im_rc::{HashMap, Vector};
-use num_bigint::BigInt;
-use num_bigint::BigUint;
-use serde::{Deserialize, Serialize};
+use num_bigint::{BigInt, BigUint};
 
 impl From<()> for Interruption {
     // try to avoid this conversion, except in temp code.
@@ -161,11 +158,11 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
                     core.cont = Cont::Value(Value::Unit);
                     Ok(Step {})
                 }
-                Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), Box::new(e1)),
+                Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), e1),
             }
         }
         Annot(e, t) => {
-            match &*t {
+            match &*t.0 {
                 Type::Prim(pt) => core.cont_prim_type = Some(pt.clone()),
                 _ => {}
             };
@@ -177,23 +174,23 @@ fn exp_step(core: &mut Core, exp: Exp, limits: &Limits) -> Result<Step, Interrup
 
 fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
     match (pat, v) {
-        (Pat::Paren(p), v) => pattern_matches(env, &*p, v),
+        (Pat::Paren(p), v) => pattern_matches(env, &*p.0, v),
         (Pat::Var(x), v) => {
             let mut env = env.clone();
             env.insert(x.clone(), v.clone());
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if *id1 != **id2 {
+            if **id1.0 != **id2.0 {
                 return None;
             };
             Some(env.clone())
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if *id1 != **id2 {
+            if **id1.0 != **id2.0 {
                 return None;
             };
-            pattern_matches(env, &*pat_, &*v_)
+            pattern_matches(env, &*pat_.0, &*v_)
         }
         _ => None,
     }
@@ -201,9 +198,9 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
 
 fn switch(core: &mut Core, limits: &Limits, v: Value, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
-        if let Some(env) = pattern_matches(&core.env, &case.pat, &v) {
+        if let Some(env) = pattern_matches(&core.env, &*case.0.pat.0, &v) {
             core.env = env;
-            core.cont = Cont::Exp_(Box::new(case.exp));
+            core.cont = Cont::Exp_(case.0.exp);
             return Ok(Step {});
         }
     }
@@ -258,7 +255,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                         core.cont = Cont::Value(Value::Tuple(done));
                         Ok(Step {})
                     }
-                    Some(next) => exp_conts(core, Tuple(done, rest), Box::new(next)),
+                    Some(next) => exp_conts(core, Tuple(done, rest), next),
                 }
             }
             Annot(_t) => {
@@ -285,21 +282,20 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
     let cont = core.cont.clone(); // to do -- avoid clone here.
     core.cont = Cont::Taken;
     match cont {
-        Cont::Exp_(e) => exp_step(core, *e, limits),
+        Cont::Exp_(e) => exp_step(core, *e.0, limits),
         Cont::Value(v) => stack_cont(core, limits, v),
         Cont::Decs(mut decs) => {
             if decs.len() == 0 {
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             } else {
-                match decs.pop_front().unwrap() {
+                let dec_ = decs.pop_front().unwrap();
+                match *dec_.0 {
                     Dec::Exp(e) => {
-                        core.cont = Cont::Exp_(Box::new(e));
+                        core.cont = Cont::Exp_(e.node(dec_.1));
                         Ok(Step {})
                     }
-                    Dec::Let(p, e) => {
-                        exp_conts(core, FrameCont::Let(p, Cont::Decs(decs)), Box::new(e))
-                    }
+                    Dec::Let(p, e) => exp_conts(core, FrameCont::Let(*p.0, Cont::Decs(decs)), e),
                     _ => todo!(),
                 }
             }

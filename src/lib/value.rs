@@ -1,4 +1,4 @@
-use crate::ast::{Dec, Decs, Exp, Id_, Literal};
+use crate::ast::{Dec, Decs, Exp, Id, Id_, Literal};
 use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -18,56 +18,57 @@ pub struct FieldValue {
     pub value: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub type Value_ = Box<Value>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Null,
     Bool(bool),
     Unit,
     Nat(BigUint),
     Int(BigInt),
-    //    Float(f64),
+    Float(f64),
     Char(char),
     Text(Text),
     Blob(Vec<u8>),
     Array(Mut, Vector<Value>),
     Tuple(Vector<Value>),
-    Object(HashMap<String, FieldValue>),
+    Object(HashMap<Id, FieldValue>),
     Variant(Id_, Option<Value_>),
 }
 
-pub type Value_ = Box<Value>;
-
-pub enum ValueFromExpError {
-    ParseBigIntError(ParseBigIntError),
-    NotAValue,
-}
+// TODO: custom `PartialEq` implementation for approximate f64 equality?
+impl Eq for Value {}
 
 impl Value {
-    pub fn from_dec(dec: Dec) -> Result<Value, ValueFromExpError> {
+    pub fn from_dec(dec: Dec) -> Result<Value, ValueError> {
         match dec {
             Dec::Exp(e) => Value::from_exp(e),
-            _ => Err(ValueFromExpError::NotAValue),
+            _ => Err(ValueError::NotAValue),
         }
     }
 
-    pub fn from_decs(decs: Decs) -> Result<Value, ValueFromExpError> {
+    pub fn from_decs(decs: Decs) -> Result<Value, ValueError> {
         if decs.vec.len() > 1 {
-            Err(ValueFromExpError::NotAValue)
+            Err(ValueError::NotAValue)
         } else {
-            Value::from_dec(decs.vec[0].clone())
+            Value::from_dec((*decs.vec[0].0).clone())
         }
     }
 
-    pub fn from_exp(e: Exp) -> Result<Value, ValueFromExpError> {
+    pub fn from_exp(e: Exp) -> Result<Value, ValueError> {
         use Exp::*;
         match e {
-            Literal(l) => Value::from_literal(l).map_err(ValueFromExpError::ParseBigIntError),
-            Paren(e) => Value::from_exp(*e),
-            Annot(e, _) => Value::from_exp(*e),
-            Return(e) => Value::from_exp(*e),
-            Do(e) => Value::from_exp(*e),
+            Literal(l) => Value::from_literal(l).map_err(ValueError::ParseBigIntError),
+            Paren(e) => Value::from_exp(*e.0),
+            Annot(e, _) => Value::from_exp(*e.0),
+            Return(e) => match e {
+                Some(e) => Value::from_exp(*e.0),
+                None => Ok(Value::Unit),
+            },
+            Do(e) => Value::from_exp(*e.0),
             Block(decs) => Value::from_decs(decs),
-            _ => Err(ValueFromExpError::NotAValue),
+            _ => Err(ValueError::NotAValue),
         }
     }
 
@@ -84,4 +85,9 @@ impl Value {
             _ => unimplemented!(),
         })
     }
+}
+
+pub enum ValueError {
+    ParseBigIntError(ParseBigIntError),
+    NotAValue,
 }

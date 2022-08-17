@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec, Exp_, Id as Identifier, PrimType, Type};
+use crate::ast::{Dec_, Exp_, Id as Identifier, PrimType};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -22,14 +22,14 @@ pub struct Pointer(u64);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Cont {
     Taken,
-    Decs(Vector<Dec>),
+    Decs(Vector<Dec_>),
     Exp_(Exp_),
-    Value(Value),
+    Value(Value), // Should we retain source locations for these values?
 }
 
 pub mod stack {
     use super::{Cont, Env, Vector};
-    use crate::ast::{BinOp, Cases, Exp, Exp_, Id_, Pat, PrimType, Type, Type_, UnOp};
+    use crate::ast::{BinOp, Cases, Exp_, Id_, Pat, PrimType, Type_, UnOp};
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ pub mod stack {
         Switch(Cases),
         Do,
         Block,
-        Tuple(Vector<Value>, Vector<Exp>),
+        Tuple(Vector<Value>, Vector<Exp_>),
         Annot(Type_),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]

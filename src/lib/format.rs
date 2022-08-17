@@ -1,11 +1,12 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, BindSort, Case, Dec, DecField, Delim, Exp, ExpField, Literal, Mut, ObjSort, Pat,
-    PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
+    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Loc, Mut, ObjSort,
+    Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
-use crate::lexer::{is_keyword, GroupSort, Token, TokenTree};
+use crate::lexer::is_keyword;
+use crate::lexer_types::{GroupType, Token, TokenTree};
 use pretty::RcDoc;
 
 fn format_(doc: RcDoc, width: usize) -> String {
@@ -93,6 +94,13 @@ fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
 impl ToDoc for String {
     fn doc(&self) -> RcDoc {
         str(&self)
+    }
+}
+
+impl<T: ToDoc> ToDoc for Loc<T> {
+    fn doc(&self) -> RcDoc {
+        let Loc(t, _) = self;
+        t.doc()
     }
 }
 
@@ -194,7 +202,7 @@ impl ToDoc for Exp {
             Bin(e1, b, e2) => bin_op(e1, b.doc(), e2),
             Tuple(es) => tuple(es),
             Prim(_) => unimplemented!(),
-            Var(id) => str(id),
+            Var(id) => id.doc(),
             ActorUrl(_) => todo!(),
             Rel(e1, r, e2) => bin_op(e1, r.doc(), e2),
             Show(e) => kwd("debug_show").append(e.doc()),
@@ -210,12 +218,15 @@ impl ToDoc for Exp {
                 None => RcDoc::nil(),
                 Some(e) => RcDoc::space().append(e.doc()),
             }),
-            Dot(e, s) => e.doc().append(".").append(s),
+            Dot(e, s) => e.doc().append(".").append(s.doc()),
             Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),
             Array(m, es) => array(m, es),
             Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
             Function(_, _, _, _, _, _, _) => todo!(),
-            Call(e, b, a) => e.doc().append(bind(b)).append(enclose("(", a.doc(), ")")),
+            Call(e, b, a) => e
+                .doc()
+                .append(b.as_ref().map(bind).unwrap_or(RcDoc::nil()))
+                .append(enclose("(", a.doc(), ")")),
             Block(decs) => block(decs),
             Do(e) => kwd("do").append(e.doc()),
             Not(e) => kwd("not").append(e.doc()),
@@ -248,14 +259,14 @@ impl ToDoc for Exp {
                 .append(RcDoc::space())
                 .append(e.doc()),
             Label(id, t, e) => kwd("label")
-                .append(id)
+                .append(id.doc())
                 .append(match t {
                     None => RcDoc::nil(),
                     Some(t) => str(" : ").append(t.doc()),
                 })
                 .append(RcDoc::space())
                 .append(e.doc()),
-            Break(id, e) => kwd("break").append(id).append(match e {
+            Break(id, e) => kwd("break").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
                 Some(e) => RcDoc::space().append(e.doc()),
             }),
@@ -264,7 +275,7 @@ impl ToDoc for Exp {
             Await(e) => kwd("await").append(e.doc()),
             Assert(e) => kwd("assert").append(e.doc()),
             Annot(e, t) => e.doc().append(" : ").append(t.doc()),
-            Import(s, _) => kwd("import").append(s), // new permissive syntax?
+            Import(s, _) => kwd("import").append(s.doc()), // new permissive syntax?
             Throw(e) => kwd("throw").append(e.doc()),
             Try(e, cs) => {
                 let mut doc = kwd("try").append(e.doc());
@@ -273,9 +284,9 @@ impl ToDoc for Exp {
                     doc = doc
                         .append(RcDoc::line())
                         .append(kwd("catch"))
-                        .append(c.pat.doc())
+                        .append(c.0.pat.doc())
                         .append(RcDoc::space())
-                        .append(c.exp.doc())
+                        .append(c.0.exp.doc())
                 }
                 doc
             }
@@ -286,7 +297,7 @@ impl ToDoc for Exp {
     }
 }
 
-impl ToDoc for Delim<Dec> {
+impl ToDoc for Delim<Dec_> {
     fn doc(&self) -> RcDoc {
         delim(self, ";")
     }
@@ -306,7 +317,7 @@ impl ToDoc for Dec {
                 .append(str(" = "))
                 .append(e.doc()),
             Typ(i, b, t) => kwd("type")
-                .append(i)
+                .append(i.doc())
                 .append(bind(b))
                 .append(" = ")
                 .append(t.doc()),
@@ -330,7 +341,7 @@ impl ToDoc for Type {
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),
-            Named(id, t) => str(id).append(" : ").append(t.doc()),
+            Named(id, t) => id.doc().append(" : ").append(t.doc()),
         }
     }
 }
@@ -367,7 +378,7 @@ impl ToDoc for TypeBind {
             Scope => str("$"), // ?
             Type => RcDoc::nil(),
         }
-        .append(&self.var)
+        .append(self.var.doc())
         .append(" : ")
         .append(self.bound.doc())
     }
@@ -378,7 +389,7 @@ impl ToDoc for Pat {
         use Pat::*;
         match self {
             Wild => str("_"),
-            Var(s) => str(s),
+            Var(s) => s.doc(),
             Literal(l) => l.doc(),
             Signed(u, p) => u.doc().append(p.doc()),
             Tuple(ps) => tuple(ps),
@@ -406,7 +417,7 @@ impl ToDoc for Case {
 
 impl ToDoc for TypeField {
     fn doc(&self) -> RcDoc {
-        str(&self.id).append(" = ").append(self.typ.doc())
+        self.id.doc().append(" = ").append(self.typ.doc())
     }
 }
 
@@ -428,7 +439,7 @@ impl ToDoc for ExpField {
     fn doc(&self) -> RcDoc {
         self.mut_
             .doc()
-            .append(&self.id)
+            .append(self.id.doc())
             .append(match &self.typ {
                 None => RcDoc::nil(),
                 Some(typ) => str(" : ").append(typ.doc()),
@@ -491,7 +502,7 @@ fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
 fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTree>) {
     for tt in trees {
         if match tt {
-            TokenTree::Token(Token::Space(_), _) => false,
+            TokenTree::Token(Loc(Token::Space(_), _)) => false,
             _ => true,
         } {
             results.push(tt);
@@ -500,28 +511,28 @@ fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTre
 }
 
 fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
-    use crate::lexer::Token::*;
-    use GroupSort::*;
+    use crate::lexer_types::Token::*;
+    use GroupType::*;
     use TokenTree::*;
     match (a, b) {
         // TODO: refactor these rules to a text-based configuration file
-        (Token(Space(_), _), _) | (_, Token(Space(_), _)) => nil(),
-        (Token(MultiLineSpace(_), _), _) | (_, Token(MultiLineSpace(_), _)) => nil(),
-        (Token(Ident(s), _), Group(_, g, _))
+        (Token(Loc(Space(_), _)), _) | (_, Token(Loc(Space(_), _))) => nil(),
+        (Token(Loc(MultiLineSpace(_), _)), _) | (_, Token(Loc(MultiLineSpace(_), _))) => nil(),
+        (Token(Loc(Ident(s), _)), Group(_, g, _))
             if !is_keyword(s) && (g == &Paren || g == &Square || g == &Angle) =>
         {
             nil()
         }
-        (Token(Open(_), _), _) | (_, Token(Close(_), _)) => nil(),
-        (_, Token(Delim(_), _)) => nil(),
-        (Token(Delim(_), _), _) => line(),
-        (Token(Dot(_), _), _) => nil(),
-        (Token(Operator(s), _), _) if s.eq("?") => nil(),
-        (_, Token(Operator(s), _)) if s.eq("!") => nil(),
-        (_, Token(Operator(s), _)) if s.starts_with(" ") => nil(),
-        (Token(Operator(s), _), Token(Ident(_), _)) if s.eq("#") => nil(),
-        (_, Token(Dot(_), _)) => wrap_(),
-        (Token(Assign(_), _), _) => wrap(),
+        (Token(Loc(Open(_), _)), _) | (_, Token(Loc(Close(_), _))) => nil(),
+        (_, Token(Loc(Delim(_), _))) => nil(),
+        (Token(Loc(Delim(_), _)), _) => line(),
+        (Token(Loc(Dot(_), _)), _) => nil(),
+        (Token(Loc(Operator(s), _)), _) if s.eq("?") => nil(),
+        (_, Token(Loc(Operator(s), _))) if s.eq("!") => nil(),
+        (_, Token(Loc(Operator(s), _))) if s.starts_with(" ") => nil(),
+        (Token(Loc(Operator(s), _)), Token(Loc(Ident(_), _))) if s.eq("#") => nil(),
+        (_, Token(Loc(Dot(_), _))) => wrap_(),
+        (Token(Loc(Assign(_), _)), _) => wrap(),
         (_, Group(_, Comment, _)) => wrap(),
         (Group(_, Comment, _), _) => line(),
         _ => space(),
@@ -530,10 +541,10 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
 
 impl ToDoc for TokenTree {
     fn doc(&self) -> RcDoc {
-        use GroupSort::*;
+        use GroupType::*;
         use TokenTree::*;
         match self {
-            Token(t, _) => t.doc(),
+            Token(t) => t.doc(),
             Group(trees, sort, pair) => {
                 let trees = filter_whitespace(trees);
                 let doc = match trees.first() {
@@ -548,10 +559,10 @@ impl ToDoc for TokenTree {
                     }
                 };
                 // let concat = RcDoc::concat(docs);
-                let (open, close) = if let Some(((open, _), (close, _))) = pair {
+                let (open, close) = if let Some((Loc(open, _), Loc(close, _))) = pair {
                     (&open.data().unwrap()[..], &close.data().unwrap()[..])
                 } else {
-                    ("", "") // TODO refactor GroupSort into Option
+                    ("", "") // TODO refactor GroupType into Option
                 };
                 match sort {
                     Unenclosed => doc,

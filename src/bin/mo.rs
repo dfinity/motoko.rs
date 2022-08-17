@@ -66,6 +66,7 @@ pub enum CliCommand {
     },
     Format {
         input: String,
+        #[structopt(short = "w")]
         width: usize,
     },
     Eval {

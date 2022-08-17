@@ -1,9 +1,10 @@
 pub mod ast;
+mod ast_utils;
 pub mod check;
 pub mod format;
 mod format_utils;
 pub mod lexer;
-mod lexer_query;
+pub mod lexer_types;
 #[allow(clippy::all)]
 pub mod parser;
 mod parser_utils;

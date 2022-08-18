@@ -34,24 +34,31 @@ pub enum Source {
         col: usize,
     },
     Unknown,
+    Evaluation,
+    CoreInit,
 }
 
 impl Source {
     pub fn expand(&self, other: &Source) -> Source {
+        use Source::*;
         match (self, other) {
-            (Source::Unknown, Source::Unknown) => Source::Unknown,
+            (Unknown, Unknown) => Source::Unknown,
             (
-                Source::Known { span, line, col },
-                Source::Known {
+                Known { span, line, col },
+                Known {
                     span: other_span, ..
                 },
-            ) => Source::Known {
+            ) => Known {
                 span: span.start..other_span.end,
                 line: *line,
                 col: *col,
             },
-            (_, Source::Unknown) => self.clone(),
-            (Source::Unknown, _) => other.clone(),
+            (_, Unknown) => self.clone(),
+            (Unknown, _) => other.clone(),
+            (CoreInit, _) => todo!(),
+            (_, CoreInit) => todo!(),
+            (Evaluation, _) => todo!(),
+            (_, Evaluation) => todo!(),
         }
     }
 }
@@ -60,8 +67,12 @@ impl std::fmt::Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             //Source::Known { line, col, .. } => write!(f, "{}:{}", line, col),
-            Source::Known { span, line, col } => write!(f, "{}..{} @ {}:{}", span.start, span.end, line, col),
+            Source::Known { span, line, col } => {
+                write!(f, "{}..{} @ {}:{}", span.start, span.end, line, col)
+            }
             Source::Unknown => write!(f, "(unknown source)"),
+            Source::Evaluation => write!(f, "(evaluation)"),
+            Source::CoreInit => write!(f, "(full program, via core init)"),
         }
     }
 }

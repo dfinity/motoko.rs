@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec_, Exp_, Id as Identifier, PrimType};
+use crate::ast::{Dec_, Exp_, Id as Identifier, PrimType, Source};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -91,6 +91,7 @@ pub struct Core {
     pub stack: Stack,
     pub env: Env,
     pub cont: Cont,
+    pub cont_source: Source,
     /// `Some(t)` when evaluating under an annotation of type `t`.
     /// (`e : Nat8`  makes `Nat8` the `cont_prim_type` for `e`)
     pub cont_prim_type: Option<PrimType>,

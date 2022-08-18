@@ -37,6 +37,7 @@ pub fn core_init(prog: Prog) -> Core {
         stack: Vector::new(),
         env: HashMap::new(),
         cont: Cont::Decs(prog.vec.into()),
+        cont_source: Source::CoreInit, // special source -- or get the "full span" (but then what line or column number would be helpful here?  line 1 column 0?)
         cont_prim_type,
         counts: Counts {
             step: 0,
@@ -108,25 +109,30 @@ fn exp_conts_(
     core: &mut Core,
     source: Source,
     frame_cont: FrameCont,
-    next_cont: Cont,
+    cont: Cont,
+    cont_source: Source,
 ) -> Result<Step, Interruption> {
-    core.stack.push_back(Frame {
+    core.stack.push_front(Frame {
         env: core.env.clone(),
         cont: frame_cont,
         cont_prim_type: core.cont_prim_type.clone(),
         source,
     });
-    core.cont = next_cont;
+    core.cont = cont;
+    core.cont_source = cont_source;
     Ok(Step {})
 }
 
-fn exp_conts(
-    core: &mut Core,
-    frame_cont: FrameCont,
-    next_cont: Exp_,
-) -> Result<Step, Interruption> {
-    let source = next_cont.1.clone();
-    exp_conts_(core, source, frame_cont, Cont::Exp_(next_cont))
+fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: Exp_) -> Result<Step, Interruption> {
+    let frame_source = cont.1.clone();
+    let cont_source = cont.1.clone();
+    exp_conts_(
+        core,
+        frame_source,
+        frame_cont,
+        Cont::Exp_(cont),
+        cont_source,
+    )
 }
 
 fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interruption> {
@@ -153,7 +159,13 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         }
         Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id), e),
         Switch(e1, cases) => exp_conts(core, FrameCont::Switch(cases), e1),
-        Block(decs) => exp_conts_(core, source, FrameCont::Block, Cont::Decs(decs.vec.into())),
+        Block(decs) => exp_conts_(
+            core,
+            source.clone(),
+            FrameCont::Block,
+            Cont::Decs(decs.vec.into()),
+            source,
+        ),
         Do(e) => exp_conts(core, FrameCont::Do, e),
         Tuple(es) => {
             let mut es: Vector<_> = es.vec.into();
@@ -217,7 +229,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
         Err(Interruption::Done(v.clone()))
     } else {
         use FrameCont::*;
-        let frame = core.stack.pop_back().unwrap();
+        let frame = core.stack.pop_front().unwrap();
         core.env = frame.env;
         core.cont_prim_type = frame.cont_prim_type;
         match frame.cont {
@@ -274,6 +286,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
 // To advance the core Motoko state by a single step.
 pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
     println!("# step {}", core.counts.step);
+    println!(" - cont_source = {:?}", core.cont_source);
     println!(" - cont = {:?}", core.cont);
     println!(" - env = {:?}", core.env);
     println!(" - stack = {:#?}", core.stack);
@@ -291,11 +304,13 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
         Cont::Decs(mut decs) => {
             if decs.len() == 0 {
                 core.cont = Cont::Value(Value::Unit);
+                core.cont_source = Source::Evaluation;
                 Ok(Step {})
             } else {
                 let dec_ = decs.pop_front().unwrap();
                 match *dec_.0 {
                     Dec::Exp(e) => {
+                        core.cont_source = dec_.1.clone();
                         core.cont = Cont::Exp_(e.node(dec_.1));
                         Ok(Step {})
                     }

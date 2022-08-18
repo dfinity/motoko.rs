@@ -216,6 +216,7 @@ fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<S
     for case in cases.vec.into_iter() {
         if let Some(env) = pattern_matches(&core.env, &*case.0.pat.0, &v) {
             core.env = env;
+            core.cont_source = case.0.exp.1.clone();
             core.cont = Cont::Exp_(case.0.exp);
             return Ok(Step {});
         }
@@ -232,6 +233,8 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
         let frame = core.stack.pop_front().unwrap();
         core.env = frame.env;
         core.cont_prim_type = frame.cont_prim_type;
+        // deciding _not_ to set core.cont_source to Evaluation,
+        // but instead keep original binary operation source info associated with result.  Seems more useful.
         match frame.cont {
             UnOp(un) => {
                 core.cont = Cont::Value(unop(un, v)?);

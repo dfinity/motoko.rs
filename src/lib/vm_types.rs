@@ -74,10 +74,11 @@ pub type Store = HashMap<Pointer, Value>;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Counts {
     pub step: usize,
-    pub stack: usize,
+    /*
     pub call: usize,
     pub alloc: usize,
     pub send: usize,
+     */
 }
 
 /// Encapsulates VM state for "core Motoko code",

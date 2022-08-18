@@ -124,11 +124,10 @@ fn exp_conts_(
 }
 
 fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: Exp_) -> Result<Step, Interruption> {
-    let frame_source = cont.1.clone();
     let cont_source = cont.1.clone();
     exp_conts_(
         core,
-        frame_source,
+        core.cont_source.clone(),
         frame_cont,
         Cont::Exp_(cont),
         cont_source,
@@ -224,6 +223,18 @@ fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<S
     Err(Interruption::NoMatchingCase)
 }
 
+fn source_from_cont<'a>(cont: &'a Cont) -> Source {
+    use Cont::*;
+    match cont {
+        Taken => {
+            unreachable!("no source for Taken continuation. This signals a VM bug.  Please report.")
+        }
+        Decs(decs) => decs.front().unwrap().1.expand(&decs.back().unwrap().1),
+        Exp_(exp_) => exp_.1.clone(),
+        Value(_v) => Source::Evaluation,
+    }
+}
+
 // continue execution using the top-most stack frame, if any.
 fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interruption> {
     if core.stack.len() == 0 {
@@ -233,8 +244,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
         let frame = core.stack.pop_front().unwrap();
         core.env = frame.env;
         core.cont_prim_type = frame.cont_prim_type;
-        // deciding _not_ to set core.cont_source to Evaluation,
-        // but instead keep original binary operation source info associated with result.  Seems more useful.
+        core.cont_source = frame.source;
         match frame.cont {
             UnOp(un) => {
                 core.cont = Cont::Value(unop(un, v)?);
@@ -247,6 +257,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             }
             Let(Pat::Var(x), cont) => {
                 core.env.insert(x, v);
+                core.cont_source = source_from_cont(&cont);
                 core.cont = cont;
                 Ok(Step {})
             }

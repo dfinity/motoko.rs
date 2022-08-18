@@ -37,6 +37,13 @@ pub enum Source {
 }
 
 impl Source {
+    pub fn span(&self) -> Option<Span> {
+        use Source::*;
+        match self {
+            Known { span, .. } => Some(span.clone()),
+            _ => None,
+        }
+    }
     pub fn expand(&self, other: &Source) -> Source {
         use Source::*;
         match (self, other) {

@@ -99,9 +99,6 @@ pub struct Core {
     pub counts: Counts,
 }
 
-/// Set of active breakpoints.
-pub type Breakpoints = HashMap<Breakpoint, ()>;
-
 /// Encapsulates the VM state running Motoko code locally,
 /// as a script interacting with the internet computer from the
 /// outside of the IC.
@@ -115,7 +112,6 @@ pub struct Local {
     // to do
     // - one "active" Core.
     pub active: Core,
-    //pub breakpoints: Breakpoints,
     // - a DAG of inactive Cores, related to the active one.
     // - DAG is initially empty.
 }
@@ -131,11 +127,15 @@ pub struct Canister {
 // to interject some "slow interactivity" into its execution.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Limits {
+    pub breakpoints: Vec<Breakpoint>,
+
     pub step: Option<usize>,
+    /*
     pub stack: Option<usize>,
     pub call: Option<usize>,
     pub alloc: Option<usize>,
     pub send: Option<usize>,
+     */
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -158,6 +158,7 @@ pub struct Step {
 // interruptions are events that prevent steppping from progressing.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Interruption {
+    Done(Value),
     TypeMismatch,
     NoMatchingCase,
     ParseError,
@@ -165,7 +166,6 @@ pub enum Interruption {
     BlockedAwaiting,
     Limit(Limit),
     DivideByZero,
-    Done(Value),
     AmbiguousOperation,
     Unknown,
 }
@@ -173,8 +173,8 @@ pub enum Interruption {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Signal {
     Done(Value),
-    Interruption(Interruption),
     Breakpoint(Breakpoint),
+    Interruption(Interruption),
 }
 
 pub type Breakpoint = Span;

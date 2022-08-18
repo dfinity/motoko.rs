@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec_, Exp_, Id as Identifier, PrimType, Source};
+use crate::ast::{Dec_, Exp_, Id as Identifier, PrimType, Source, Span};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -99,6 +99,9 @@ pub struct Core {
     pub counts: Counts,
 }
 
+/// Set of active breakpoints.
+pub type Breakpoints = HashMap<Breakpoint, ()>;
+
 /// Encapsulates the VM state running Motoko code locally,
 /// as a script interacting with the internet computer from the
 /// outside of the IC.
@@ -171,7 +174,10 @@ pub enum Interruption {
 pub enum Signal {
     Done(Value),
     Interruption(Interruption),
+    Breakpoint(Breakpoint),
 }
+
+pub type Breakpoint = Span;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Error {

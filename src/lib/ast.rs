@@ -26,13 +26,11 @@ impl<X> Node<X> {
     }
 }
 
+pub type Span = Range<usize>;
+
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Source {
-    Known {
-        span: Range<usize>,
-        line: usize,
-        col: usize,
-    },
+    Known { span: Span, line: usize, col: usize },
     Unknown,
     Evaluation,
     CoreInit,

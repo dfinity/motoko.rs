@@ -366,6 +366,7 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
     match s {
         Done(result) => Ok(result),
         Interruption(i) => Err(i),
+        Breakpoint(_) => todo!(),
     }
 }
 

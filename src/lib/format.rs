@@ -316,7 +316,7 @@ impl ToDoc for Dec {
                 .append(p.doc())
                 .append(str(" = "))
                 .append(e.doc()),
-            Typ(i, b, t) => kwd("type")
+            Type(i, b, t) => kwd("type")
                 .append(i.doc())
                 .append(bind(b))
                 .append(" = ")

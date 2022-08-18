@@ -1,6 +1,7 @@
 use line_col::LineColLookup;
+use regex::Regex;
 
-use crate::ast::{Loc, Prog};
+use crate::ast::{Loc, Prog, Source};
 use crate::format::{format_one_line, format_pretty};
 use crate::lexer::create_token_tree;
 use crate::lexer_types::{GroupType, Token, TokenTree};
@@ -18,19 +19,32 @@ use crate::vm_types::Interruption;
 //     }
 // }
 
-fn filter_token_tree(tt: TokenTree) -> Option<TokenTree> {
+// Replace a token tree with equivalent whitespace
+fn spacify_token_tree(tt: TokenTree) -> TokenTree {
+    TokenTree::Token(Loc(
+        Token::Space(
+            Regex::new(r"\S")
+                .unwrap()
+                .replace_all(&format!("{}", tt), " ")
+                .to_string(),
+        ),
+        Source::Unknown,
+    ))
+}
+
+fn prepare_token_tree(tt: TokenTree) -> TokenTree {
     match tt {
-        TokenTree::Token(Loc(ref t, _)) => match t {
-            Token::LineComment(_) | Token::Error => None,
+        TokenTree::Token(Loc(ref token, _)) => match token {
+            Token::LineComment(_) => spacify_token_tree(tt),
             // Token::Space(_) | Token::MultiLineSpace(_) => None,
-            _ => Some(tt),
+            _ => tt,
         },
-        TokenTree::Group(_, GroupType::Comment, _) => None,
-        TokenTree::Group(trees, group, pair) => Some(TokenTree::Group(
-            trees.into_iter().filter_map(filter_token_tree).collect(),
+        TokenTree::Group(_, GroupType::Comment, _) => spacify_token_tree(tt),
+        TokenTree::Group(trees, group, pair) => TokenTree::Group(
+            trees.into_iter().map(prepare_token_tree).collect(),
             group,
             pair,
-        )),
+        ),
     }
 }
 
@@ -40,9 +54,8 @@ pub fn parse(input: &str) -> Result<Prog, ()> {
     // let tokens = filter_token_tree(tt)
     //     .map(TokenTree::flatten)
     //     .unwrap_or_else(|| vec![]);
-    let input = filter_token_tree(tt)
-        .map(|tt| format!("{}", tt))
-        .unwrap_or("".to_string());
+    let prepared_tt = prepare_token_tree(tt);
+    let input = format!("{}", prepared_tt);
 
     Ok(crate::parser::ProgParser::new()
         // .parse(tokens.into_iter())
@@ -70,7 +83,6 @@ pub fn assert_lex_roundtrip(input: &str, width: Option<usize>) -> TokenTree {
     assert_lex(input, input, width)
 }
 
-#[allow(unused_variables)]
 pub fn assert_parse(input: &str, expected: &str) -> Prog {
     println!("testing {}", input);
     let prog = parse(input).unwrap();

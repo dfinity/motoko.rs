@@ -41,10 +41,12 @@ pub fn core_init(prog: Prog) -> Core {
         cont_prim_type,
         counts: Counts {
             step: 0,
+            /*
             stack: 0,
             call: 0,
             alloc: 0,
             send: 0,
+             */
         },
     }
 }

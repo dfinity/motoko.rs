@@ -81,8 +81,11 @@ pub enum Token {
     #[regex(r"\s+", data)]
     Space(Data),
 
-    #[regex(r"[^\S\n]*\n[^\S\n]*\n\s*", data)]
-    MultiLineSpace(Data),
+    // #[regex(r"\n", data)]
+    Line(Data),
+
+    // #[regex(r"[^\S\n]*\n[^\S\n]*\n\s*", data)]
+    MultiLine(Data),
 
     Unknown(Data),
 
@@ -98,7 +101,7 @@ impl Token {
             Error => Err(()),
             LineComment(s) | Open((s, _)) | Close((s, _)) | Dot(s) | Colon(s) | Assign(s)
             | Operator(s) | Ident(s) | Wild(s) | Delim((s, _)) | Literal((s, _)) | Space(s)
-            | MultiLineSpace(s) | Unknown(s) => Ok(s),
+            | Line(s) | MultiLine(s) | Unknown(s) => Ok(s),
         }
     }
 }

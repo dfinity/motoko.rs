@@ -500,9 +500,10 @@ fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
 }
 
 fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTree>) {
-    for tt in trees {
+    for tt in trees.into_iter() {
         if match tt {
             TokenTree::Token(Loc(Token::Space(_), _)) => false,
+            // TokenTree::Token(Loc(Token::Line(_), _)) if i == 0 || i == trees.len() - 1 => false,
             _ => true,
         } {
             results.push(tt);
@@ -517,7 +518,9 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
     match (a, b) {
         // TODO: refactor these rules to a text-based configuration file
         (Token(Loc(Space(_), _)), _) | (_, Token(Loc(Space(_), _))) => nil(),
-        (Token(Loc(MultiLineSpace(_), _)), _) | (_, Token(Loc(MultiLineSpace(_), _))) => nil(),
+        (Token(Loc(Line(_), _)), _) | (_, Token(Loc(Line(_), _))) => nil(),
+        (Token(Loc(LineComment(_), _)), _) => RcDoc::hardline(),
+        (Token(Loc(MultiLine(_), _)), _) | (_, Token(Loc(MultiLine(_), _))) => nil(),
         (Token(Loc(Ident(s), _)), Group(_, g, _))
             if !is_keyword(s) && (g == &Paren || g == &Square || g == &Angle) =>
         {
@@ -569,7 +572,7 @@ impl ToDoc for TokenTree {
                     Curly => enclose_space(open, doc, close),
                     Paren | Square | Angle => enclose(open, doc, close),
                     // Comment => str(open).append(format!("{}", self)).append(close),
-                    Comment => str("").append(format!("{}", self)),
+                    Comment => RcDoc::as_string(format!("{}", self)),
                 }
             }
         }
@@ -580,7 +583,8 @@ impl ToDoc for Token {
     fn doc(&self) -> RcDoc {
         use Token::*;
         match self {
-            &MultiLineSpace(_) => RcDoc::hardline().append(RcDoc::hardline()),
+            &Line(_) => RcDoc::hardline(),
+            &MultiLine(_) => RcDoc::hardline().append(RcDoc::hardline()),
             t => str(t.data().unwrap()),
         }
         // str(self.data().unwrap())

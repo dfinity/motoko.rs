@@ -227,10 +227,14 @@ fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<S
 }
 
 fn source_from_decs(decs: &Vector<Dec_>) -> Source {
-    let first = decs.front().unwrap().1.clone();
-    match decs.back() {
-        None => first,
-        Some(back) => first.expand(&back.1),
+    if decs.len() == 0 {
+        Source::Unknown
+    } else {
+        let first = decs.front().unwrap().1.clone();
+        match decs.back() {
+            None => first,
+            Some(back) => first.expand(&back.1),
+        }
     }
 }
 
@@ -240,8 +244,14 @@ fn source_from_cont(cont: &Cont) -> Source {
         Taken => {
             unreachable!("no source for Taken continuation. This signals a VM bug.  Please report.")
         }
-        Decs(decs) => decs.front().unwrap().1.expand(&decs.back().unwrap().1),
-        Exp_(exp_, decs) => source_from_decs(decs),
+        Decs(decs) => source_from_decs(decs),
+        Exp_(exp_, decs) => {
+            if decs.len() == 0 {
+                exp_.1.clone()
+            } else {
+                exp_.1.expand(&decs.back().unwrap().1)
+            }
+        }
         Value(_v) => Source::Evaluation,
     }
 }
@@ -300,10 +310,10 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             }
             Assign1(e2) => match v {
                 Value::Pointer(p) => exp_conts(core, Assign2(p), e2),
-                v => Err(Interruption::TypeMismatch),
+                _ => Err(Interruption::TypeMismatch),
             },
             Assign2(p) => {
-                store::mutate(core, p, v);
+                store::mutate(core, p, v)?;
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
@@ -439,8 +449,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                     _ => todo!(),
                 }
             }
-        }
-        _ => unimplemented!(),
+        } //_ => unimplemented!(),
     }
 }
 

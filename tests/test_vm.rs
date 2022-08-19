@@ -50,5 +50,8 @@ fn vm_prim_ops() {
 
 #[test]
 fn vm_vars() {
-    assert_("var x = 1; x := 2; x", "2")
+    assert_("var x = 1", "()");
+    assert_("var x = 1; x", "1");
+    assert_("var x = 1; x := 2; x", "2");
+    assert_x("1 := 1", &Interruption::TypeMismatch);
 }

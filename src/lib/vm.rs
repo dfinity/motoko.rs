@@ -1,5 +1,5 @@
 use crate::ast::{BinOp, Cases, Dec, Exp, Exp_, Pat, PrimType, Prog, Source, Type, UnOp};
-use crate::ast_utils::Syntax;
+use crate::ast_traversal::ToNode;
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},

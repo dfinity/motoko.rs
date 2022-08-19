@@ -21,7 +21,7 @@ impl<X> Loc<X> {
 }
 
 impl<X> Node<X> {
-    pub fn map_box<F: Fn(X) -> T, T>(self, map_fn: F) -> Node<T> {
+    pub fn map_node<F: Fn(X) -> T, T>(self, map_fn: F) -> Node<T> {
         Loc(Box::new(map_fn(*self.0)), self.1)
     }
 }
@@ -145,11 +145,11 @@ pub enum Dec {
     Exp(Exp),
     Let(Pat_, Exp_),
     Var(Pat_, Exp_),
-    Typ(TypId_, TypBinds, Type_),
+    Type(TypId_, TypeBinds, Type_),
     Class(
         SortPat_,
         TypId_,
-        TypBinds,
+        TypeBinds,
         Pat_,
         Option<Type_>,
         ObjSort,
@@ -194,7 +194,7 @@ pub enum Mut {
     Var,
 }
 
-pub type TypBinds = Delim<TypeBind_>;
+pub type TypeBinds = Delim<TypeBind_>;
 pub type DecFields = Delim<DecField_>;
 pub type ExpFields = Delim<ExpField_>;
 pub type PatFields = Delim<PatField_>;
@@ -300,7 +300,7 @@ pub enum Type {
     Optional(Type_),
     // Variant(Vec<>),
     Tuple(Delim<Type_>),
-    Function(FuncSort, Delim<TypeBind>, Delim<Type_>, Type_),
+    Function(FuncSort, TypeBinds, Delim<Type_>, Type_),
     Async(Type_, Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
@@ -340,7 +340,7 @@ pub enum Exp {
     Assign(Exp_, Exp_),
     Array(Mut, Delim<Exp_>),
     Idx(Exp_, Exp_),
-    Function(Id, SortPat_, TypBinds, Pat_, Option<Type_>, Sugar, Exp_),
+    Function(Id, SortPat_, TypeBinds, Pat_, Option<Type_>, Sugar, Exp_),
     Call(Exp_, Option<Inst>, Exp_),
     Block(Delim<Dec_>),
     Do(Exp_),
@@ -376,7 +376,7 @@ pub enum Pat {
     Literal(Literal),
     Signed(UnOp, Pat_),
     Tuple(Delim<Pat_>),
-    Object(Delim<PatFields>),
+    Object(PatFields),
     Optional(Pat_),
     Variant(Id_, Option<Pat_>),
     Alt(Delim<Pat_>),

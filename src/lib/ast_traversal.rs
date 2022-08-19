@@ -1,6 +1,34 @@
+use logos::Span;
+
 use crate::ast::{
     Case, Dec, DecField, Exp, ExpField, Loc, Node, Pat, PatField, Source, Type, TypeBind, TypeField,
 };
+
+// TODO: move to another file
+pub fn get_breakpoint_span_from_line<'a>(
+    tree: &'a Loc<SyntaxTree<'a>>,
+    breakpoint_line: usize,
+) -> Option<Span> {
+    match &tree.1 {
+        Source::Known { span, line, .. } => {
+            if *line == breakpoint_line {
+                Some(span.clone())
+            } else if *line < breakpoint_line {
+                let mut span = None;
+                tree.for_each_child(|x| {
+                    match (&span, get_breakpoint_span_from_line(x, breakpoint_line)) {
+                        (None, Some(s)) => span = Some(s),
+                        _ => {}
+                    }
+                });
+                span
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyntaxTree<'a> {
@@ -101,19 +129,19 @@ impl ToNode for TypeBind {
 }
 
 pub trait Traverse {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F);
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, f: F);
 
-    fn for_each_recursive<'a, F: Fn(&Loc<SyntaxTree>)>(&'a self, f: F)
+    fn for_each_recursive<'a, F: FnMut(&Loc<SyntaxTree>)>(&'a self, mut f: F)
     where
         Self: ToTree<'a>,
     {
         f(&self.tree());
-        self.for_each_child(|x| x.for_each_recursive(&f))
+        self.for_each_child(|x| x.for_each_recursive(&mut f))
     }
 }
 
 impl<'a> Traverse for Loc<SyntaxTree<'a>> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, f: F) {
         match self.0 {
             SyntaxTree::Exp(x) => Loc(x, self.1.clone()).for_each_child(f),
             SyntaxTree::Dec(x) => Loc(x, self.1.clone()).for_each_child(f),
@@ -130,7 +158,7 @@ impl<'a> Traverse for Loc<SyntaxTree<'a>> {
 }
 
 impl<C: Traverse> Traverse for Option<C> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, f: F) {
         match self {
             Some(c) => c.for_each_child(f),
             None => {}
@@ -139,7 +167,7 @@ impl<C: Traverse> Traverse for Option<C> {
 }
 
 impl<'a> Traverse for Loc<&'a Exp> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         match self.0 {
             Exp::Hole => {}
             Exp::Prim(_) => {}
@@ -272,7 +300,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
 }
 
 impl<'a> Traverse for Loc<&'a Dec> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         match &self.0 {
             Dec::Exp(e) => f(&e.clone().node(self.1.clone()).tree()), // TODO: no clone
             Dec::Let(p, e) => {
@@ -304,7 +332,7 @@ impl<'a> Traverse for Loc<&'a Dec> {
 }
 
 impl<'a> Traverse for Loc<&'a Pat> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         match &self.0 {
             Pat::Wild => {}
             Pat::Var(_) => {}
@@ -329,7 +357,7 @@ impl<'a> Traverse for Loc<&'a Pat> {
 }
 
 impl<'a> Traverse for Loc<&'a Type> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         match &self.0 {
             Type::Prim(_) => todo!(),
             Type::Object(_, ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
@@ -360,7 +388,7 @@ impl<'a> Traverse for Loc<&'a Type> {
 }
 
 impl<'a> Traverse for Loc<&'a ExpField> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         if let Some(t) = &self.0.typ {
             f(&t.tree());
         }
@@ -369,32 +397,32 @@ impl<'a> Traverse for Loc<&'a ExpField> {
 }
 
 impl<'a> Traverse for Loc<&'a DecField> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         f(&self.0.dec.tree());
     }
 }
 
 impl<'a> Traverse for Loc<&'a PatField> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         f(&self.0.pat.tree());
     }
 }
 
 impl<'a> Traverse for Loc<&'a TypeField> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         f(&self.0.typ.tree());
     }
 }
 
 impl<'a> Traverse for Loc<&'a Case> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         f(&self.0.pat.tree());
         f(&self.0.exp.tree());
     }
 }
 
 impl<'a> Traverse for Loc<&'a TypeBind> {
-    fn for_each_child<F: Fn(&Loc<SyntaxTree>)>(&self, f: F) {
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         f(&self.0.bound.tree());
     }
 }

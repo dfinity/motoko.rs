@@ -3,7 +3,7 @@ use crate::ast_traversal::ToNode;
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Signal, Step,
+    Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Signal, Step,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
@@ -16,21 +16,20 @@ impl From<()> for Interruption {
 }
 
 impl Limits {
+    /// No limits.
     pub fn none() -> Limits {
         Limits {
+            breakpoints: vec![],
             step: None,
-            stack: None,
-            call: None,
-            alloc: None,
-            send: None,
         }
     }
+    /// Set step limit.
     pub fn step(&mut self, s: usize) {
         self.step = Some(s);
     }
 }
 
-pub fn core_init(prog: Prog) -> Core {
+fn core_init(prog: Prog) -> Core {
     let cont_prim_type: Option<PrimType> = None;
     Core {
         store: HashMap::new(),
@@ -300,7 +299,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
 }
 
 // To advance the core Motoko state by a single step.
-pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
+fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
     println!("# step {}", core.counts.step);
     println!(" - cont_source = {:?}", core.cont_source);
     println!(" - cont = {:?}", core.cont);
@@ -339,14 +338,43 @@ pub fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption>
     }
 }
 
+impl Core {
+    /// New VM core for a given program.
+    pub fn new(prog: Prog) -> Self {
+        core_init(prog)
+    }
+
+    /// Step VM core, under some limits.
+    pub fn step(&mut self, limits: &Limits) -> Result<Step, Interruption> {
+        core_step(self, limits)
+    }
+}
+
 // For core Motoko state initializing local VM state.
-pub fn local_init(active: Core) -> Local {
+fn local_init(active: Core) -> Local {
     Local { active }
 }
 
+// Returns `Some(span)` if the limits include the breakpoint.
+fn check_for_breakpoint(local: &mut Local, limits: &Limits) -> Option<Breakpoint> {
+    let cont_span = &local.active.cont_source.span();
+    if let Some(span) = cont_span {
+        if limits.breakpoints.contains(span) {
+            Some(span.clone())
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 // use ic-agent to do function calls.
-pub fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
+fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
     loop {
+        if let Some(break_span) = check_for_breakpoint(local, limits) {
+            return Ok(Signal::Breakpoint(break_span));
+        }
         match core_step(&mut local.active, limits) {
             Ok(_step) => { /* to do */ }
             Err(Interruption::Done(v)) => return Ok(Signal::Done(v)),
@@ -355,17 +383,28 @@ pub fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
     }
 }
 
+impl Local {
+    /// New local VM instance for given `Core`.
+    pub fn new(core: Core) -> Self {
+        local_init(core)
+    }
+    /// Run the local VM (under some possible limits).
+    pub fn run(&mut self, limits: &Limits) -> Result<Signal, Error> {
+        local_run(self, limits)
+    }
+}
+
 /// Used for tests in check module.
 pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
     let p = crate::check::parse(&prog)?;
-    let c = core_init(p);
-    let mut l = local_init(c);
-    let s = local_run(&mut l, limits).map_err(|_| ())?;
+    let mut l = Local::new(Core::new(p));
+    let s = l.run(limits).map_err(|_| ())?;
     println!("final signal: {:?}", s);
     use crate::vm_types::Signal::*;
     match s {
         Done(result) => Ok(result),
         Interruption(i) => Err(i),
+        Breakpoint(_) => todo!(),
     }
 }
 

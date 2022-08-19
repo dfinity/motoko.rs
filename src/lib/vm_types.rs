@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec_, Exp_, Id as Identifier, PrimType, Source};
+use crate::ast::{Dec_, Exp_, Id as Identifier, PrimType, Source, Span};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -112,7 +112,6 @@ pub struct Local {
     // to do
     // - one "active" Core.
     pub active: Core,
-    //pub breakpoints: Breakpoints,
     // - a DAG of inactive Cores, related to the active one.
     // - DAG is initially empty.
 }
@@ -128,11 +127,15 @@ pub struct Canister {
 // to interject some "slow interactivity" into its execution.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Limits {
+    pub breakpoints: Vec<Breakpoint>,
+
     pub step: Option<usize>,
+    /*
     pub stack: Option<usize>,
     pub call: Option<usize>,
     pub alloc: Option<usize>,
     pub send: Option<usize>,
+     */
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -155,6 +158,7 @@ pub struct Step {
 // interruptions are events that prevent steppping from progressing.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Interruption {
+    Done(Value),
     TypeMismatch,
     NoMatchingCase,
     ParseError,
@@ -162,7 +166,6 @@ pub enum Interruption {
     BlockedAwaiting,
     Limit(Limit),
     DivideByZero,
-    Done(Value),
     AmbiguousOperation,
     Unknown,
 }
@@ -170,8 +173,11 @@ pub enum Interruption {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Signal {
     Done(Value),
+    Breakpoint(Breakpoint),
     Interruption(Interruption),
 }
+
+pub type Breakpoint = Span;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Error {

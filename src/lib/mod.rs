@@ -1,5 +1,5 @@
 pub mod ast;
-mod ast_utils;
+pub mod ast_traversal;
 pub mod check;
 pub mod format;
 mod format_utils;

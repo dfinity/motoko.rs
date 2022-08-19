@@ -10,7 +10,7 @@ pub struct Id(u64);
 
 /// Or maybe a string?
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Pointer(u64);
+pub struct Pointer(pub usize);
 
 /// Local continuation as a Dec sequence.  This Vector permits
 /// sharing.
@@ -23,13 +23,13 @@ pub struct Pointer(u64);
 pub enum Cont {
     Taken,
     Decs(Vector<Dec_>),
-    Exp_(Exp_),
+    Exp_(Exp_, Vector<Dec_>),
     Value(Value), // Should we retain source locations for these values?
 }
 
 pub mod stack {
-    use super::{Cont, Env, Vector};
-    use crate::ast::{BinOp, Cases, Exp_, Id_, Pat, PrimType, Source, Type_, UnOp};
+    use super::{Cont, Env, Pointer, Vector};
+    use crate::ast::{BinOp, Cases, Dec_, Exp_, Id, Id_, Pat, PrimType, Source, Type_, UnOp};
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 
@@ -37,7 +37,7 @@ pub mod stack {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum FrameCont {
         Let(Pat, Cont),
-        Var(Pat, Cont),
+        Var(Id, Cont),
         UnOp(UnOp),
         BinOp1(BinOp, Exp_),
         BinOp2(Value, BinOp),
@@ -46,8 +46,11 @@ pub mod stack {
         Switch(Cases),
         Do,
         Block,
+        Decs(Vector<Dec_>),
         Tuple(Vector<Value>, Vector<Exp_>),
         Annot(Type_),
+        Assign1(Exp_),
+        Assign2(Pointer),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
@@ -159,6 +162,7 @@ pub struct Step {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Interruption {
     Done(Value),
+    Dangling(Pointer),
     TypeMismatch,
     NoMatchingCase,
     ParseError,

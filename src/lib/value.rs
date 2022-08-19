@@ -35,6 +35,7 @@ pub enum Value {
     Tuple(Vector<Value>),
     Object(HashMap<Id, FieldValue>),
     Variant(Id_, Option<Value_>),
+    Pointer(crate::vm_types::Pointer),
 }
 
 // TODO: custom `PartialEq` implementation for approximate f64 equality?

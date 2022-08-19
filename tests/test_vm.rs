@@ -7,20 +7,20 @@ fn assert_is_value(v: &str) {
 }
 
 #[test]
-fn test_literals() {
+fn vm_literals() {
     assert_is_value("1");
     assert_is_value("#apple");
     assert_is_value("#apple(1)");
 }
 
 #[test]
-fn test_let() {
+fn vm_let() {
     assert_("let x = 1; x", "1");
     assert_("let x = 1; let y = do {let x = 666; 42}; x + y", "43");
 }
 
 #[test]
-fn test_binop() {
+fn vm_binop() {
     assert_("1 + 1", "2");
     assert_("1 - 1", "0");
     assert_("3 - 2 - 1", "0");
@@ -29,21 +29,26 @@ fn test_binop() {
 }
 
 #[test]
-fn test_switch() {
+fn vm_switch() {
     assert_("switch (#apple) { case (#apple) { 42 } }", "42");
     assert_("switch (#apple(42)) { case (#apple(x)) { x } }", "42")
 }
 
 #[test]
-fn test_tuples() {
+fn vm_tuples() {
     assert_("(1, 2, 3)", "(1, 2, 3)");
     assert_("(1 + 1, 2 + 2, 3 + 3)", "(2, 4, 6)");
 }
 
 #[test]
-fn test_prim_ops() {
+fn vm_prim_ops() {
     assert_("255 + 1 : Nat", "256");
     assert_("255 +% 1 : Nat8", "0");
     assert_("(255 +% 1) +% (255 +% 1) : Nat8", "0");
     assert_x("255 +% 1", &Interruption::AmbiguousOperation);
+}
+
+#[test]
+fn vm_vars() {
+    assert_("var x = 1; x := 2; x", "2")
 }

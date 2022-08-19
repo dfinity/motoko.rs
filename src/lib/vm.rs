@@ -1,9 +1,10 @@
-use crate::ast::{BinOp, Cases, Dec, Exp, Exp_, Pat, PrimType, Prog, Source, Type, UnOp};
+use crate::ast::{BinOp, Cases, Dec, Dec_, Exp, Exp_, Pat, PrimType, Prog, Source, Type, UnOp};
 use crate::ast_traversal::ToNode;
 use crate::value::Value;
 use crate::vm_types::{
     stack::{Frame, FrameCont},
-    Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Signal, Step,
+    Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
+    Signal, Step,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
@@ -130,7 +131,7 @@ fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: Exp_) -> Result<Step,
         core,
         core.cont_source.clone(),
         frame_cont,
-        Cont::Exp_(cont),
+        Cont::Exp_(cont, Vector::new()),
         cont_source,
     )
 }
@@ -184,6 +185,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
             };
             exp_conts(core, FrameCont::Annot(t), e)
         }
+        Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2), e1),
         _ => todo!(),
     }
 }
@@ -217,22 +219,57 @@ fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<S
         if let Some(env) = pattern_matches(&core.env, &*case.0.pat.0, &v) {
             core.env = env;
             core.cont_source = case.0.exp.1.clone();
-            core.cont = Cont::Exp_(case.0.exp);
+            core.cont = Cont::Exp_(case.0.exp, Vector::new());
             return Ok(Step {});
         }
     }
     Err(Interruption::NoMatchingCase)
 }
 
-fn source_from_cont<'a>(cont: &'a Cont) -> Source {
+fn source_from_decs(decs: &Vector<Dec_>) -> Source {
+    let first = decs.front().unwrap().1.clone();
+    match decs.back() {
+        None => first,
+        Some(back) => first.expand(&back.1),
+    }
+}
+
+fn source_from_cont(cont: &Cont) -> Source {
     use Cont::*;
     match cont {
         Taken => {
             unreachable!("no source for Taken continuation. This signals a VM bug.  Please report.")
         }
         Decs(decs) => decs.front().unwrap().1.expand(&decs.back().unwrap().1),
-        Exp_(exp_) => exp_.1.clone(),
+        Exp_(exp_, decs) => source_from_decs(decs),
         Value(_v) => Source::Evaluation,
+    }
+}
+
+mod store {
+    use super::{Core, Interruption, Pointer, Value};
+
+    pub fn alloc(core: &mut Core, v: Value) -> Pointer {
+        let ptr = core.store.len();
+        core.store.insert(Pointer(ptr), v);
+        Pointer(ptr)
+    }
+
+    pub fn deref(core: &mut Core, p: &Pointer) -> Option<Value> {
+        match core.store.get(p) {
+            None => None,
+            Some(v) => Some(v.clone()),
+        }
+    }
+
+    pub fn mutate(core: &mut Core, p: Pointer, v: Value) -> Result<(), Interruption> {
+        // it is an error to mutate an unallocated pointer.
+        match core.store.get(&p) {
+            None => return Err(Interruption::Dangling(p)),
+            Some(_) => (),
+        };
+        core.store.insert(p, v);
+        Ok(())
     }
 }
 
@@ -243,7 +280,12 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
     } else {
         use FrameCont::*;
         let frame = core.stack.pop_front().unwrap();
-        core.env = frame.env;
+        match &frame.cont {
+            Decs(_) => { /* decs in same block share an environment. */ }
+            _ => {
+                core.env = frame.env;
+            }
+        }
         core.cont_prim_type = frame.cont_prim_type;
         core.cont_source = frame.source;
         match frame.cont {
@@ -256,8 +298,24 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(binop(&core.cont_prim_type, bop, v1, v)?);
                 Ok(Step {})
             }
+            Assign1(e2) => match v {
+                Value::Pointer(p) => exp_conts(core, Assign2(p), e2),
+                v => Err(Interruption::TypeMismatch),
+            },
+            Assign2(p) => {
+                store::mutate(core, p, v);
+                core.cont = Cont::Value(Value::Unit);
+                Ok(Step {})
+            }
             Let(Pat::Var(x), cont) => {
                 core.env.insert(x, v);
+                core.cont_source = source_from_cont(&cont);
+                core.cont = cont;
+                Ok(Step {})
+            }
+            Var(x, cont) => {
+                let ptr = store::alloc(core, v);
+                core.env.insert(x, Value::Pointer(ptr));
                 core.cont_source = source_from_cont(&cont);
                 core.cont = cont;
                 Ok(Step {})
@@ -274,6 +332,19 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             Block => {
                 core.cont = Cont::Value(v);
                 Ok(Step {})
+            }
+            Decs(decs) => {
+                match decs.front() {
+                    None => {
+                        // return final value from block.
+                        core.cont = Cont::Value(v);
+                        return Ok(Step {});
+                    }
+                    Some(_) => {
+                        core.cont = Cont::Decs(decs);
+                        Ok(Step {})
+                    }
+                }
             }
             Do => {
                 core.cont = Cont::Value(v);
@@ -314,7 +385,38 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
     let cont = core.cont.clone(); // to do -- avoid clone here.
     core.cont = Cont::Taken;
     match cont {
-        Cont::Exp_(e) => exp_step(core, e, limits),
+        Cont::Taken => unreachable!("The VM's logic currently has an internal issue."),
+        Cont::Exp_(e, decs) => {
+            if decs.len() == 0 {
+                core.cont_prim_type = None;
+                exp_step(core, e, limits)
+            } else {
+                let source = source_from_decs(&decs);
+                core.stack.push_front(Frame {
+                    env: core.env.clone(),
+                    cont: FrameCont::Decs(decs),
+                    source,
+                    cont_prim_type: core.cont_prim_type.clone(),
+                });
+                exp_step(core, e, limits)
+            }
+        }
+        Cont::Value(Value::Pointer(p)) => {
+            // Are we assigning to this pointer?
+            // If not, we are implicitly dereferencing it here.
+            match &core.stack.front() {
+                Some(Frame {
+                    cont: FrameCont::Assign1(_),
+                    ..
+                }) => stack_cont(core, limits, Value::Pointer(p)),
+                _ => {
+                    let v =
+                        store::deref(core, &p).ok_or_else(|| Interruption::Dangling(p.clone()))?;
+                    core.cont = Cont::Value(v);
+                    Ok(Step {})
+                }
+            }
+        }
         Cont::Value(v) => stack_cont(core, limits, v),
         Cont::Decs(mut decs) => {
             if decs.len() == 0 {
@@ -326,10 +428,14 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                 match *dec_.0 {
                     Dec::Exp(e) => {
                         core.cont_source = dec_.1.clone();
-                        core.cont = Cont::Exp_(e.node(dec_.1));
+                        core.cont = Cont::Exp_(e.node(dec_.1), decs);
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => exp_conts(core, FrameCont::Let(*p.0, Cont::Decs(decs)), e),
+                    Dec::Var(p, e) => match *p.0 {
+                        Pat::Var(x) => exp_conts(core, FrameCont::Var(x, Cont::Decs(decs)), e),
+                        _ => todo!(),
+                    },
                     _ => todo!(),
                 }
             }

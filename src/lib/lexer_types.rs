@@ -21,6 +21,7 @@ pub type Token_ = Loc<Token>;
 pub type Tokens = Vec<Token_>;
 
 #[derive(Logos, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "token_type", content = "data")]
 pub enum Token {
     // BlockComment(Data),
     #[regex(r"//[^\n]*", data)]
@@ -153,6 +154,7 @@ impl GroupType {
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "token_tree_type", content = "data")]
 pub enum TokenTree {
     Token(Token_),
     Group(Vec<TokenTree>, GroupType, Option<(Token_, Token_)>),

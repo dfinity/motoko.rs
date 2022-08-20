@@ -29,6 +29,7 @@ impl<X> Node<X> {
 pub type Span = Range<usize>;
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "source_type")]
 pub enum Source {
     Known { span: Span, line: usize, col: usize },
     Unknown,

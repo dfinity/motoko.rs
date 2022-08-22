@@ -186,6 +186,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
             exp_conts(core, FrameCont::Annot(t), e)
         }
         Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2), e1),
+        Proj(e1, i) => exp_conts(core, FrameCont::Proj(i), e1),
         _ => todo!(),
     }
 }
@@ -374,6 +375,18 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(v);
                 Ok(Step {})
             }
+            Proj(i) => match v {
+                Value::Tuple(vs) => {
+                    if i < vs.len() {
+                        let vi = vs.get(i).unwrap();
+                        core.cont = Cont::Value(vi.clone());
+                        Ok(Step {})
+                    } else {
+                        Err(Interruption::TypeMismatch)
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
             _ => todo!(),
         }
     }
@@ -398,7 +411,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
         Cont::Taken => unreachable!("The VM's logic currently has an internal issue."),
         Cont::Exp_(e, decs) => {
             if decs.len() == 0 {
-                core.cont_prim_type = None;
+                core.cont_prim_type = core.cont_prim_type.clone();
                 exp_step(core, e, limits)
             } else {
                 let source = source_from_decs(&decs);
@@ -406,7 +419,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                     env: core.env.clone(),
                     cont: FrameCont::Decs(decs),
                     source,
-                    cont_prim_type: core.cont_prim_type.clone(),
+                    cont_prim_type: None,
                 });
                 exp_step(core, e, limits)
             }

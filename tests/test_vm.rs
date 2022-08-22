@@ -55,3 +55,10 @@ fn vm_vars() {
     assert_("var x = 1; x := 2; x", "2");
     assert_x("1 := 1", &Interruption::TypeMismatch);
 }
+
+#[test]
+fn vm_tuple_proj() {
+    assert_("(1, 2).0", "1");
+    assert_("(1, 2).1", "2");
+    assert_x("(1, 2).2", &Interruption::TypeMismatch);
+}

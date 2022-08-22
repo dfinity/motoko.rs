@@ -51,6 +51,7 @@ pub mod stack {
         Annot(Type_),
         Assign1(Exp_),
         Assign2(Pointer),
+        Proj(usize),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {

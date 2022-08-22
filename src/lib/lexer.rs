@@ -125,7 +125,7 @@ fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option
                 depth += 1;
             } else if
             /* sort!=&GroupType::Comment */
-            g == &GroupType::Comment {
+            g == &GroupType::BlockComment {
                 // Skip depth check in block comments
                 if let Some(j) = find_closing(&g, tokens, i) {
                     i = j;

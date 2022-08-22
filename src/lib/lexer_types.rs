@@ -23,7 +23,6 @@ pub type Tokens = Vec<Token_>;
 #[derive(Logos, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "token_type", content = "data")]
 pub enum Token {
-    // BlockComment(Data),
     #[regex(r"//[^\n]*", data)]
     LineComment(Data),
 
@@ -31,14 +30,14 @@ pub enum Token {
     #[token("{", data!(GroupType::Curly))]
     #[token("[", data!(GroupType::Square))]
     #[token("<", data!(GroupType::Angle))]
-    #[token("/*", data!(GroupType::Comment))]
+    #[token("/*", data!(GroupType::BlockComment))]
     Open((Data, GroupType)),
 
     #[token(")", data!(GroupType::Paren))]
     #[token("}", data!(GroupType::Curly))]
     #[token("]", data!(GroupType::Square))]
     #[token(">", data!(GroupType::Angle))]
-    #[token("*/", data!(GroupType::Comment))]
+    #[token("*/", data!(GroupType::BlockComment))]
     Close((Data, GroupType)),
 
     #[token(".", data)]
@@ -114,7 +113,7 @@ pub enum GroupType {
     Curly,
     Square,
     Angle,
-    Comment,
+    BlockComment,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,7 +140,7 @@ impl GroupType {
             GroupType::Curly => "{",
             GroupType::Square => "[",
             GroupType::Angle => "<",
-            GroupType::Comment => "/*",
+            GroupType::BlockComment => "/*",
         }
     }
     pub fn right_str(&self) -> &'static str {
@@ -151,7 +150,7 @@ impl GroupType {
             GroupType::Curly => "}",
             GroupType::Square => "]",
             GroupType::Angle => ">",
-            GroupType::Comment => "*/",
+            GroupType::BlockComment => "*/",
         }
     }
 }

@@ -536,8 +536,8 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
         (Token(Loc(Operator(s), _)), Token(Loc(Ident(_), _))) if s.eq("#") => nil(),
         (_, Token(Loc(Dot(_), _))) => wrap_(),
         (Token(Loc(Assign(_), _)), _) => wrap(),
-        (_, Group(_, Comment, _)) => wrap(),
-        (Group(_, Comment, _), _) => line(),
+        (_, Group(_, BlockComment, _)) => wrap(),
+        (Group(_, BlockComment, _), _) => line(),
         _ => space(),
     }
 }
@@ -572,7 +572,7 @@ impl ToDoc for TokenTree {
                     Curly => enclose_space(open, doc, close),
                     Paren | Square | Angle => enclose(open, doc, close),
                     // Comment => str(open).append(format!("{}", self)).append(close),
-                    Comment => RcDoc::as_string(format!("{}", self)),
+                    BlockComment => RcDoc::as_string(format!("{}", self)),
                 }
             }
         }

@@ -186,6 +186,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
             exp_conts(core, FrameCont::Annot(t), e)
         }
         Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2), e1),
+        Proj(e1, i) => exp_conts(core, FrameCont::Proj(i), e1),
         _ => todo!(),
     }
 }
@@ -374,6 +375,18 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(v);
                 Ok(Step {})
             }
+            Proj(i) => match v {
+                Value::Tuple(vs) => {
+                    if i < vs.len() {
+                        let vi = vs.get(i).unwrap();
+                        core.cont = Cont::Value(vi.clone());
+                        Ok(Step {})
+                    } else {
+                        Err(Interruption::TypeMismatch)
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
             _ => todo!(),
         }
     }

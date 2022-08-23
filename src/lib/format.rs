@@ -491,7 +491,7 @@ impl ToDoc for ObjSort {
     }
 }
 
-// Token-based code formatter
+// ---- Token-based code formatter ----
 
 fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
     let mut results = vec![];
@@ -500,9 +500,13 @@ fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
 }
 
 fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTree>) {
-    for tt in trees.into_iter() {
+    let len = trees.len();
+    for (i, tt) in trees.into_iter().enumerate() {
         if match tt {
-            TokenTree::Token(Loc(Token::Space(_), _)) => false,
+            TokenTree::Token(Loc(Token::Space(_), _))
+            | TokenTree::Token(Loc(Token::Line(_), _)) if i == 0 || i + 1 == len
+            // | TokenTree::Token(Loc(Token::MultiLine(_), _))
+            => false,
             // TokenTree::Token(Loc(Token::Line(_), _)) if i == 0 || i == trees.len() - 1 => false,
             _ => true,
         } {
@@ -511,7 +515,7 @@ fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTre
     }
 }
 
-fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
+fn get_space_between<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
     use crate::lexer_types::Token::*;
     use GroupType::*;
     use TokenTree::*;
@@ -537,7 +541,7 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
         (_, Token(Loc(Dot(_), _))) => wrap_(),
         (Token(Loc(Assign(_), _)), _) => wrap(),
         (_, Group(_, BlockComment, _)) => wrap(),
-        (Group(_, BlockComment, _), _) => line(),
+        (Group(_, BlockComment, _), _) => wrap(),
         _ => space(),
     }
 }
@@ -556,7 +560,7 @@ impl ToDoc for TokenTree {
                         let mut doc = tt.doc();
                         for i in 0..trees.len() - 1 {
                             let (a, b) = (trees[i], trees[i + 1]);
-                            doc = doc.append(get_space(a, b)).append(b.doc());
+                            doc = doc.append(get_space_between(a, b)).append(b.doc());
                         }
                         doc
                     }
@@ -571,7 +575,6 @@ impl ToDoc for TokenTree {
                     Unenclosed => doc,
                     Curly => enclose_space(open, doc, close),
                     Paren | Square | Angle => enclose(open, doc, close),
-                    // Comment => str(open).append(format!("{}", self)).append(close),
                     BlockComment => RcDoc::as_string(format!("{}", self)),
                 }
             }

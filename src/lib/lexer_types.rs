@@ -74,17 +74,18 @@ pub enum Token {
     #[regex(r"[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Nat))]
     #[regex(r"[+-]+[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Int))]
     #[regex(r"-?[0-9]+([0-9_]*[0-9]+)\.[0-9]*([0-9_]*[0-9]+)?", data!(PrimType::Float))]
-    #[regex(r"'([^']|')'", data!(PrimType::Char))]
+    #[regex(r"'(?:[^\\']|\.)*'", data!(PrimType::Char))]
     #[regex(r#""(?:[^\\"]|\.)*""#, data!(PrimType::Text))]
     Literal((Data, PrimType)),
 
-    #[regex(r"\s+", data)]
+    // #[regex(r"\s+", data)]
+    #[regex(r"[ \t]+", data)]
     Space(Data),
 
-    // #[regex(r"\n", data)]
+    #[token("\n", data)]
     Line(Data),
 
-    // #[regex(r"[^\S\n]*\n[^\S\n]*\n\s*", data)]
+    #[regex(r"[ \t\n]*\n[ \t]*\n\s*", data)]
     MultiLine(Data),
 
     Unknown(Data),

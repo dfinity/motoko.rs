@@ -56,10 +56,11 @@ pub enum Token {
     #[token("?", data)]
     #[token("!", data)]
     #[regex(r"(\+|-|\*\*?|/)?%?=?", data)]
-    #[regex(r"[&|^:<>@#]+=?", data)]
+    #[regex(r"[&|^<>@#]+=?", data)]
     #[regex(r" [<>] ", data)]
+    #[token(":=", data)]
     #[token("==", data)]
-    // #[regex(r" >>=?", data)]
+    #[token("!=", data)]
     Operator(Data),
 
     #[regex(r"_?[a-zA-Z][a-zA-Z_0-9]*", data)]

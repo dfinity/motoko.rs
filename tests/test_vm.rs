@@ -62,3 +62,10 @@ fn vm_tuple_proj() {
     assert_("(1, 2).1", "2");
     assert_x("(1, 2).2", &Interruption::TypeMismatch);
 }
+
+#[test]
+fn vm_if() {
+    assert_("if true 1 else 2", "1");
+    assert_("if false 1 else 2", "2");
+    assert_x("if 1 2 else 3", &Interruption::TypeMismatch);
+}

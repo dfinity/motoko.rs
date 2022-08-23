@@ -187,6 +187,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         }
         Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2), e1),
         Proj(e1, i) => exp_conts(core, FrameCont::Proj(i), e1),
+        If(e1, e2, Some(e3)) => exp_conts(core, FrameCont::If(e2, e3), e1),
         _ => todo!(),
     }
 }
@@ -384,6 +385,13 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     } else {
                         Err(Interruption::TypeMismatch)
                     }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            If(e2, e3) => match v {
+                Value::Bool(b) => {
+                    core.cont = Cont::Exp_(if b { e2 } else { e3 }, Vector::new());
+                    Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
             },

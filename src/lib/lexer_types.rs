@@ -76,7 +76,7 @@ pub enum Token {
     #[token("false", data!(PrimType::Bool))]
     #[token("null", data!(PrimType::Null))]
     #[regex(r"[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Nat))]
-    #[regex(r"[+-]+[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Int))]
+    #[regex(r"[+-^]+[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Int))]
     #[regex(r"-?[0-9]+([0-9_]*[0-9]+)\.[0-9]*([0-9_]*[0-9]+)?", data!(PrimType::Float))]
     #[regex(r"'(?:[^\\']|\\.)*'", data!(PrimType::Char))]
     #[regex(r#""(?:[^\\"]|\\.)*""#, data!(PrimType::Text))]

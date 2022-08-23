@@ -141,7 +141,7 @@ Ob : Exp = {
 // --- Terminals --- //
 
 NatIndex: usize = {
-    r"[0-9]+" => <>.parse().unwrap(),
+    r"[0-9]+([0-9_]*[0-9])?" => <>.replace('_', "").parse().unwrap(),
 }
 
 Id: Id = {
@@ -159,7 +159,7 @@ pub Literal: Literal = {
     "false" => Literal::Bool(false),
     "(" ")" => Literal::Unit,
     r"-?[0-9]+([0-9_]*[0-9])?\.[0-9]*([0-9_]*[0-9])?" => Literal::Float(<>.to_string()),
-    r"[0-9]+" => Literal::Nat(<>.to_string()),
+    r"[0-9]+([0-9_]*[0-9])?" => Literal::Nat(<>.to_string()),
     r"'(?:[^\\']|\\.)*'" => Literal::Char(<>.to_string()), // TODO: more test cases
     r#""(?:[^\\"]|\\.)*""# => Literal::Text(<>.to_string()), // TODO more test cases
 }

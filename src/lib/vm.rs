@@ -392,11 +392,12 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Value::Bool(b) => {
                     core.cont = if b {
                         Cont::Exp_(e2, Vector::new())
-                    } else { 
+                    } else {
                         match e3 {
                             Some(e3) => Cont::Exp_(e3, Vector::new()),
-                            None => Cont::Value(Value::Unit)
-                        }};
+                            None => Cont::Value(Value::Unit),
+                        }
+                    };
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),

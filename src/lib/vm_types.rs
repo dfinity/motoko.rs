@@ -52,6 +52,7 @@ pub mod stack {
         Assign1(Exp_),
         Assign2(Pointer),
         Proj(usize),
+        If(Exp_, Option<Exp_>),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {

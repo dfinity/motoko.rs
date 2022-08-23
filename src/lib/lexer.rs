@@ -49,6 +49,9 @@ pub const KEYWORDS: &'static [&'static str] = &[
     "flexible",
     "system",
     "ignore",
+    "to_candid",
+    "from_candid",
+    "with",
 ];
 
 pub fn is_keyword(ident: &str) -> bool {

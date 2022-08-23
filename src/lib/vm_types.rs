@@ -52,8 +52,8 @@ pub mod stack {
         Assign1(Exp_),
         Assign2(Pointer),
         Proj(usize),
-        If(Exp_, Exp_),
-    }
+        If(Exp_, Option<Exp_>),
+b    }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
         pub env: Env,

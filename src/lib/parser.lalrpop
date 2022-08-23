@@ -19,8 +19,8 @@ grammar(lookup: &LineColLookup<'input>);
 //         "true" => Token::Literal((<String>, PrimType::Bool)),
 //         "false" => Token::Literal((<String>, PrimType::Bool)),
 //         r"[0-9]+\.[0-9]*" => Token::Literal((<String>, PrimType::Float)),
-//         r"'(?:[^\\']|\.)*'" => Token::Literal((<String>, PrimType::Char)),
-//         r#""(?:[^\\"]|\.)*""# => Token::Literal((<String>, PrimType::Text)),
+//         r"'(?:[^\\']|\\.)*'" => Token::Literal((<String>, PrimType::Char)),
+//         r#""(?:[^\\"]|\\.)*""# => Token::Literal((<String>, PrimType::Text)),
 //         "_" => Token::Wild(<String>),
 //         "(" => Token::Open((<String>, crate::lexer_types::GroupType::Paren)),
 //         "{" => Token::Open((<String>, crate::lexer_types::GroupType::Curly)),
@@ -160,8 +160,8 @@ pub Literal: Literal = {
     "(" ")" => Literal::Unit,
     r"[0-9]+\.[0-9]*" => Literal::Float(<>.to_string()),
     r"[0-9]+" => Literal::Nat(<>.to_string()),
-    r"'(?:[^\\']|\.)*'" => Literal::Char(<>.to_string()), // TODO: more test cases
-    r#""(?:[^\\"]|\.)*""# => Literal::Text(<>.to_string()), // TODO more test cases
+    r"'(?:[^\\']|\\.)*'" => Literal::Char(<>.to_string()), // TODO: more test cases
+    r#""(?:[^\\"]|\\.)*""# => Literal::Text(<>.to_string()), // TODO more test cases
 }
 
 // --- Patterns --- //

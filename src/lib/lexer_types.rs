@@ -56,13 +56,13 @@ pub enum Token {
     #[token("?", data)]
     #[token("!", data)]
     #[token("^", data)]
-    #[regex(r"(\+|-|\*\*?|/|&|\|)(|=|%=)", data)]
+    #[regex(r"(\+|-|\*\*?|/|&|\|)%?=?", data)]
     #[regex(r"([\^]|<<>?|( |<)>>|#)(|=)", data)]
     #[regex("[:%!=<>]=", data)]
     #[regex(r" [<>] ", data)]
     Operator(Data),
 
-    #[regex(r"_?[a-zA-Z][a-zA-Z_0-9]*", data)]
+    #[regex(r"#?_?[a-zA-Z][a-zA-Z_0-9]*", data)] // TODO: possibly refactor variant prefix
     Ident(Data),
 
     #[token("_", data)]

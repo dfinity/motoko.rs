@@ -29,7 +29,9 @@ pub enum Cont {
 
 pub mod stack {
     use super::{Cont, Env, Pointer, Vector};
-    use crate::ast::{BinOp, Cases, Dec_, Exp_, Id, Id_, Pat, PrimType, Source, Type_, UnOp};
+    use crate::ast::{
+        BinOp, Cases, Dec_, Exp_, Id, Id_, Pat, PrimType, RelOp, Source, Type_, UnOp,
+    };
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 
@@ -53,6 +55,8 @@ pub mod stack {
         Assign2(Pointer),
         Proj(usize),
         If(Exp_, Option<Exp_>),
+        RelOp1(RelOp, Exp_),
+        RelOp2(Value, RelOp),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {

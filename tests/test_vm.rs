@@ -99,3 +99,12 @@ fn vm_assert() {
     assert_x("assert 0", &Interruption::TypeMismatch);
     assert_x("assert 1", &Interruption::TypeMismatch);
 }
+
+#[test]
+fn vm_while() {
+    assert_("var x = 0; while (x != 1) { x := 1 }; x", "1");
+    assert_(
+        "var x = 0; var y = 1; while (x != 100) { x := (x + 1); y := (y * 2) }; y",
+        "1267650600228229401496703205376",
+    );
+}

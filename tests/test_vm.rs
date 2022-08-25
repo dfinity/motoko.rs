@@ -91,3 +91,11 @@ fn vm_not_equals() {
     assert_("1 != 2 - 1", "false");
     assert_("1 != 2 + 1", "true");
 }
+
+#[test]
+fn vm_assert() {
+    assert_("assert true", "()");
+    assert_x("assert false", &Interruption::AssertionFailure);
+    assert_x("assert 0", &Interruption::TypeMismatch);
+    assert_x("assert 1", &Interruption::TypeMismatch);
+}

@@ -338,6 +338,7 @@ ExpNonDec<B>: Exp = {
     // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
     "do" <e:Block_> => Exp::Do(e),
+    "assert" <e:ExpNest_> => Exp::Assert(e),
 }
 
 #[inline]

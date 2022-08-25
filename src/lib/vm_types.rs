@@ -47,6 +47,7 @@ pub mod stack {
         Variant(Id_),
         Switch(Cases),
         Do,
+        Assert,
         Block,
         Decs(Vector<Dec_>),
         Tuple(Vector<Value>, Vector<Exp_>),
@@ -177,6 +178,7 @@ pub enum Interruption {
     Limit(Limit),
     DivideByZero,
     AmbiguousOperation,
+    AssertionFailure,
     Unknown,
 }
 

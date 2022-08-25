@@ -107,4 +107,10 @@ fn vm_while() {
         "var x = 0; var y = 1; while (x != 100) { x := (x + 1); y := (y * 2) }; y",
         "1267650600228229401496703205376",
     );
+    assert_(
+        "var x = 0; var y = 1; while (x != 100) { x := x + 1; y := y * 2 }; y",
+        "1267650600228229401496703205376",
+    );
+    assert_x("while 1 { }", &Interruption::TypeMismatch);
+    assert_x("while true { 1 }", &Interruption::TypeMismatch);
 }

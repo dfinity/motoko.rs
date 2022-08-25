@@ -86,6 +86,11 @@ fn binop(
             (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
             _ => todo!(),
         },
+        Mul => match (v1, v2) {
+            (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
+            (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
+            _ => todo!(),
+        },
         WAdd => match (cont_prim_type, v1, v2) {
             (None, _, _) => Err(Interruption::AmbiguousOperation),
             (Some(t), Value::Nat(n1), Value::Nat(n2)) => match t {
@@ -207,6 +212,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         Proj(e1, i) => exp_conts(core, FrameCont::Proj(i), e1),
         If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2, e3), e1),
         Rel(e1, relop, e2) => exp_conts(core, FrameCont::RelOp1(relop, e2), e1),
+        While(e1, e2) => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
         _ => todo!(),
     }
 }
@@ -432,6 +438,21 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     };
                     Ok(Step {})
                 }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            While1(e1, e2) => match v {
+                Value::Bool(b) => {
+                    if b {
+                        exp_conts(core, FrameCont::While2(e1, e2.clone()), e2)
+                    } else {
+                        core.cont = Cont::Value(Value::Unit);
+                        Ok(Step {})
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            While2(e1, e2) => match v {
+                Value::Unit => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
                 _ => Err(Interruption::TypeMismatch),
             },
             _ => todo!(),

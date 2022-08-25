@@ -58,6 +58,8 @@ pub mod stack {
         If(Exp_, Option<Exp_>),
         RelOp1(RelOp, Exp_),
         RelOp2(Value, RelOp),
+        While1(Exp_, Exp_),
+        While2(Exp_, Exp_),
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {

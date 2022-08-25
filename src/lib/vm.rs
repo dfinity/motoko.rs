@@ -185,6 +185,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
             source,
         ),
         Do(e) => exp_conts(core, FrameCont::Do, e),
+        Assert(e) => exp_conts(core, FrameCont::Assert, e),
         Tuple(es) => {
             let mut es: Vector<_> = es.vec.into();
             match es.pop_front() {
@@ -385,6 +386,14 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(v);
                 Ok(Step {})
             }
+            Assert => match v {
+                Value::Bool(true) => {
+                    core.cont = Cont::Value(Value::Unit);
+                    Ok(Step {})
+                }
+                Value::Bool(false) => Err(Interruption::AssertionFailure),
+                _ => Err(Interruption::TypeMismatch),
+            },
             Tuple(mut done, mut rest) => {
                 done.push_back(v);
                 match rest.pop_front() {

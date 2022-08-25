@@ -74,3 +74,20 @@ fn vm_if_then_else() {
 fn vm_if_then_no_else() {
     assert_("var x = 0; if true { x := 1 } \\no_else; x", "1");
 }
+
+#[test]
+fn vm_equals() {
+    assert_("1 == 1", "true");
+    assert_("1 == 2", "false");
+    assert_("1 + 1 == 2", "true");
+}
+
+#[test]
+fn vm_not_equals() {
+    assert_("1 != 1", "false");
+    assert_("1 != 2", "true");
+    assert_("1 + 1 != 2", "false");
+    assert_("1 + 2 != 2", "true");
+    assert_("1 != 2 - 1", "false");
+    assert_("1 != 2 + 1", "true");
+}

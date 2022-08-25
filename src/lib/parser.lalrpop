@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one, node};
-use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, Delim, Mut};
+use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut};
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
 
@@ -344,10 +344,19 @@ ExpNonDec<B>: Exp = {
 ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 
 ExpBin<B>: Exp = {
-    <e1:ExpBin_<B>> "+" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Add, e2),
-    <e1:ExpBin_<B>> "+%" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::WAdd, e2),
-    <e1:ExpBin_<B>> "-" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Sub, e2),
-    <e:ExpBin_<B>> ":" <t:Type_> => Exp::Annot(e, t),
+    <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
+    <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
+    ExpBin0<B>,
+}
+
+#[inline]
+ExpBin0_<B>: Exp_ = Node<ExpBin0<B>>;
+
+ExpBin0<B>: Exp = {
+    <e1:ExpBin0_<B>> "+" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Add, e2),
+    <e1:ExpBin0_<B>> "+%" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::WAdd, e2),
+    <e1:ExpBin0_<B>> "-" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Sub, e2),
+    <e:ExpBin0_<B>> ":" <t:Type_> => Exp::Annot(e, t),
     ExpBin1<B>,
 }
 

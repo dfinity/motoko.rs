@@ -29,7 +29,9 @@ pub enum Cont {
 
 pub mod stack {
     use super::{Cont, Env, Pointer, Vector};
-    use crate::ast::{BinOp, RelOp, Cases, Dec_, Exp_, Id, Id_, Pat, PrimType, Source, Type_, UnOp};
+    use crate::ast::{
+        BinOp, Cases, Dec_, Exp_, Id, Id_, Pat, PrimType, RelOp, Source, Type_, UnOp,
+    };
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
 

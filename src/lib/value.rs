@@ -82,10 +82,15 @@ impl Value {
             Literal::Null => Null,
             Literal::Bool(b) => Bool(b),
             Literal::Unit => Unit,
-            Literal::Nat(n) => Nat(n
-                .replace('_', "")
-                .parse()
-                .map_err(ValueError::ParseBigIntError)?),
+            Literal::Nat(n) => Nat({
+                let n = n.replace('_', "");
+                if n.starts_with("0x") {
+                    use num_traits::Num;
+                    BigUint::from_str_radix(&n[2..], 16).map_err(ValueError::ParseBigIntError)?
+                } else {
+                    n.parse().map_err(ValueError::ParseBigIntError)?
+                }
+            }),
             // Literal::Int(i) => Int(i.parse()?),
             Literal::Float(n) => Float(
                 n.replace('_', "")

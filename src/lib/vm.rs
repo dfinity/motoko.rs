@@ -1,4 +1,6 @@
-use crate::ast::{BinOp, Cases, Dec, Dec_, Exp, Exp_, Pat, PrimType, Prog, Source, Type, UnOp};
+use crate::ast::{
+    BinOp, Cases, Dec, Dec_, Exp, Exp_, Pat, PrimType, Prog, RelOp, Source, Type, UnOp,
+};
 use crate::ast_traversal::ToNode;
 use crate::value::Value;
 use crate::vm_types::{
@@ -70,10 +72,6 @@ fn binop(
         Add => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 + n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 + i2)),
-            /*
-                       (Int(i1), Nat(n2)) => Ok(Int(i1 + n2)),
-                       (Nat(n1), Int(i2)) => Ok(Int(n1 + i2)),
-            */
             _ => todo!(),
         },
         Sub => match (v1, v2) {
@@ -86,10 +84,11 @@ fn binop(
             }
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
             (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
-            /*
-                       (Int(i1), Nat(n2)) => Ok(Int(i1 + n2)),
-                       (Nat(n1), Int(i2)) => Ok(Int(n1 + i2)),
-            */
+            _ => todo!(),
+        },
+        Mul => match (v1, v2) {
+            (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
+            (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
             _ => todo!(),
         },
         WAdd => match (cont_prim_type, v1, v2) {
@@ -101,6 +100,29 @@ fn binop(
                 )),
                 _ => todo!(),
             },
+            _ => todo!(),
+        },
+        _ => todo!(),
+    }
+}
+
+fn relop(
+    _cont_prim_type: &Option<PrimType>,
+    relop: RelOp,
+    v1: Value,
+    v2: Value,
+) -> Result<Value, Interruption> {
+    use RelOp::*;
+    use Value::*;
+    match relop {
+        Eq => match (v1, v2) {
+            (Nat(n1), Nat(n2)) => Ok(Bool(n1 == n2)),
+            (Int(i1), Int(i2)) => Ok(Bool(i1 == i2)),
+            _ => todo!(),
+        },
+        Neq => match (v1, v2) {
+            (Nat(n1), Nat(n2)) => Ok(Bool(n1 != n2)),
+            (Int(i1), Int(i2)) => Ok(Bool(i1 != i2)),
             _ => todo!(),
         },
         _ => todo!(),
@@ -168,6 +190,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
             source,
         ),
         Do(e) => exp_conts(core, FrameCont::Do, e),
+        Assert(e) => exp_conts(core, FrameCont::Assert, e),
         Tuple(es) => {
             let mut es: Vector<_> = es.vec.into();
             match es.pop_front() {
@@ -187,6 +210,9 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         }
         Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2), e1),
         Proj(e1, i) => exp_conts(core, FrameCont::Proj(i), e1),
+        If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2, e3), e1),
+        Rel(e1, relop, e2) => exp_conts(core, FrameCont::RelOp1(relop, e2), e1),
+        While(e1, e2) => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
         _ => todo!(),
     }
 }
@@ -304,6 +330,11 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(unop(un, v)?);
                 Ok(Step {})
             }
+            RelOp1(relop, e2) => exp_conts(core, RelOp2(v, relop), e2),
+            RelOp2(v1, rel) => {
+                core.cont = Cont::Value(relop(&core.cont_prim_type, rel, v1, v)?);
+                Ok(Step {})
+            }
             BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), e2),
             BinOp2(v1, bop) => {
                 core.cont = Cont::Value(binop(&core.cont_prim_type, bop, v1, v)?);
@@ -361,6 +392,14 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(v);
                 Ok(Step {})
             }
+            Assert => match v {
+                Value::Bool(true) => {
+                    core.cont = Cont::Value(Value::Unit);
+                    Ok(Step {})
+                }
+                Value::Bool(false) => Err(Interruption::AssertionFailure),
+                _ => Err(Interruption::TypeMismatch),
+            },
             Tuple(mut done, mut rest) => {
                 done.push_back(v);
                 match rest.pop_front() {
@@ -385,6 +424,35 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                         Err(Interruption::TypeMismatch)
                     }
                 }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            If(e2, e3) => match v {
+                Value::Bool(b) => {
+                    core.cont = if b {
+                        Cont::Exp_(e2, Vector::new())
+                    } else {
+                        match e3 {
+                            Some(e3) => Cont::Exp_(e3, Vector::new()),
+                            None => Cont::Value(Value::Unit),
+                        }
+                    };
+                    Ok(Step {})
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            While1(e1, e2) => match v {
+                Value::Bool(b) => {
+                    if b {
+                        exp_conts(core, FrameCont::While2(e1, e2.clone()), e2)
+                    } else {
+                        core.cont = Cont::Value(Value::Unit);
+                        Ok(Step {})
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            While2(e1, e2) => match v {
+                Value::Unit => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
                 _ => Err(Interruption::TypeMismatch),
             },
             _ => todo!(),

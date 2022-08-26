@@ -62,3 +62,55 @@ fn vm_tuple_proj() {
     assert_("(1, 2).1", "2");
     assert_x("(1, 2).2", &Interruption::TypeMismatch);
 }
+
+#[test]
+fn vm_if_then_else() {
+    assert_("if true 1 else 2", "1");
+    assert_("if false 1 else 2", "2");
+    assert_x("if 1 2 else 3", &Interruption::TypeMismatch);
+}
+
+#[test]
+fn vm_if_then_no_else() {
+    assert_("var x = 0; if true { x := 1 } \\no_else; x", "1");
+}
+
+#[test]
+fn vm_equals() {
+    assert_("1 == 1", "true");
+    assert_("1 == 2", "false");
+    assert_("1 + 1 == 2", "true");
+}
+
+#[test]
+fn vm_not_equals() {
+    assert_("1 != 1", "false");
+    assert_("1 != 2", "true");
+    assert_("1 + 1 != 2", "false");
+    assert_("1 + 2 != 2", "true");
+    assert_("1 != 2 - 1", "false");
+    assert_("1 != 2 + 1", "true");
+}
+
+#[test]
+fn vm_assert() {
+    assert_("assert true", "()");
+    assert_x("assert false", &Interruption::AssertionFailure);
+    assert_x("assert 0", &Interruption::TypeMismatch);
+    assert_x("assert 1", &Interruption::TypeMismatch);
+}
+
+#[test]
+fn vm_while() {
+    assert_("var x = 0; while (x != 1) { x := 1 }; x", "1");
+    assert_(
+        "var x = 0; var y = 1; while (x != 100) { x := (x + 1); y := (y * 2) }; y",
+        "1267650600228229401496703205376",
+    );
+    assert_(
+        "var x = 0; var y = 1; while (x != 100) { x := x + 1; y := y * 2 }; y",
+        "1267650600228229401496703205376",
+    );
+    assert_x("while 1 { }", &Interruption::TypeMismatch);
+    assert_x("while true { 1 }", &Interruption::TypeMismatch);
+}

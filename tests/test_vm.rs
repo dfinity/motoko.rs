@@ -9,6 +9,16 @@ fn assert_is_value(v: &str) {
 #[test]
 fn vm_literals() {
     assert_is_value("1");
+    assert_is_value("1.");
+    assert_is_value("1_000");
+    assert_is_value("1e3");
+    assert_is_value("1_2.3_4e5_6");
+    // TODO: equality between different numeric types
+    // assert_("1", "1.");
+    // assert_("1_000", "1000");
+    // assert_("1e3", "1000");
+    // assert_("1.1e3", "1100");
+
     assert_is_value("#apple");
     assert_is_value("#apple(1)");
 }

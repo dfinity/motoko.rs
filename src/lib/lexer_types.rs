@@ -62,7 +62,7 @@ pub enum Token {
     #[regex(r" [<>] ", data)]
     Operator(Data),
 
-    #[regex(r"#?_?[a-zA-Z][a-zA-Z_0-9]*", data)] // TODO: possibly refactor variant prefix
+    #[regex(r"[a-zA-Z_][a-zA-Z_0-9]*", data)]
     Ident(Data),
 
     #[token("_", data)]
@@ -71,9 +71,10 @@ pub enum Token {
     #[token("true", data!(PrimType::Bool))]
     #[token("false", data!(PrimType::Bool))]
     #[token("null", data!(PrimType::Null))]
-    #[regex(r"[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Nat))]
-    #[regex(r"[+-][0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Int))]
-    #[regex(r"[+-]?[0-9]+([0-9_]*[0-9])?\.[0-9]*([0-9_]*[0-9])?", data!(PrimType::Float))]
+    #[regex(r"[0-9]([0-9_]*[0-9]+)?", data!(PrimType::Nat))]
+    // #[regex(r"[+-][0-9]([0-9_]*[0-9]+)?", data!(PrimType::Int))]
+    #[regex(r"[0-9]([0-9_]*[0-9])?[Ee][0-9]([0-9_]*[0-9])?", data!(PrimType::Float))] // exponential without decimal
+    #[regex(r"[0-9]([0-9_]*[0-9])?\.([0-9]([0-9_]*[0-9])?)?([Ee][0-9]([0-9_]*[0-9])?)?", data!(PrimType::Float))] // exponential with decimal
     #[regex(r"'(?:[^\\']|\\.)*'", data!(PrimType::Char))]
     #[regex(r#""(?:[^\\"]|\\.)*""#, data!(PrimType::Text))]
     Literal((Data, PrimType)),

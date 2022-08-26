@@ -72,6 +72,7 @@ pub enum Token {
     #[token("false", data!(PrimType::Bool))]
     #[token("null", data!(PrimType::Null))]
     #[regex(r"[0-9]([0-9_]*[0-9]+)?", data!(PrimType::Nat))]
+    #[regex(r"0x[0-9a-fA-F]+", data!(PrimType::Nat))] // hexadecimal
     // #[regex(r"[+-][0-9]([0-9_]*[0-9]+)?", data!(PrimType::Int))]
     #[regex(r"[0-9]([0-9_]*[0-9])?[Ee][0-9]([0-9_]*[0-9])?", data!(PrimType::Float))] // exponential without decimal
     #[regex(r"[0-9]([0-9_]*[0-9])?\.([0-9]([0-9_]*[0-9])?)?([Ee][0-9]([0-9_]*[0-9])?)?", data!(PrimType::Float))] // exponential with decimal

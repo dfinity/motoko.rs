@@ -13,6 +13,8 @@ fn vm_literals() {
     assert_is_value("1_000");
     assert_is_value("1e3");
     assert_is_value("1_2.3_4e5_6");
+    assert_is_value("0x123abcDEF");
+    assert_("0xff", "255");
     // TODO: equality between different numeric types
     // assert_("1", "1.");
     // assert_("1_000", "1000");

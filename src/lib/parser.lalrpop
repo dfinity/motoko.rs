@@ -160,6 +160,7 @@ pub Literal: Literal = {
     "(" ")" => Literal::Unit,
     r"[+-]?[0-9]([0-9_]*[0-9])?[Ee][0-9]([0-9_]*[0-9])?" => Literal::Float(<>.to_string()), // exponential without decimal
     r"[+-]?[0-9]([0-9_]*[0-9])?\.([0-9]([0-9_]*[0-9])?)?([Ee][0-9]([0-9_]*[0-9])?)?" => Literal::Float(<>.to_string()), // exponential with decimal
+    r"0x[0-9a-fA-F]+" => Literal::Nat(<>.to_string()), // hexadecimal
     r"[0-9]([0-9_]*[0-9])?" => Literal::Nat(<>.to_string()),
     r"'(?:[^\\']|\\.)*'" => Literal::Char(<>.to_string()), // TODO: more test cases
     r#""(?:[^\\"]|\\.)*""# => Literal::Text(<>.to_string()), // TODO more test cases

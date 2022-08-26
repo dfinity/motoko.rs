@@ -85,6 +85,8 @@ fn test_floats() {
     assert_("0.");
     assert_("-0.0");
     assert_("-123.123");
+    assert_("1_000_000");
+    assert_("1_2.3_4");
 }
 
 #[test]

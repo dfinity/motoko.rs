@@ -1,3 +1,6 @@
+use std::char::ParseCharError;
+use std::num::ParseFloatError;
+
 use crate::ast::{Dec, Decs, Exp, Id, Id_, Literal};
 use im_rc::vector;
 use im_rc::HashMap;
@@ -60,7 +63,7 @@ impl Value {
     pub fn from_exp(e: Exp) -> Result<Value, ValueError> {
         use Exp::*;
         match e {
-            Literal(l) => Value::from_literal(l).map_err(ValueError::ParseBigIntError),
+            Literal(l) => Value::from_literal(l),
             Paren(e) => Value::from_exp(*e.0),
             Annot(e, _) => Value::from_exp(*e.0),
             Return(e) => match e {
@@ -73,22 +76,36 @@ impl Value {
         }
     }
 
-    pub fn from_literal(l: Literal) -> Result<Value, ParseBigIntError> {
+    pub fn from_literal(l: Literal) -> Result<Value, ValueError> {
         use Value::*;
         Ok(match l {
             Literal::Null => Null,
             Literal::Bool(b) => Bool(b),
             Literal::Unit => Unit,
-            Literal::Nat(n) => Nat(n.parse()?),
+            Literal::Nat(n) => Nat(n
+                .replace('_', "")
+                .parse()
+                .map_err(ValueError::ParseBigIntError)?),
             // Literal::Int(i) => Int(i.parse()?),
-            Literal::Text(s) => Text(vector![s]),
+            Literal::Float(n) => Float(
+                n.replace('_', "")
+                    .parse()
+                    .map_err(ValueError::ParseFloatError)?,
+            ),
+            Literal::Char(s) => Char(
+                s[1..s.len() - 1]
+                    .parse()
+                    .map_err(ValueError::ParseCharError)?,
+            ),
+            Literal::Text(s) => Text(vector![s[1..s.len() - 1].to_string()]),
             Literal::Blob(v) => Blob(v),
-            _ => unimplemented!(),
         })
     }
 }
 
 pub enum ValueError {
+    ParseCharError(ParseCharError),
     ParseBigIntError(ParseBigIntError),
+    ParseFloatError(ParseFloatError),
     NotAValue,
 }

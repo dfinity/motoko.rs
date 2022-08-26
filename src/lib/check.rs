@@ -39,7 +39,7 @@ fn prepare_token_tree(tt: TokenTree) -> TokenTree {
             // Token::Space(_) | Token::MultiLineSpace(_) => None,
             _ => tt,
         },
-        TokenTree::Group(_, GroupType::Comment, _) => spacify_token_tree(tt),
+        TokenTree::Group(_, GroupType::BlockComment, _) => spacify_token_tree(tt),
         TokenTree::Group(trees, group, pair) => TokenTree::Group(
             trees.into_iter().map(prepare_token_tree).collect(),
             group,

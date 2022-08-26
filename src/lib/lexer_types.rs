@@ -23,7 +23,6 @@ pub type Tokens = Vec<Token_>;
 #[derive(Logos, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "token_type", content = "data")]
 pub enum Token {
-    // BlockComment(Data),
     #[regex(r"//[^\n]*", data)]
     LineComment(Data),
 
@@ -31,14 +30,14 @@ pub enum Token {
     #[token("{", data!(GroupType::Curly))]
     #[token("[", data!(GroupType::Square))]
     #[token("<", data!(GroupType::Angle))]
-    #[token("/*", data!(GroupType::Comment))]
+    #[token("/*", data!(GroupType::BlockComment))]
     Open((Data, GroupType)),
 
     #[token(")", data!(GroupType::Paren))]
     #[token("}", data!(GroupType::Curly))]
     #[token("]", data!(GroupType::Square))]
     #[token(">", data!(GroupType::Angle))]
-    #[token("*/", data!(GroupType::Comment))]
+    #[token("*/", data!(GroupType::BlockComment))]
     Close((Data, GroupType)),
 
     #[token(".", data)]
@@ -56,14 +55,14 @@ pub enum Token {
 
     #[token("?", data)]
     #[token("!", data)]
-    #[regex(r"(\+|-|\*\*?|/)?%?=?", data)]
-    #[regex(r"[&|^:<>@#]+=?", data)]
+    #[token("^", data)]
+    #[regex(r"(\+|-|\*\*?|/|&|\|)%?=?", data)]
+    #[regex(r"([\^]|<<>?|( |<)>>|#)(|=)", data)]
+    #[regex("[:%!=<>]=", data)]
     #[regex(r" [<>] ", data)]
-    #[token("==", data)]
-    // #[regex(r" >>=?", data)]
     Operator(Data),
 
-    #[regex(r"_?[a-zA-Z][a-zA-Z_0-9]*", data)]
+    #[regex(r"#?_?[a-zA-Z][a-zA-Z_0-9]*", data)] // TODO: possibly refactor variant prefix
     Ident(Data),
 
     #[token("_", data)]
@@ -73,17 +72,20 @@ pub enum Token {
     #[token("false", data!(PrimType::Bool))]
     #[token("null", data!(PrimType::Null))]
     #[regex(r"[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Nat))]
-    #[regex(r"[+-]+[0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Int))]
-    #[regex(r"-?[0-9]+([0-9_]*[0-9]+)\.[0-9]*([0-9_]*[0-9]+)?", data!(PrimType::Float))]
-    #[regex(r"'([^']|')'", data!(PrimType::Char))]
-    #[regex(r#""(?:[^\\"]|\.)*""#, data!(PrimType::Text))]
+    #[regex(r"[+-][0-9]+([0-9_]*[0-9]+)?", data!(PrimType::Int))]
+    #[regex(r"[+-]?[0-9]+([0-9_]*[0-9])?\.[0-9]*([0-9_]*[0-9])?", data!(PrimType::Float))]
+    #[regex(r"'(?:[^\\']|\\.)*'", data!(PrimType::Char))]
+    #[regex(r#""(?:[^\\"]|\\.)*""#, data!(PrimType::Text))]
     Literal((Data, PrimType)),
 
-    #[regex(r"\s+", data)]
+    #[regex(r"[ \t]+", data)]
     Space(Data),
 
-    #[regex(r"[^\S\n]*\n[^\S\n]*\n\s*", data)]
-    MultiLineSpace(Data),
+    #[token("\n", data)]
+    Line(Data),
+
+    #[regex(r"[ \t\n]*\n[ \t]*\n\s*", data)]
+    MultiLine(Data),
 
     Unknown(Data),
 
@@ -99,7 +101,7 @@ impl Token {
             Error => Err(()),
             LineComment(s) | Open((s, _)) | Close((s, _)) | Dot(s) | Colon(s) | Assign(s)
             | Operator(s) | Ident(s) | Wild(s) | Delim((s, _)) | Literal((s, _)) | Space(s)
-            | MultiLineSpace(s) | Unknown(s) => Ok(s),
+            | Line(s) | MultiLine(s) | Unknown(s) => Ok(s),
         }
     }
 }
@@ -111,7 +113,7 @@ pub enum GroupType {
     Curly,
     Square,
     Angle,
-    Comment,
+    BlockComment,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -138,7 +140,7 @@ impl GroupType {
             GroupType::Curly => "{",
             GroupType::Square => "[",
             GroupType::Angle => "<",
-            GroupType::Comment => "/*",
+            GroupType::BlockComment => "/*",
         }
     }
     pub fn right_str(&self) -> &'static str {
@@ -148,7 +150,7 @@ impl GroupType {
             GroupType::Curly => "}",
             GroupType::Square => "]",
             GroupType::Angle => ">",
-            GroupType::Comment => "*/",
+            GroupType::BlockComment => "*/",
         }
     }
 }

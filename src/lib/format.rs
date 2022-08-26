@@ -491,7 +491,7 @@ impl ToDoc for ObjSort {
     }
 }
 
-// Token-based code formatter
+// ---- Token-based code formatter ----
 
 fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
     let mut results = vec![];
@@ -500,9 +500,14 @@ fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
 }
 
 fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTree>) {
-    for tt in trees {
+    let len = trees.len();
+    for (i, tt) in trees.into_iter().enumerate() {
         if match tt {
-            TokenTree::Token(Loc(Token::Space(_), _)) => false,
+            TokenTree::Token(Loc(Token::Space(_), _))
+            | TokenTree::Token(Loc(Token::Line(_), _)) if i == 0 || i + 1 == len
+            // | TokenTree::Token(Loc(Token::MultiLine(_), _))
+            => false,
+            // TokenTree::Token(Loc(Token::Line(_), _)) if i == 0 || i == trees.len() - 1 => false,
             _ => true,
         } {
             results.push(tt);
@@ -510,14 +515,16 @@ fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTre
     }
 }
 
-fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
+fn get_space_between<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
     use crate::lexer_types::Token::*;
     use GroupType::*;
     use TokenTree::*;
     match (a, b) {
         // TODO: refactor these rules to a text-based configuration file
         (Token(Loc(Space(_), _)), _) | (_, Token(Loc(Space(_), _))) => nil(),
-        (Token(Loc(MultiLineSpace(_), _)), _) | (_, Token(Loc(MultiLineSpace(_), _))) => nil(),
+        (Token(Loc(Line(_), _)), _) | (_, Token(Loc(Line(_), _))) => nil(),
+        (Token(Loc(LineComment(_), _)), _) => RcDoc::hardline(),
+        (Token(Loc(MultiLine(_), _)), _) | (_, Token(Loc(MultiLine(_), _))) => nil(),
         (Token(Loc(Ident(s), _)), Group(_, g, _))
             if !is_keyword(s) && (g == &Paren || g == &Square || g == &Angle) =>
         {
@@ -533,8 +540,8 @@ fn get_space<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
         (Token(Loc(Operator(s), _)), Token(Loc(Ident(_), _))) if s.eq("#") => nil(),
         (_, Token(Loc(Dot(_), _))) => wrap_(),
         (Token(Loc(Assign(_), _)), _) => wrap(),
-        (_, Group(_, Comment, _)) => wrap(),
-        (Group(_, Comment, _), _) => line(),
+        (_, Group(_, BlockComment, _)) => wrap(),
+        (Group(_, BlockComment, _), _) => wrap(),
         _ => space(),
     }
 }
@@ -553,7 +560,7 @@ impl ToDoc for TokenTree {
                         let mut doc = tt.doc();
                         for i in 0..trees.len() - 1 {
                             let (a, b) = (trees[i], trees[i + 1]);
-                            doc = doc.append(get_space(a, b)).append(b.doc());
+                            doc = doc.append(get_space_between(a, b)).append(b.doc());
                         }
                         doc
                     }
@@ -568,8 +575,7 @@ impl ToDoc for TokenTree {
                     Unenclosed => doc,
                     Curly => enclose_space(open, doc, close),
                     Paren | Square | Angle => enclose(open, doc, close),
-                    // Comment => str(open).append(format!("{}", self)).append(close),
-                    Comment => str("").append(format!("{}", self)),
+                    BlockComment => RcDoc::as_string(format!("{}", self)),
                 }
             }
         }
@@ -580,7 +586,8 @@ impl ToDoc for Token {
     fn doc(&self) -> RcDoc {
         use Token::*;
         match self {
-            &MultiLineSpace(_) => RcDoc::hardline().append(RcDoc::hardline()),
+            &Line(_) => RcDoc::hardline(),
+            &MultiLine(_) => RcDoc::hardline().append(RcDoc::hardline()),
             t => str(t.data().unwrap()),
         }
         // str(self.data().unwrap())

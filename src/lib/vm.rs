@@ -349,10 +349,14 @@ fn usize_from_biguint(n: BigUint, max: Option<usize>) -> Result<usize, Interrupt
     } else if digits.len() > 1 {
         Err(Interruption::IndexOutOfBounds)
     } else {
-        if let Some(m) = max && (digits[0] as usize) > m {
-            Err(Interruption::IndexOutOfBounds)
+        if let Some(m) = max {
+            if (digits[0] as usize) < m {
+                Ok(digits[0] as usize)
+            } else {
+                Err(Interruption::IndexOutOfBounds)
+            }
         } else {
-            Ok(digits[0] as usize)
+            Err(Interruption::IndexOutOfBounds)
         }
     }
 }

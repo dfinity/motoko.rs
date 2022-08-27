@@ -56,6 +56,7 @@ pub enum Token {
     #[token("?", data)]
     #[token("!", data)]
     #[token("^", data)]
+    #[token("<:", data)]
     #[regex(r"(\+|-|\*\*?|/|&|\|)%?=?", data)]
     #[regex(r"([\^]|<<>?|( |<)>>|#)(|=)", data)]
     #[regex("[:%!=<>]=", data)]

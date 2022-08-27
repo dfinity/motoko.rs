@@ -1,7 +1,7 @@
 use std::char::ParseCharError;
 use std::num::ParseFloatError;
 
-use crate::ast::{Dec, Decs, Exp, Id, Id_, Literal};
+use crate::ast::{Dec, Decs, Exp, Id, Id_, Literal, Mut};
 use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -11,9 +11,6 @@ use serde::{Deserialize, Serialize};
 
 /// Permit sharing, and fast concats.
 pub type Text = Vector<String>;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Mut(bool);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldValue {

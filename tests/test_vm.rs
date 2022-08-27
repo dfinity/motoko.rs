@@ -126,3 +126,15 @@ fn vm_while() {
     assert_x("while 1 { }", &Interruption::TypeMismatch);
     assert_x("while true { 1 }", &Interruption::TypeMismatch);
 }
+
+#[test]
+fn vm_array() {
+    assert_("[0, 1, 2]", "[0, 1, 2]");
+    assert_("[0, 1, 2][2]", "2");
+
+    assert_("[var 0, 1, 2]", "[var 0, 1, 2]");
+    assert_("[var 0, 1, 2][2]", "2");
+
+    //assert_("let x = [var 0, 1, 2]; x[1] := 3; x[1]", "3");
+    //assert_x("let x = [var 0, 1, 2]; x[3] := 3", &Interruption::IndexOutOfBounds);
+}

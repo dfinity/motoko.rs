@@ -1,5 +1,5 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Pat, PrimType, Prog, RelOp, Source, Type, UnOp,
+    BinOp, Cases, Dec, Dec_, Exp, Exp_, Mut, Pat, PrimType, Prog, RelOp, Source, Type, UnOp,
 };
 use crate::ast_traversal::ToNode;
 use crate::value::Value;
@@ -201,6 +201,17 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
                 Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), e1),
             }
         }
+        Array(mut_, es) => {
+            let mut es: Vector<_> = es.vec.into();
+            match es.pop_front() {
+                None => {
+                    core.cont = Cont::Value(Value::Array(mut_, Vector::new()));
+                    Ok(Step {})
+                }
+                Some(e1) => exp_conts(core, FrameCont::Array(mut_, Vector::new(), es), e1),
+            }
+        }
+        Idx(e1, e2) => exp_conts(core, FrameCont::Idx1(e2), e1),
         Annot(e, t) => {
             match &*t.0 {
                 Type::Prim(pt) => core.cont_prim_type = Some(pt.clone()),
@@ -310,6 +321,19 @@ mod store {
     }
 }
 
+fn usize_from_biguint(n: BigUint, max: Option<usize>) -> Result<usize, Interruption> {
+    let digits = n.to_u64_digits();
+    if digits.len() > 1 {
+        Err(Interruption::IndexOutOfBounds)
+    } else {
+        if let Some(m) = max && (digits[0] as usize) > m {
+            Err(Interruption::IndexOutOfBounds)
+        } else {
+            Ok(digits[0] as usize)
+        }
+    }
+}
+
 // continue execution using the top-most stack frame, if any.
 fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interruption> {
     if core.stack.len() == 0 {
@@ -349,6 +373,24 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
+            Idx1(e2) => exp_conts(core, Idx2(v), e2),
+            Idx2(v1) => match (v1, v) {
+                (Value::Array(mut_, a), Value::Nat(i)) => {
+                    let i = usize_from_biguint(i, Some(a.len()))?;
+                    core.cont = Cont::Value(a.get(i.into()).unwrap().clone());
+                    Ok(Step {})
+                }
+                (Value::Pointer(p), Value::Nat(i)) => match store::deref(core, &p) {
+                    None => Err(Interruption::Dangling(p.clone())),
+                    Some(Value::Array(mut_, a)) => {
+                        let i = usize_from_biguint(i, Some(a.len()))?;
+                        core.cont = Cont::Value(a.get(i).unwrap().clone());
+                        Ok(Step {})
+                    }
+                    _ => Err(Interruption::TypeMismatch),
+                },
+                _ => Err(Interruption::TypeMismatch),
+            },
             Let(Pat::Var(x), cont) => {
                 core.env.insert(x, v);
                 core.cont_source = source_from_cont(&cont);
@@ -408,6 +450,23 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                         Ok(Step {})
                     }
                     Some(next) => exp_conts(core, Tuple(done, rest), next),
+                }
+            }
+            Array(mut_, mut done, mut rest) => {
+                done.push_back(v);
+                match rest.pop_front() {
+                    None => {
+                        if let Mut::Const = mut_ {
+                            core.cont = Cont::Value(Value::Array(mut_, done));
+                            Ok(Step {})
+                        } else {
+                            let arr = Value::Array(mut_, done);
+                            let ptr = store::alloc(core, arr);
+                            core.cont = Cont::Value(Value::Pointer(ptr));
+                            Ok(Step {})
+                        }
+                    }
+                    Some(next) => exp_conts(core, Array(mut_, done, rest), next),
                 }
             }
             Annot(_t) => {

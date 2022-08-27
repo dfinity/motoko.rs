@@ -30,7 +30,7 @@ pub enum Cont {
 pub mod stack {
     use super::{Cont, Env, Pointer, Vector};
     use crate::ast::{
-        BinOp, Cases, Dec_, Exp_, Id, Id_, Pat, PrimType, RelOp, Source, Type_, UnOp,
+        BinOp, Cases, Dec_, Exp_, Id, Id_, Mut, Pat, PrimType, RelOp, Source, Type_, UnOp,
     };
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
@@ -43,6 +43,8 @@ pub mod stack {
         UnOp(UnOp),
         BinOp1(BinOp, Exp_),
         BinOp2(Value, BinOp),
+        Idx1(Exp_),
+        Idx2(Value),
         Paren,
         Variant(Id_),
         Switch(Cases),
@@ -51,6 +53,7 @@ pub mod stack {
         Block,
         Decs(Vector<Dec_>),
         Tuple(Vector<Value>, Vector<Exp_>),
+        Array(Mut, Vector<Value>, Vector<Exp_>),
         Annot(Type_),
         Assign1(Exp_),
         Assign2(Pointer),
@@ -181,6 +184,7 @@ pub enum Interruption {
     DivideByZero,
     AmbiguousOperation,
     AssertionFailure,
+    IndexOutOfBounds,
     Unknown,
 }
 

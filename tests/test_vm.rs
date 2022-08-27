@@ -139,5 +139,6 @@ fn vm_array() {
         "let x = [var 0, 1, 2]; x[3] := 3",
         &Interruption::IndexOutOfBounds,
     );
-    //    assert_("let x = [var 0, 1, 2]; x[1] := 3; x[1]", "3");
+
+    assert_("let x = [var 0, 1, 2]; x[1] := 3; x[1]", "3");
 }

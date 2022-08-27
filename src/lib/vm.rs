@@ -356,7 +356,7 @@ fn usize_from_biguint(n: BigUint, max: Option<usize>) -> Result<usize, Interrupt
                 Err(Interruption::IndexOutOfBounds)
             }
         } else {
-            Err(Interruption::IndexOutOfBounds)
+            Ok(digits[0] as usize)
         }
     }
 }

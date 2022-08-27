@@ -20,6 +20,8 @@ pub struct FieldValue {
 
 pub type Value_ = Box<Value>;
 
+pub type Pointer = crate::vm_types::Pointer;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Null,
@@ -35,7 +37,8 @@ pub enum Value {
     Tuple(Vector<Value>),
     Object(HashMap<Id, FieldValue>),
     Variant(Id_, Option<Value_>),
-    Pointer(crate::vm_types::Pointer),
+    Pointer(Pointer),
+    ArrayOffset(Pointer, usize),
 }
 
 // TODO: custom `PartialEq` implementation for approximate f64 equality?

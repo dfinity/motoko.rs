@@ -28,7 +28,7 @@ pub enum Cont {
 }
 
 pub mod stack {
-    use super::{Cont, Env, Pointer, Vector};
+    use super::{Cont, Env, Vector};
     use crate::ast::{
         BinOp, Cases, Dec_, Exp_, Id, Id_, Mut, Pat, PrimType, RelOp, Source, Type_, UnOp,
     };
@@ -56,7 +56,7 @@ pub mod stack {
         Array(Mut, Vector<Value>, Vector<Exp_>),
         Annot(Type_),
         Assign1(Exp_),
-        Assign2(Pointer),
+        Assign2(Value),
         Proj(usize),
         If(Exp_, Option<Exp_>),
         RelOp1(RelOp, Exp_),

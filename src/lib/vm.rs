@@ -295,7 +295,7 @@ fn source_from_cont(cont: &Cont) -> Source {
 }
 
 mod store {
-    use super::{Core, Interruption, Pointer, Value};
+    use super::{Core, Interruption, Mut, Pointer, Value};
 
     pub fn alloc(core: &mut Core, v: Value) -> Pointer {
         let ptr = core.store.len();
@@ -319,11 +319,34 @@ mod store {
         core.store.insert(p, v);
         Ok(())
     }
+
+    pub fn mutate_array(
+        core: &mut Core,
+        p: Pointer,
+        i: usize,
+        v: Value,
+    ) -> Result<(), Interruption> {
+        // it is an error to mutate an unallocated pointer.
+        match core.store.get_mut(&p) {
+            None => Err(Interruption::Dangling(p)),
+            Some(Value::Array(Mut::Var, a)) => {
+                if i < a.len() {
+                    drop(a.set(i, v));
+                    return Ok(());
+                } else {
+                    Err(Interruption::IndexOutOfBounds)
+                }
+            }
+            _ => Err(Interruption::TypeMismatch),
+        }
+    }
 }
 
 fn usize_from_biguint(n: BigUint, max: Option<usize>) -> Result<usize, Interruption> {
     let digits = n.to_u64_digits();
-    if digits.len() > 1 {
+    if digits.len() == 0 {
+        return Ok(0);
+    } else if digits.len() > 1 {
         Err(Interruption::IndexOutOfBounds)
     } else {
         if let Some(m) = max && (digits[0] as usize) > m {
@@ -365,32 +388,56 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Ok(Step {})
             }
             Assign1(e2) => match v {
-                Value::Pointer(p) => exp_conts(core, Assign2(p), e2),
+                Value::Pointer(p) => exp_conts(core, Assign2(Value::Pointer(p)), e2),
+                Value::ArrayOffset(p, i) => exp_conts(core, Assign2(Value::ArrayOffset(p, i)), e2),
                 _ => Err(Interruption::TypeMismatch),
             },
-            Assign2(p) => {
+            Assign2(Value::Pointer(p)) => {
                 store::mutate(core, p, v)?;
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
+            Assign2(Value::ArrayOffset(p, i)) => {
+                store::mutate_array(core, p, i, v)?;
+                core.cont = Cont::Value(Value::Unit);
+                Ok(Step {})
+            }
             Idx1(e2) => exp_conts(core, Idx2(v), e2),
-            Idx2(v1) => match (v1, v) {
-                (Value::Array(mut_, a), Value::Nat(i)) => {
-                    let i = usize_from_biguint(i, Some(a.len()))?;
-                    core.cont = Cont::Value(a.get(i.into()).unwrap().clone());
-                    Ok(Step {})
-                }
-                (Value::Pointer(p), Value::Nat(i)) => match store::deref(core, &p) {
-                    None => Err(Interruption::Dangling(p.clone())),
-                    Some(Value::Array(mut_, a)) => {
-                        let i = usize_from_biguint(i, Some(a.len()))?;
-                        core.cont = Cont::Value(a.get(i).unwrap().clone());
-                        Ok(Step {})
+            Idx2(v1) => {
+                if let Some(Frame {
+                    cont: FrameCont::Assign1(_), // still need to evaluate RHS of assignment.
+                    ..
+                }) = core.stack.get(0)
+                {
+                    match (v1, v) {
+                        (Value::Pointer(p), Value::Nat(i)) => {
+                            // save array pointer and offset until after RHS is evaluated.
+                            let i = usize_from_biguint(i, None)?;
+                            core.cont = Cont::Value(Value::ArrayOffset(p, i));
+                            Ok(Step {})
+                        }
+                        _ => Err(Interruption::TypeMismatch),
                     }
-                    _ => Err(Interruption::TypeMismatch),
-                },
-                _ => Err(Interruption::TypeMismatch),
-            },
+                } else {
+                    match (v1, v) {
+                        (Value::Array(_mut_, a), Value::Nat(i)) => {
+                            let i = usize_from_biguint(i, Some(a.len()))?;
+                            core.cont = Cont::Value(a.get(i.into()).unwrap().clone());
+                            Ok(Step {})
+                        }
+                        (Value::Pointer(p), Value::Nat(i)) => match store::deref(core, &p) {
+                            None => Err(Interruption::Dangling(p.clone())),
+                            Some(Value::Array(_mut_, a)) => {
+                                let i = usize_from_biguint(i, Some(a.len()))?;
+                                core.cont = Cont::Value(a.get(i).unwrap().clone());
+                                Ok(Step {})
+                            }
+                            _ => Err(Interruption::TypeMismatch),
+                        },
+                        _ => Err(Interruption::TypeMismatch),
+                    }
+                }
+            }
             Let(Pat::Var(x), cont) => {
                 core.env.insert(x, v);
                 core.cont_source = source_from_cont(&cont);
@@ -555,17 +602,27 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
             // Are we assigning to this pointer?
             // If not, we are implicitly dereferencing it here.
             match &core.stack.front() {
+                // Case: Let-binding the pointer.
+                Some(Frame {
+                    cont: FrameCont::Let(_, _),
+                    ..
+                }) => return stack_cont(core, limits, Value::Pointer(p)),
+                // Case: Assignment to a pointer.
                 Some(Frame {
                     cont: FrameCont::Assign1(_),
                     ..
-                }) => stack_cont(core, limits, Value::Pointer(p)),
-                _ => {
-                    let v =
-                        store::deref(core, &p).ok_or_else(|| Interruption::Dangling(p.clone()))?;
-                    core.cont = Cont::Value(v);
-                    Ok(Step {})
-                }
-            }
+                }) => return stack_cont(core, limits, Value::Pointer(p)),
+                // Case: Array-indexing with a pointer.
+                Some(Frame {
+                    cont: FrameCont::Idx1(_),
+                    ..
+                }) => return stack_cont(core, limits, Value::Pointer(p)),
+                _ => (),
+            };
+            // Final case: Implicit dereferencing of pointer:
+            let v = store::deref(core, &p).ok_or_else(|| Interruption::Dangling(p.clone()))?;
+            core.cont = Cont::Value(v);
+            Ok(Step {})
         }
         Cont::Value(v) => stack_cont(core, limits, v),
         Cont::Decs(mut decs) => {

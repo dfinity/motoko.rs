@@ -131,14 +131,14 @@ fn vm_while() {
 fn vm_array() {
     assert_("[0, 1, 2]", "[0, 1, 2]");
     assert_("[0, 1, 2][2]", "2");
-
     assert_("[var 0, 1, 2]", "[var 0, 1, 2]");
     assert_("[var 0, 1, 2][2]", "2");
-
+    assert_("[var 0, 1, 2][2] := 11", "()");
+    assert_("let x = [var 0, 1, 2]; x[1] := 3; x[1]", "3");
     assert_x(
         "let x = [var 0, 1, 2]; x[3] := 3",
         &Interruption::IndexOutOfBounds,
     );
 
-    assert_("let x = [var 0, 1, 2]; x[1] := 3; x[1]", "3");
+
 }

@@ -15,7 +15,8 @@ pub type Text = Vector<String>;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldValue {
     pub mut_: Mut,
-    pub value: Value,
+    pub id: Id,
+    pub val: Value,
 }
 
 pub type Value_ = Box<Value>;

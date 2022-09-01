@@ -4,7 +4,7 @@ use crate::ast::{
 use crate::ast_traversal::ToNode;
 use crate::value::Value;
 use crate::vm_types::{
-    stack::{Frame, FrameCont},
+    stack::{FieldContext, FieldValue, Frame, FrameCont},
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
     Signal, Step,
 };
@@ -191,6 +191,24 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         ),
         Do(e) => exp_conts(core, FrameCont::Do, e),
         Assert(e) => exp_conts(core, FrameCont::Assert, e),
+        Object(fs) => {
+            let mut fs: Vector<_> = fs.vec.into();
+            match fs.pop_front() {
+                None => {
+                    core.cont = Cont::Value(Value::Object(HashMap::new()));
+                    Ok(Step {})
+                }
+                Some(f1) => {
+                    let f1 = f1.0;
+                    let fc = FieldContext {
+                        mut_: f1.mut_,
+                        id: f1.id,
+                        typ: f1.typ,
+                    };
+                    exp_conts(core, FrameCont::Object(Vector::new(), fc, fs), f1.exp)
+                }
+            }
+        }
         Tuple(es) => {
             let mut es: Vector<_> = es.vec.into();
             match es.pop_front() {
@@ -221,6 +239,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         }
         Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2), e1),
         Proj(e1, i) => exp_conts(core, FrameCont::Proj(i), e1),
+        Dot(e1, f) => exp_conts(core, FrameCont::Dot(f), e1),
         If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2, e3), e1),
         Rel(e1, relop, e2) => exp_conts(core, FrameCont::RelOp1(relop, e2), e1),
         While(e1, e2) => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
@@ -520,6 +539,49 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     Some(next) => exp_conts(core, Array(mut_, done, rest), next),
                 }
             }
+            Object(mut done, ctx, mut rest) => {
+                done.push_back(FieldValue {
+                    mut_: ctx.mut_,
+                    id: ctx.id,
+                    typ: ctx.typ,
+                    val: v,
+                });
+                match rest.pop_front() {
+                    None => {
+                        let mut hm = HashMap::new();
+                        for f in done.into_iter() {
+                            let id = *f.id.0; // to do -- avoid cloning strings. Use Rc.
+                            let val = match f.mut_ {
+                                Mut::Const => f.val,
+                                Mut::Var => Value::Pointer(store::alloc(core, f.val)),
+                            };
+                            hm.insert(
+                                id.clone(),
+                                crate::value::FieldValue {
+                                    mut_: f.mut_,
+                                    id: id,
+                                    val: val,
+                                },
+                            );
+                        }
+                        core.cont = Cont::Value(Value::Object(hm));
+                        Ok(Step {})
+                    }
+                    Some(next) => exp_conts(
+                        core,
+                        Object(
+                            done,
+                            FieldContext {
+                                mut_: next.0.mut_,
+                                id: next.0.id,
+                                typ: next.0.typ,
+                            },
+                            rest,
+                        ),
+                        next.0.exp,
+                    ),
+                }
+            }
             Annot(_t) => {
                 core.cont = Cont::Value(v);
                 Ok(Step {})
@@ -529,6 +591,17 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     if i < vs.len() {
                         let vi = vs.get(i).unwrap();
                         core.cont = Cont::Value(vi.clone());
+                        Ok(Step {})
+                    } else {
+                        Err(Interruption::TypeMismatch)
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            Dot(f) => match v {
+                Value::Object(fs) => {
+                    if let Some(f) = fs.get(&*f.0) {
+                        core.cont = Cont::Value(f.val.clone());
                         Ok(Step {})
                     } else {
                         Err(Interruption::TypeMismatch)
@@ -573,10 +646,12 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
 // To advance the core Motoko state by a single step.
 fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
     println!("# step {}", core.counts.step);
-    println!(" - cont_source = {:?}", core.cont_source);
     println!(" - cont = {:?}", core.cont);
-    println!(" - env = {:?}", core.env);
+    println!("   - cont_source = {:?}", core.cont_source);
+    println!("   - env = {:?}", core.env);
     println!(" - stack = {:#?}", core.stack);
+    println!(" - store = {:#?}", core.store);
+    println!("");
     core.counts.step += 1;
     if let Some(step_limit) = limits.step {
         if core.counts.step > step_limit {

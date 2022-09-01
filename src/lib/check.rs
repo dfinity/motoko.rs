@@ -49,8 +49,9 @@ fn prepare_token_tree(tt: TokenTree) -> TokenTree {
 }
 
 pub fn parse(input: &str) -> Result<Prog, ()> {
+    use log::info;
     let tt = create_token_tree(input)?;
-    println!("TT: {:?}", tt);
+    info!("parse::tt= {:?}", tt);
     // let tokens = filter_token_tree(tt)
     //     .map(TokenTree::flatten)
     //     .unwrap_or_else(|| vec![]);

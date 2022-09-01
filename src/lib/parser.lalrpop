@@ -350,6 +350,22 @@ ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 ExpBin<B>: Exp = {
     <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
     <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
+    ExpBin000<B>,
+}
+
+#[inline]
+ExpBin000_<B>: Exp_ = Node<ExpBin000<B>>;
+
+ExpBin000<B>: Exp = {
+    <e1:ExpBin000_<B>> "or" <e2:ExpBin00_<B>> => Exp::Or(e1, e2),
+    ExpBin00<B>,
+}
+
+#[inline]
+ExpBin00_<B>: Exp_ = Node<ExpBin00<B>>;
+
+ExpBin00<B>: Exp = {
+    <e1:ExpBin00_<B>> "and" <e2:ExpBin0_<B>> => Exp::And(e1, e2),
     ExpBin0<B>,
 }
 

@@ -166,3 +166,19 @@ fn vm_records() {
         );
     }
 }
+
+#[test]
+fn vm_boolean_ops() {
+    assert_("false or true", "true");
+    assert_("true or (do { while true { } ; false })", "true");
+    assert_x("false or 1", &Interruption::TypeMismatch);
+    assert_x("1 or true", &Interruption::TypeMismatch);
+
+    assert_("true and false", "false");
+    assert_("false and (do { while true { } ; false })", "false");
+    assert_x("true and 1", &Interruption::TypeMismatch);
+    assert_x("1 and true", &Interruption::TypeMismatch);
+
+    assert_("not false", "true");
+    assert_("not true", "false");
+}

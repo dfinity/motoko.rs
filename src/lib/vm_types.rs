@@ -66,6 +66,11 @@ pub mod stack {
         RelOp2(Value, RelOp),
         While1(Exp_, Exp_),
         While2(Exp_, Exp_),
+        And1(Exp_),
+        And2,
+        Or1(Exp_),
+        Or2,
+        Not,
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {

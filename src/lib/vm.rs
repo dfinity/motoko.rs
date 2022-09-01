@@ -243,6 +243,9 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2, e3), e1),
         Rel(e1, relop, e2) => exp_conts(core, FrameCont::RelOp1(relop, e2), e1),
         While(e1, e2) => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
+        And(e1, e2) => exp_conts(core, FrameCont::And1(e2), e1),
+        Or(e1, e2) => exp_conts(core, FrameCont::Or1(e2), e1),
+        Not(e) => exp_conts(core, FrameCont::Not, e),
         _ => todo!(),
     }
 }
@@ -636,6 +639,49 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             While2(e1, e2) => match v {
                 Value::Unit => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
+                _ => Err(Interruption::TypeMismatch),
+            },
+            And1(e2) => match v {
+                Value::Bool(b) => {
+                    if b {
+                        exp_conts(core, FrameCont::And2, e2)
+                    } else {
+                        core.cont = Cont::Value(Value::Bool(false));
+                        Ok(Step {})
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            And2 => match v {
+                Value::Bool(b) => {
+                    core.cont = Cont::Value(Value::Bool(b));
+                    Ok(Step {})
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            Or1(e2) => match v {
+                Value::Bool(b) => {
+                    if b {
+                        core.cont = Cont::Value(Value::Bool(true));
+                        Ok(Step {})
+                    } else {
+                        exp_conts(core, FrameCont::Or2, e2)
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            Or2 => match v {
+                Value::Bool(b) => {
+                    core.cont = Cont::Value(Value::Bool(b));
+                    Ok(Step {})
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            Not => match v {
+                Value::Bool(b) => {
+                    core.cont = Cont::Value(Value::Bool(!b));
+                    Ok(Step {})
+                }
                 _ => Err(Interruption::TypeMismatch),
             },
             _ => todo!(),

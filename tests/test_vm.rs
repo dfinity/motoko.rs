@@ -141,3 +141,28 @@ fn vm_array() {
         &Interruption::IndexOutOfBounds,
     );
 }
+
+#[test]
+fn vm_records() {
+    assert_("{ x = 3; y = 5; z = 8 }", "{ x = 3; y = 5; z = 8 }");
+    assert_("{ x = 3; y = 5; z = 8 }", "{ z = 8; y = 5; x = 3 }");
+
+    assert_("{ x = 3 }.x", "3");
+    assert_("let x = { x = 3 }; x.x", "3");
+
+    assert_("{ var x = 0 }.x := 1", "()");
+    assert_("let r = { var r = 0 }; r.r := 1; r.r", "1");
+
+    // to do -- need to traverse pointers for equality check to works
+    if false {
+        assert_("{ var z = 8; var y = 5 }", "{ var y = 5; var z = 8 }");
+    }
+
+    // to do -- equality that is quotiented by type annotations that narrow the type.
+    if false {
+        assert_(
+            "let r1 : { x : Nat } = { x = 3; y = 5}; r1 == { x = 3}",
+            "true",
+        );
+    }
+}

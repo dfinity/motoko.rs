@@ -30,7 +30,8 @@ pub enum Cont {
 pub mod stack {
     use super::{Cont, Env, Vector};
     use crate::ast::{
-        BinOp, Cases, Dec_, Exp_, Id, Id_, Mut, Pat, PrimType, RelOp, Source, Type_, UnOp,
+        BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Mut, Pat, PrimType, RelOp, Source, Type_,
+        UnOp,
     };
     use crate::value::Value;
     use serde::{Deserialize, Serialize};
@@ -54,10 +55,12 @@ pub mod stack {
         Decs(Vector<Dec_>),
         Tuple(Vector<Value>, Vector<Exp_>),
         Array(Mut, Vector<Value>, Vector<Exp_>),
+        Object(Vector<FieldValue>, FieldContext, Vector<ExpField_>),
         Annot(Type_),
         Assign1(Exp_),
         Assign2(Value),
         Proj(usize),
+        Dot(Id_),
         If(Exp_, Option<Exp_>),
         RelOp1(RelOp, Exp_),
         RelOp2(Value, RelOp),
@@ -72,6 +75,19 @@ pub mod stack {
         pub source: Source,
     }
     pub type Frames = im_rc::Vector<Frame>;
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct FieldValue {
+        pub mut_: Mut,
+        pub id: Id_,
+        pub typ: Option<Type_>,
+        pub val: Value,
+    }
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct FieldContext {
+        pub mut_: Mut,
+        pub id: Id_,
+        pub typ: Option<Type_>,
+    }
 }
 
 pub type Stack = stack::Frames;

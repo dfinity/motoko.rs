@@ -645,13 +645,13 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
 
 // To advance the core Motoko state by a single step.
 fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
-    println!("# step {}", core.counts.step);
-    println!(" - cont = {:?}", core.cont);
-    println!("   - cont_source = {:?}", core.cont_source);
-    println!("   - env = {:?}", core.env);
-    println!(" - stack = {:#?}", core.stack);
-    println!(" - store = {:#?}", core.store);
-    println!("");
+    use log::trace;
+    trace!("# step {}", core.counts.step);
+    trace!(" - cont = {:?}", core.cont);
+    trace!("   - cont_source = {:?}", core.cont_source);
+    trace!("   - env = {:?}", core.env);
+    trace!(" - stack = {:#?}", core.stack);
+    trace!(" - store = {:#?}", core.store);
     core.counts.step += 1;
     if let Some(step_limit) = limits.step {
         if core.counts.step > step_limit {
@@ -787,10 +787,15 @@ impl Local {
 
 /// Used for tests in check module.
 pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
+    info!("eval_limit:");
+    info!("  - prog = {}", prog);
+    info!("  - limits = {:#?}", limits);
     let p = crate::check::parse(&prog)?;
+    info!("eval_limit: parsed.");
     let mut l = Local::new(Core::new(p));
     let s = l.run(limits).map_err(|_| ())?;
-    println!("final signal: {:?}", s);
+    use log::info;
+    info!("eval_limit: final signal: {:#?}", s);
     use crate::vm_types::Signal::*;
     match s {
         Done(result) => Ok(result),

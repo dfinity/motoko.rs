@@ -289,6 +289,24 @@ fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<S
     Err(Interruption::NoMatchingCase)
 }
 
+fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
+    let mut stack = core.stack.clone();
+    loop {
+        if let Some(fr) = stack.pop_front() {
+            match fr.cont {
+                FrameCont::DoOpt => {
+                    core.stack = stack;
+                    core.cont = Cont::Value(Value::Null);
+                    return Ok(Step {});
+                }
+                _ => {}
+            }
+        } else {
+            return Err(Interruption::NoDoQuestBangNull);
+        }
+    }
+}
+
 fn source_from_decs(decs: &Vector<Dec_>) -> Source {
     if decs.len() == 0 {
         Source::Unknown
@@ -700,9 +718,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     core.cont = Cont::Value(*v);
                     Ok(Step {})
                 }
-                Value::Null => {
-                    todo!("bang null")
-                }
+                Value::Null => bang_null(core),
                 _ => Err(Interruption::TypeMismatch),
             },
             _ => todo!(),

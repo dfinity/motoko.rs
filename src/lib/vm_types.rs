@@ -209,6 +209,7 @@ pub enum Interruption {
     AmbiguousOperation,
     AssertionFailure,
     IndexOutOfBounds,
+    NoDoQuestBangNull,
     Unknown,
 }
 

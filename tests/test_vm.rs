@@ -188,5 +188,8 @@ fn vm_option_monad() {
     assert_("?(3)", "? 3");
     assert_("do ? { 3 }", "?3");
     assert_("do ? { (?3)! }", "?3");
+    assert_("do ? { null! }", "null");
+    assert_("do ? { null! ; while true { } }", "null");
     assert_x("do ? { 3! }", &Interruption::TypeMismatch);
+    assert_x("null!", &Interruption::NoDoQuestBangNull);
 }

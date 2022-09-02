@@ -205,5 +205,6 @@ fn function_call() {
 fn return_() {
     assert_x("return 3", &Interruption::MisplacedReturn);
     assert_("func f ( x ) { return x }; f 3", "3");
+    assert_("func f ( x ) { return x; while true { } }; f 3", "3");
     assert_("let y = 3; func f ( x ) { return y }; f 4", "3");
 }

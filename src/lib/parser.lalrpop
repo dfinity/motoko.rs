@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one, node};
-use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut};
+use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, SortPat_, Sugar};
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
 
@@ -167,6 +167,9 @@ pub Literal: Literal = {
 }
 
 // --- Patterns --- //
+
+#[inline]
+PatPlain_: Pat_ = Node<PatPlain>;
 
 PatPlain: Pat = {
     "_" => Pat::Wild,
@@ -443,9 +446,18 @@ DecNonVar_: Dec_ = Node<DecNonVar>;
 
 DecNonVar: Dec = {
     "let" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Let(p, e),
+    <sp:SortPat_> "func" <i:(Id_)?> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func((i, sp, Delim::new(), p, t.map(|t|{t.1}), Sugar(false), b)),
+    <sp:SortPat_> "func" <i:(Id_?)> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func((i, sp, Delim::new(), p, t.map(|t|{t.1}), Sugar(true), e)),
     // type
     // class
     // actor class
+}
+
+#[inline]
+SortPat_: SortPat_ = Node<SortPat>;
+
+SortPat: SortPat = {
+    => SortPat::Local
 }
 
 #[inline]

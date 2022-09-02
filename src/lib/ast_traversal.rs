@@ -208,7 +208,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 f(&e1.tree());
                 f(&e2.tree());
             }
-            Exp::Function(_, _, ts, p, t, _, e) => {
+            Exp::Function((_, _, ts, p, t, _, e)) => {
                 ts.vec.iter().for_each(|e| f(&e.tree()));
                 f(&p.tree());
                 if let Some(t) = t {
@@ -307,6 +307,7 @@ impl<'a> Traverse for Loc<&'a Dec> {
                 f(&p.tree());
                 f(&e.tree());
             }
+            Dec::Func(_) => todo!(),
             Dec::Var(p, e) => {
                 f(&p.tree());
                 f(&e.tree());

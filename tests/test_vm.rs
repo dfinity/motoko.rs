@@ -193,3 +193,9 @@ fn vm_option_monad() {
     assert_x("do ? { 3! }", &Interruption::TypeMismatch);
     assert_x("null!", &Interruption::NoDoQuestBangNull);
 }
+
+#[test]
+fn function_call() {
+    assert_("func f (x: Nat) : Nat { x }; f 3", "3");
+    assert_("func f ( x ) { x }; f 3", "3");
+}

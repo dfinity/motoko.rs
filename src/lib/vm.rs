@@ -246,6 +246,9 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         And(e1, e2) => exp_conts(core, FrameCont::And1(e2), e1),
         Or(e1, e2) => exp_conts(core, FrameCont::Or1(e2), e1),
         Not(e) => exp_conts(core, FrameCont::Not, e),
+        Opt(e) => exp_conts(core, FrameCont::Opt, e),
+        DoOpt(e) => exp_conts(core, FrameCont::DoOpt, e),
+        Bang(e) => exp_conts(core, FrameCont::Bang, e),
         _ => todo!(),
     }
 }
@@ -284,6 +287,24 @@ fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<S
         }
     }
     Err(Interruption::NoMatchingCase)
+}
+
+fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
+    let mut stack = core.stack.clone();
+    loop {
+        if let Some(fr) = stack.pop_front() {
+            match fr.cont {
+                FrameCont::DoOpt => {
+                    core.stack = stack;
+                    core.cont = Cont::Value(Value::Null);
+                    return Ok(Step {});
+                }
+                _ => {}
+            }
+        } else {
+            return Err(Interruption::NoDoQuestBangNull);
+        }
+    }
 }
 
 fn source_from_decs(decs: &Vector<Dec_>) -> Source {
@@ -682,6 +703,22 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     core.cont = Cont::Value(Value::Bool(!b));
                     Ok(Step {})
                 }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            Opt => {
+                core.cont = Cont::Value(Value::Option(Box::new(v)));
+                Ok(Step {})
+            }
+            DoOpt => {
+                core.cont = Cont::Value(Value::Option(Box::new(v)));
+                Ok(Step {})
+            }
+            Bang => match v {
+                Value::Option(v) => {
+                    core.cont = Cont::Value(*v);
+                    Ok(Step {})
+                }
+                Value::Null => bang_null(core),
                 _ => Err(Interruption::TypeMismatch),
             },
             _ => todo!(),

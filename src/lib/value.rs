@@ -37,6 +37,7 @@ pub enum Value {
     Array(Mut, Vector<Value>),
     Tuple(Vector<Value>),
     Object(HashMap<Id, FieldValue>),
+    Option(Value_),
     Variant(Id_, Option<Value_>),
     Pointer(Pointer),
     ArrayOffset(Pointer, usize),

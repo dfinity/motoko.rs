@@ -53,6 +53,7 @@ pub mod stack {
         Do,
         Assert,
         Ignore,
+        Debug,
         Block,
         Decs(Vector<Dec_>),
         Tuple(Vector<Value>, Vector<Exp_>),

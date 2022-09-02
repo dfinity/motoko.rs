@@ -346,6 +346,7 @@ ExpNonDec<B>: Exp = {
     "do" <e:Block_> => Exp::Do(e),
     "do" "?" <e:Block_> => Exp::DoOpt(e),
     "assert" <e:ExpNest_> => Exp::Assert(e),
+    "debug" <e:ExpNest_> => Exp::Debug(e),
 }
 
 #[inline]

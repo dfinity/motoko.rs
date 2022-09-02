@@ -214,3 +214,9 @@ fn ignore() {
     assert_("ignore 3", "()");
     assert_("ignore 1 + 1", "()");
 }
+
+#[test]
+fn debug() {
+    assert_("debug { () }", "()");
+    assert_x("debug { 3 }", &Interruption::TypeMismatch);
+}

@@ -282,6 +282,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         DoOpt(e) => exp_conts(core, FrameCont::DoOpt, e),
         Bang(e) => exp_conts(core, FrameCont::Bang, e),
         Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
+        Debug(e) => exp_conts(core, FrameCont::Debug, e),
         _ => todo!(),
     }
 }
@@ -687,6 +688,13 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     } else {
                         Err(Interruption::TypeMismatch)
                     }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            Debug => match v {
+                Value::Unit => {
+                    core.cont = Cont::Value(v);
+                    Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
             },

@@ -52,6 +52,7 @@ pub mod stack {
         Switch(Cases),
         Do,
         Assert,
+        Ignore,
         Block,
         Decs(Vector<Dec_>),
         Tuple(Vector<Value>, Vector<Exp_>),

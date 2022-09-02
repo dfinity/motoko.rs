@@ -281,6 +281,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         Opt(e) => exp_conts(core, FrameCont::Opt, e),
         DoOpt(e) => exp_conts(core, FrameCont::DoOpt, e),
         Bang(e) => exp_conts(core, FrameCont::Bang, e),
+        Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
         _ => todo!(),
     }
 }
@@ -588,6 +589,10 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Value::Bool(false) => Err(Interruption::AssertionFailure),
                 _ => Err(Interruption::TypeMismatch),
             },
+            Ignore => {
+                core.cont = Cont::Value(Value::Unit);
+                Ok(Step {})
+            }
             Tuple(mut done, mut rest) => {
                 done.push_back(v);
                 match rest.pop_front() {

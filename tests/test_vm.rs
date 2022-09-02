@@ -208,3 +208,9 @@ fn return_() {
     assert_("func f ( x ) { return x; while true { } }; f 3", "3");
     assert_("let y = 3; func f ( x ) { return y }; f 4", "3");
 }
+
+#[test]
+fn ignore() {
+    assert_("ignore 3", "()");
+    assert_("ignore 1 + 1", "()");
+}

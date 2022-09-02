@@ -173,7 +173,7 @@ PatPlain_: Pat_ = Node<PatPlain>;
 
 PatPlain: Pat = {
     "_" => Pat::Wild,
-    Id => Pat::Var(<>),
+    Id_ => Pat::Var(<>),
     Literal => Pat::Literal(<>),
     "(" <ps:Delim1<PatBin_, ",">> ")" => get_one(ps).map(Pat::Paren).unwrap_or_else(Pat::Tuple),
 }

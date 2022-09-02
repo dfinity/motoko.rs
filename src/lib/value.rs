@@ -1,7 +1,9 @@
 use std::char::ParseCharError;
 use std::num::ParseFloatError;
 
-use crate::ast::{Dec, Decs, Exp, Id, Id_, Literal, Mut};
+use crate::ast::{Dec, Decs, Exp, Function, Id, Id_, Literal, Mut};
+use crate::vm_types::Env;
+
 use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -23,6 +25,9 @@ pub type Value_ = Box<Value>;
 
 pub type Pointer = crate::vm_types::Pointer;
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClosedFunction(pub Closed<Function>);
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Null,
@@ -41,6 +46,13 @@ pub enum Value {
     Variant(Id_, Option<Value_>),
     Pointer(Pointer),
     ArrayOffset(Pointer, usize),
+    Function(ClosedFunction),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Closed<X> {
+    pub env: Env,
+    pub content: X,
 }
 
 // TODO: custom `PartialEq` implementation for approximate f64 equality?

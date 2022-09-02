@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec_, Exp_, Id as Identifier, PrimType, Source, Span};
+use crate::ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span};
 use crate::value::Value;
 
 /// Or maybe a string?
@@ -25,15 +25,16 @@ pub enum Cont {
     Decs(Vector<Dec_>),
     Exp_(Exp_, Vector<Dec_>),
     Value(Value), // Should we retain source locations for these values?
+    LetVarRet(Source, Option<Id_>),
 }
 
 pub mod stack {
     use super::{Cont, Env, Vector};
     use crate::ast::{
-        BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Mut, Pat, PrimType, RelOp, Source, Type_,
-        UnOp,
+        BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, PrimType, RelOp, Source,
+        Type_, UnOp,
     };
-    use crate::value::Value;
+    use crate::value::{ClosedFunction, Value};
     use serde::{Deserialize, Serialize};
 
     /// Local continuation, stored in a stack frame.
@@ -74,6 +75,10 @@ pub mod stack {
         Opt,
         DoOpt,
         Bang,
+        Call1(Option<Inst>, Exp_),
+        Call2(ClosedFunction, Option<Inst>),
+        Call3,
+        Return,
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
@@ -210,7 +215,9 @@ pub enum Interruption {
     AssertionFailure,
     IndexOutOfBounds,
     NoDoQuestBangNull,
+    MisplacedReturn,
     Unknown,
+    Impossible,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

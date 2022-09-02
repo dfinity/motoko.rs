@@ -393,7 +393,7 @@ pub type Pat_ = Node<Pat>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Pat {
     Wild,
-    Var(Id),
+    Var(Id_),
     Literal(Literal),
     Signed(UnOp, Pat_),
     Tuple(Delim<Pat_>),

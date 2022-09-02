@@ -1,8 +1,8 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Mut, Pat, PrimType, Prog, RelOp, Source, Type, UnOp,
+    BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Mut, Pat, PrimType, Prog, RelOp, Source, Type, UnOp,
 };
 use crate::ast_traversal::ToNode;
-use crate::value::Value;
+use crate::value::{Closed, ClosedFunction, Value};
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
@@ -158,6 +158,28 @@ fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: Exp_) -> Result<Step,
     )
 }
 
+fn call_function(
+    core: &mut Core,
+    cf: ClosedFunction,
+    _targs: Option<Inst>,
+    args: Value,
+) -> Result<Step, Interruption> {
+    if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.3 .0, &args) {
+        let source = core.cont_source.clone();
+        core.env = env_;
+        core.cont = Cont::Exp_(cf.0.content.6.clone(), Vector::new());
+        core.stack.push_front(Frame {
+            source,
+            env: HashMap::new(),
+            cont: FrameCont::Call3,
+            cont_prim_type: None, /* to do */
+        }); // to match with Return, if any.
+        Ok(Step {})
+    } else {
+        Err(Interruption::TypeMismatch)
+    }
+}
+
 fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
@@ -166,6 +188,16 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
             core.cont = Cont::Value(Value::from_literal(l).map_err(|_| Interruption::ParseError)?);
             Ok(Step {})
         }
+        Function(f) => {
+            core.cont = Cont::Value(Value::Function(ClosedFunction(Closed {
+                env: core.env.clone(),
+                content: f,
+            })));
+            Ok(Step {})
+        }
+        Call(e1, inst, e2) => exp_conts(core, FrameCont::Call1(inst, e2), e1),
+        Return(None) => return_(core, Value::Unit),
+        Return(Some(e)) => exp_conts(core, FrameCont::Return, e),
         Var(x) => match core.env.get(&x) {
             None => Err(Interruption::UnboundIdentifer(x.clone())),
             Some(v) => {
@@ -256,9 +288,10 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
 fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
     match (pat, v) {
         (Pat::Paren(p), v) => pattern_matches(env, &*p.0, v),
+        (Pat::Annot(p, _), v) => pattern_matches(env, &*p.0, v),
         (Pat::Var(x), v) => {
             let mut env = env.clone();
-            env.insert(x.clone(), v.clone());
+            env.insert(*x.0.clone(), v.clone());
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
@@ -307,6 +340,24 @@ fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
     }
 }
 
+fn return_(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+    let mut stack = core.stack.clone();
+    loop {
+        if let Some(fr) = stack.pop_front() {
+            match fr.cont {
+                FrameCont::Call3 => {
+                    core.stack = stack;
+                    core.cont = Cont::Value(v);
+                    return Ok(Step {});
+                }
+                _ => {}
+            }
+        } else {
+            return Err(Interruption::MisplacedReturn);
+        }
+    }
+}
+
 fn source_from_decs(decs: &Vector<Dec_>) -> Source {
     if decs.len() == 0 {
         Source::Unknown
@@ -333,6 +384,7 @@ fn source_from_cont(cont: &Cont) -> Source {
                 exp_.1.expand(&decs.back().unwrap().1)
             }
         }
+        LetVarRet(s, _) => s.clone(),
         Value(_v) => Source::Evaluation,
     }
 }
@@ -486,7 +538,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 }
             }
             Let(Pat::Var(x), cont) => {
-                core.env.insert(x, v);
+                core.env.insert(*x.0, v);
                 core.cont_source = source_from_cont(&cont);
                 core.cont = cont;
                 Ok(Step {})
@@ -721,6 +773,16 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Value::Null => bang_null(core),
                 _ => Err(Interruption::TypeMismatch),
             },
+            Call1(inst, e2) => match v {
+                Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
+                _ => Err(Interruption::TypeMismatch),
+            },
+            Call2(cf, inst) => call_function(core, cf, inst, v),
+            Call3 => {
+                core.cont = Cont::Value(v);
+                Ok(Step {})
+            }
+            Return => return_(core, v),
             _ => todo!(),
         }
     }
@@ -759,6 +821,16 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                 });
                 exp_step(core, e, limits)
             }
+        }
+        Cont::LetVarRet(_, i) => {
+            match i {
+                Some(i) => {
+                    core.cont =
+                        Cont::Value(core.env.get(&*i.0).ok_or(Interruption::Impossible)?.clone())
+                }
+                None => core.cont = Cont::Value(Value::Unit),
+            };
+            Ok(Step {})
         }
         Cont::Value(Value::Pointer(p)) => {
             // Are we assigning to this pointer?
@@ -800,11 +872,42 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                         core.cont = Cont::Exp_(e.node(dec_.1), decs);
                         Ok(Step {})
                     }
-                    Dec::Let(p, e) => exp_conts(core, FrameCont::Let(*p.0, Cont::Decs(decs)), e),
+                    Dec::Let(p, e) => {
+                        if decs.len() == 0 {
+                            let i = match &*p.0 {
+                                Pat::Var(i) => Some(i.clone()),
+                                _ => None,
+                            };
+                            exp_conts(
+                                core,
+                                FrameCont::Let(*p.0, Cont::LetVarRet(core.cont_source.clone(), i)),
+                                e,
+                            )
+                        } else {
+                            exp_conts(core, FrameCont::Let(*p.0, Cont::Decs(decs)), e)
+                        }
+                    }
                     Dec::Var(p, e) => match *p.0 {
-                        Pat::Var(x) => exp_conts(core, FrameCont::Var(x, Cont::Decs(decs)), e),
+                        Pat::Var(x) => exp_conts(core, FrameCont::Var(*x.0, Cont::Decs(decs)), e),
                         _ => todo!(),
                     },
+                    Dec::Func(f) => {
+                        let id = f.0.clone();
+                        let v = Value::Function(ClosedFunction(Closed {
+                            env: core.env.clone(),
+                            content: f,
+                        }));
+                        if decs.len() == 0 {
+                            core.cont = Cont::Value(v);
+                            Ok(Step {})
+                        } else {
+                            if let Some(i) = id {
+                                core.env.insert(*i.0, v);
+                            };
+                            core.cont = Cont::Decs(decs);
+                            Ok(Step {})
+                        }
+                    }
                     _ => todo!(),
                 }
             }

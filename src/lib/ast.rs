@@ -101,6 +101,15 @@ pub struct Delim<X> {
     pub has_trailing: bool,
 }
 
+impl<X> Delim<X> {
+    pub fn new() -> Self {
+        Delim {
+            vec: vec![],
+            has_trailing: false,
+        }
+    }
+}
+
 pub type Literal_ = Node<Literal>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -145,6 +154,7 @@ pub type Dec_ = Node<Dec>;
 pub enum Dec {
     Exp(Exp),
     Let(Pat_, Exp_),
+    Func(Function),
     Var(Pat_, Exp_),
     Type(TypId_, TypeBinds, Type_),
     Class(
@@ -267,7 +277,7 @@ pub enum ResolvedImport {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Sugar(bool);
+pub struct Sugar(pub bool);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrimType {
@@ -316,6 +326,16 @@ pub type Inst = Delim<Type_>;
 
 pub type Exp_ = Node<Exp>;
 
+pub type Function = (
+    Option<Id_>,
+    SortPat_,
+    TypeBinds,
+    Pat_,
+    Option<Type_>,
+    Sugar,
+    Exp_,
+);
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Exp {
     Hole,
@@ -341,7 +361,7 @@ pub enum Exp {
     Assign(Exp_, Exp_),
     Array(Mut, Delim<Exp_>),
     Idx(Exp_, Exp_),
-    Function(Id, SortPat_, TypeBinds, Pat_, Option<Type_>, Sugar, Exp_),
+    Function(Function),
     Call(Exp_, Option<Inst>, Exp_),
     Block(Delim<Dec_>),
     Do(Exp_),
@@ -373,7 +393,7 @@ pub type Pat_ = Node<Pat>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Pat {
     Wild,
-    Var(Id),
+    Var(Id_),
     Literal(Literal),
     Signed(UnOp, Pat_),
     Tuple(Delim<Pat_>),

@@ -71,6 +71,9 @@ pub mod stack {
         Or1(Exp_),
         Or2,
         Not,
+        Opt,
+        DoOpt,
+        Bang,
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {

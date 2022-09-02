@@ -341,6 +341,7 @@ ExpNonDec<B>: Exp = {
     "while"  <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::While(e1, e2),
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
     "do" <e:Block_> => Exp::Do(e),
+    "do" "?" <e:Block_> => Exp::DoOpt(e),
     "assert" <e:ExpNest_> => Exp::Assert(e),
 }
 

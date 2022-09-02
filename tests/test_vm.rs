@@ -182,3 +182,11 @@ fn vm_boolean_ops() {
     assert_("not false", "true");
     assert_("not true", "false");
 }
+
+#[test]
+fn vm_option_monad() {
+    assert_("?(3)", "? 3");
+    assert_("do ? { 3 }", "?3");
+    assert_("do ? { (?3)! }", "?3");
+    assert_x("do ? { 3! }", &Interruption::TypeMismatch);
+}

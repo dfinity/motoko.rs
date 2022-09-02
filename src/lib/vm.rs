@@ -246,6 +246,9 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         And(e1, e2) => exp_conts(core, FrameCont::And1(e2), e1),
         Or(e1, e2) => exp_conts(core, FrameCont::Or1(e2), e1),
         Not(e) => exp_conts(core, FrameCont::Not, e),
+        Opt(e) => exp_conts(core, FrameCont::Opt, e),
+        DoOpt(e) => exp_conts(core, FrameCont::DoOpt, e),
+        Bang(e) => exp_conts(core, FrameCont::Bang, e),
         _ => todo!(),
     }
 }
@@ -681,6 +684,24 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Value::Bool(b) => {
                     core.cont = Cont::Value(Value::Bool(!b));
                     Ok(Step {})
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            Opt => {
+                core.cont = Cont::Value(Value::Option(Box::new(v)));
+                Ok(Step {})
+            }
+            DoOpt => {
+                core.cont = Cont::Value(Value::Option(Box::new(v)));
+                Ok(Step {})
+            }
+            Bang => match v {
+                Value::Option(v) => {
+                    core.cont = Cont::Value(*v);
+                    Ok(Step {})
+                }
+                Value::Null => {
+                    todo!("bang null")
                 }
                 _ => Err(Interruption::TypeMismatch),
             },

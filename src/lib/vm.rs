@@ -771,6 +771,10 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
+            For2(p, e1, e2) => match v {
+                Value::Unit => exp_conts(core, FrameCont::For1(p, e1.clone(), e2), e1),
+                _ => Err(Interruption::TypeMismatch),
+            },
             And1(e2) => match v {
                 Value::Bool(b) => {
                     if b {

@@ -184,6 +184,25 @@ fn call_function(
     }
 }
 
+fn call_dot_next(core: &mut Core, exp: Exp_) -> Exp_ {
+    use crate::ast::Literal::Unit;
+    use crate::ast::Loc;
+    use Exp::*;
+
+    let s = Source::ExpStep(Box::new(core.cont_source.clone()));
+    Loc(
+        Box::new(Call(
+            Loc(
+                Box::new(Dot(exp, Loc(Box::new("next".to_string()), s.clone()))),
+                s.clone(),
+            ),
+            None,
+            Loc(Box::new(Literal(Unit)), s.clone()),
+        )),
+        s,
+    )
+}
+
 fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
@@ -279,6 +298,10 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2, e3), e1),
         Rel(e1, relop, e2) => exp_conts(core, FrameCont::RelOp1(relop, e2), e1),
         While(e1, e2) => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
+        For(p, e1, e2) => {
+            let next = call_dot_next(core, e1);
+            exp_conts(core, FrameCont::For1(p, next.clone(), e2), next)
+        }
         And(e1, e2) => exp_conts(core, FrameCont::And1(e2), e1),
         Or(e1, e2) => exp_conts(core, FrameCont::Or1(e2), e1),
         Not(e) => exp_conts(core, FrameCont::Not, e),
@@ -292,7 +315,10 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
 }
 
 fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
+    use crate::ast::Literal;
     match (pat, v) {
+        (Pat::Wild, _) => Some(env.clone()),
+        (Pat::Literal(Literal::Unit), Value::Unit) => Some(env.clone()),
         (Pat::Paren(p), v) => pattern_matches(env, &*p.0, v),
         (Pat::Annot(p, _), v) => pattern_matches(env, &*p.0, v),
         (Pat::Var(x), v) => {
@@ -543,11 +569,15 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     }
                 }
             }
-            Let(Pat::Var(x), cont) => {
-                core.env.insert(*x.0, v);
-                core.cont_source = source_from_cont(&cont);
-                core.cont = cont;
-                Ok(Step {})
+            Let(p, cont) => {
+                if let Some(env) = pattern_matches(&core.env, &p, &v) {
+                    core.env = env;
+                    core.cont_source = source_from_cont(&cont);
+                    core.cont = cont;
+                    Ok(Step {})
+                } else {
+                    Err(Interruption::TypeMismatch)
+                }
             }
             Var(x, cont) => {
                 let ptr = store::alloc(core, v);
@@ -729,6 +759,25 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             While2(e1, e2) => match v {
                 Value::Unit => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
+                _ => Err(Interruption::TypeMismatch),
+            },
+            For1(p, e1, e2) => match v {
+                Value::Null => {
+                    core.cont = Cont::Value(Value::Unit);
+                    Ok(Step {})
+                }
+                Value::Option(v_) => {
+                    if let Some(env) = pattern_matches(&core.env, &*p.0, &v_) {
+                        core.env = env;
+                        exp_conts(core, FrameCont::For2(p, e1, e2.clone()), e2)
+                    } else {
+                        Err(Interruption::TypeMismatch)
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            },
+            For2(p, e1, e2) => match v {
+                Value::Unit => exp_conts(core, FrameCont::For1(p, e1.clone(), e2), e1),
                 _ => Err(Interruption::TypeMismatch),
             },
             And1(e2) => match v {

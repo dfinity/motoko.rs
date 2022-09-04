@@ -31,8 +31,8 @@ pub enum Cont {
 pub mod stack {
     use super::{Cont, Env, Vector};
     use crate::ast::{
-        BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, PrimType, RelOp, Source,
-        Type_, UnOp,
+        BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, Pat_, PrimType, RelOp,
+        Source, Type_, UnOp,
     };
     use crate::value::{ClosedFunction, Value};
     use serde::{Deserialize, Serialize};
@@ -69,6 +69,8 @@ pub mod stack {
         RelOp2(Value, RelOp),
         While1(Exp_, Exp_),
         While2(Exp_, Exp_),
+        For1(Pat_, Exp_, Exp_),
+        For2(Pat_, Exp_, Exp_),
         And1(Exp_),
         And2,
         Or1(Exp_),

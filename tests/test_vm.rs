@@ -230,3 +230,14 @@ fn debug() {
     assert_("debug { () }", "()");
     assert_x("debug { 3 }", &Interruption::TypeMismatch);
 }
+
+#[test]
+fn for_() {
+    assert_("for (i in { next = func () { null } }) { }", "()");
+    assert_(
+        "for (i in { next = func () { null } }) { while true { } }",
+        "()",
+    );
+    assert_(
+        "var x = 13; var c = 0; let i = { next = func () { if (x == 0) { null } else { x := x - 1; c := c + 1; ?x } } }; for (j in i) { let _ = j; }; c", "13");
+}

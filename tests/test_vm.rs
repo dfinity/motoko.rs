@@ -2,6 +2,8 @@ use motoko::check::assert_vm_eval as assert_;
 use motoko::check::assert_vm_interruption as assert_x;
 use motoko::vm_types::Interruption;
 
+use test_log::test; // enable logging output for tests by default.
+
 fn assert_is_value(v: &str) {
     assert_(v, v)
 }
@@ -199,6 +201,14 @@ fn function_call() {
     assert_("func f (x: Nat) : Nat { x }; f 3", "3");
     assert_("func f ( x ) { x }; f 3", "3");
     assert_("let y = 3; func f ( x ) { y }; f 4", "3");
+}
+
+#[test]
+fn function_rec_call() {
+    assert_(
+        "(func f (x) { if (x == 0) { 123 } else { f (x - 1) } }) 1",
+        "123",
+    );
 }
 
 #[test]

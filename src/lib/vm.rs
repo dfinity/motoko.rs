@@ -167,6 +167,10 @@ fn call_function(
     if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.3 .0, &args) {
         let source = core.cont_source.clone();
         core.env = env_;
+        cf.0.content
+            .0
+            .clone()
+            .map(|f| core.env.insert(*f.0, Value::Function(cf.clone())));
         core.cont = Cont::Exp_(cf.0.content.6.clone(), Vector::new());
         core.stack.push_front(Frame {
             source,

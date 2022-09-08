@@ -307,6 +307,7 @@ impl<'a> Traverse for Loc<&'a Dec> {
                 f(&p.tree());
                 f(&e.tree());
             }
+            Dec::LetModule(_, _, _) => todo!(),
             Dec::Func(_) => todo!(),
             Dec::Var(p, e) => {
                 f(&p.tree());

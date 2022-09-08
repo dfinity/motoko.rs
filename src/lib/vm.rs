@@ -953,6 +953,9 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                             exp_conts(core, FrameCont::Let(*p.0, Cont::Decs(decs)), e)
                         }
                     }
+                    Dec::LetModule(i, _, dfs) => {
+                        todo!("modules")
+                    }
                     Dec::Var(p, e) => match *p.0 {
                         Pat::Var(x) => exp_conts(core, FrameCont::Var(*x.0, Cont::Decs(decs)), e),
                         _ => todo!(),

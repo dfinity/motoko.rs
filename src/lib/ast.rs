@@ -160,6 +160,7 @@ pub type Dec_ = Node<Dec>;
 pub enum Dec {
     Exp(Exp),
     Let(Pat_, Exp_),
+    LetModule(Option<Id_>, Sugar, DecFields),
     Func(Function),
     Var(Pat_, Exp_),
     Type(TypId_, TypeBinds, Type_),
@@ -240,8 +241,8 @@ pub type DecField_ = Node<DecField>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecField {
     pub dec: Dec_,
-    pub vis: Option<Vis>,
-    pub stab: Option<Stab>,
+    pub vis: Option<Vis_>,
+    pub stab: Option<Stab_>,
 }
 
 pub type PatField_ = Node<PatField>;
@@ -261,12 +262,16 @@ pub struct TypeField {
     pub typ: Type_,
 }
 
+pub type Vis_ = Node<Vis>;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Vis {
     Public(Option<Id_>),
     Private,
     System,
 }
+
+pub type Stab_ = Node<Stab>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Stab {

@@ -189,7 +189,9 @@ fn call_dot_next(core: &mut Core, exp: Exp_) -> Exp_ {
     use crate::ast::Loc;
     use Exp::*;
 
-    let s = Source::ExpStep(Box::new(core.cont_source.clone()));
+    let s = Source::ExpStep {
+        source: Box::new(core.cont_source.clone()),
+    };
     Loc(
         Box::new(Call(
             Loc(

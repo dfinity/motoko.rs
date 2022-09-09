@@ -35,7 +35,7 @@ pub mod stack {
         BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, Pat_, PrimType, RelOp,
         Source, Type_, UnOp,
     };
-    use crate::value::{ClosedFunction, Value};
+    use crate::value::{ClosedFunction, PrimFunction, Value};
     use serde::{Deserialize, Serialize};
 
     /// Local continuation, stored in a stack frame.
@@ -83,6 +83,7 @@ pub mod stack {
         Bang,
         Call1(Option<Inst>, Exp_),
         Call2(ClosedFunction, Option<Inst>),
+        Call2Prim(PrimFunction, Option<Inst>),
         Call3,
         Return,
     }
@@ -147,6 +148,7 @@ pub struct Core {
     /// (`e : Nat8`  makes `Nat8` the `cont_prim_type` for `e`)
     pub cont_prim_type: Option<PrimType>,
     pub counts: Counts,
+    pub debug_print_out: Vector<crate::value::Text>,
 }
 
 /// Encapsulates the VM state running Motoko code locally,

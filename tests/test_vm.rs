@@ -241,3 +241,12 @@ fn for_() {
     assert_(
         "var x = 13; var c = 0; let i = { next = func () { if (x == 0) { null } else { x := x - 1; c := c + 1; ?x } } }; for (j in i) { let _ = j; }; c", "13");
 }
+
+#[test]
+fn prim_debug_print() {
+    assert_("prim \"debugPrint\" \"hello, world\"", "()");
+    assert_(
+        "let Debug = { print = prim \"debugPrint\" }; Debug.print \"hello, world\"",
+        "()",
+    );
+}

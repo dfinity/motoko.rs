@@ -2,7 +2,7 @@ use crate::ast::{
     BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Mut, Pat, PrimType, Prog, RelOp, Source, Type, UnOp,
 };
 use crate::ast_traversal::ToNode;
-use crate::value::{Closed, ClosedFunction, Value};
+use crate::value::{Closed, ClosedFunction, PrimFunction, Value};
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
@@ -41,6 +41,7 @@ fn core_init(prog: Prog) -> Core {
         cont: Cont::Decs(prog.vec.into()),
         cont_source: Source::CoreInit, // special source -- or get the "full span" (but then what line or column number would be helpful here?  line 1 column 0?)
         cont_prim_type,
+        debug_print_out: Vector::new(),
         counts: Counts {
             step: 0,
             /*
@@ -156,6 +157,26 @@ fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: Exp_) -> Result<Step,
         Cont::Exp_(cont, Vector::new()),
         cont_source,
     )
+}
+
+fn call_prim_function(
+    core: &mut Core,
+    pf: PrimFunction,
+    _targs: Option<Inst>,
+    args: Value,
+) -> Result<Step, Interruption> {
+    use PrimFunction::*;
+    match pf {
+        DebugPrint => match args {
+            Value::Text(s) => {
+                log::info!("DebugPrint: {}: {:?}", core.cont_source, s);
+                core.debug_print_out.push_back(s);
+                core.cont = Cont::Value(Value::Unit);
+                Ok(Step {})
+            }
+            _ => Err(Interruption::TypeMismatch),
+        },
+    }
 }
 
 fn call_function(
@@ -312,6 +333,13 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
         Bang(e) => exp_conts(core, FrameCont::Bang, e),
         Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
         Debug(e) => exp_conts(core, FrameCont::Debug, e),
+        Prim(s) => match &s.as_str() {
+            &"\"debugPrint\"" => {
+                core.cont = Cont::Value(Value::PrimFunction(PrimFunction::DebugPrint));
+                Ok(Step {})
+            }
+            s => todo!("Prim({})", s),
+        },
         _ => todo!(),
     }
 }
@@ -843,9 +871,11 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             Call1(inst, e2) => match v {
                 Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
+                Value::PrimFunction(pf) => exp_conts(core, FrameCont::Call2Prim(pf, inst), e2),
                 _ => Err(Interruption::TypeMismatch),
             },
             Call2(cf, inst) => call_function(core, cf, inst, v),
+            Call2Prim(pf, inst) => call_prim_function(core, pf, inst, v),
             Call3 => {
                 core.cont = Cont::Value(v);
                 Ok(Step {})

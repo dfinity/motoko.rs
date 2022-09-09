@@ -9,5 +9,6 @@ pub mod lexer_types;
 pub mod parser;
 mod parser_utils;
 pub mod value;
+pub mod package;
 pub mod vm;
 pub mod vm_types;

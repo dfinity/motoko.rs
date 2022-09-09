@@ -20,6 +20,7 @@ pub struct Pointer(pub usize);
 /// singleton vector holding a Dec::Exp.  A fnal Value is not syntax
 /// (its extensional, not intensional) and stands as its own case.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "cont_type", content = "value")]
 pub enum Cont {
     Taken,
     Decs(Vector<Dec_>),
@@ -39,6 +40,7 @@ pub mod stack {
 
     /// Local continuation, stored in a stack frame.
     #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(tag = "frame_cont_type", content = "value")]
     pub enum FrameCont {
         Let(Pat, Cont),
         Var(Id, Cont),
@@ -205,6 +207,7 @@ pub struct Step {
 
 // interruptions are events that prevent steppping from progressing.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "interruption_type", content = "value")]
 pub enum Interruption {
     Done(Value),
     Dangling(Pointer),

@@ -163,7 +163,11 @@ pub Literal: Literal = {
     r"0x[0-9a-fA-F]+" => Literal::Nat(<>.to_string()), // hexadecimal
     r"[0-9]([0-9_]*[0-9])?" => Literal::Nat(<>.to_string()),
     r"'(?:[^\\']|\\.)*'" => Literal::Char(<>.to_string()), // TODO: more test cases
-    r#""(?:[^\\"]|\\.)*""# => Literal::Text(<>.to_string()), // TODO more test cases
+    <s:StringLiteral> => Literal::Text(s),
+}
+
+StringLiteral: String = {
+    r#""(?:[^\\"]|\\.)*""# => <>.to_string(), // TODO more test cases
 }
 
 // --- Patterns --- //
@@ -263,7 +267,7 @@ ExpNullary<B>: Exp = {
     B,
     ExpPlain,
     Id => Exp::Var(<>),
-    // Prim
+    "prim" <sl:StringLiteral> => Exp::Prim(sl), // to do -- trim '"' '"'
 }
 
 #[inline]

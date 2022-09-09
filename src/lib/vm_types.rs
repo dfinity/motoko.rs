@@ -20,6 +20,7 @@ pub struct Pointer(pub usize);
 /// singleton vector holding a Dec::Exp.  A fnal Value is not syntax
 /// (its extensional, not intensional) and stands as its own case.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "cont_type", content = "value")]
 pub enum Cont {
     Taken,
     Decs(Vector<Dec_>),
@@ -34,11 +35,12 @@ pub mod stack {
         BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, Pat_, PrimType, RelOp,
         Source, Type_, UnOp,
     };
-    use crate::value::{ClosedFunction, Value};
+    use crate::value::{ClosedFunction, PrimFunction, Value};
     use serde::{Deserialize, Serialize};
 
     /// Local continuation, stored in a stack frame.
     #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(tag = "frame_cont_type", content = "value")]
     pub enum FrameCont {
         Let(Pat, Cont),
         Var(Id, Cont),
@@ -81,6 +83,7 @@ pub mod stack {
         Bang,
         Call1(Option<Inst>, Exp_),
         Call2(ClosedFunction, Option<Inst>),
+        Call2Prim(PrimFunction, Option<Inst>),
         Call3,
         Return,
     }
@@ -145,6 +148,7 @@ pub struct Core {
     /// (`e : Nat8`  makes `Nat8` the `cont_prim_type` for `e`)
     pub cont_prim_type: Option<PrimType>,
     pub counts: Counts,
+    pub debug_print_out: Vector<crate::value::Text>,
 }
 
 /// Encapsulates the VM state running Motoko code locally,
@@ -205,6 +209,7 @@ pub struct Step {
 
 // interruptions are events that prevent steppping from progressing.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "interruption_type", content = "value")]
 pub enum Interruption {
     Done(Value),
     Dangling(Pointer),

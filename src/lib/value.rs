@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
 /// Permit sharing, and fast concats.
-pub type Text = Vector<String>;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Text(pub Vector<String>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldValue {
@@ -47,6 +48,12 @@ pub enum Value {
     Pointer(Pointer),
     ArrayOffset(Pointer, usize),
     Function(ClosedFunction),
+    PrimFunction(PrimFunction),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrimFunction {
+    DebugPrint,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,7 +123,7 @@ impl Value {
                     .parse()
                     .map_err(ValueError::ParseCharError)?,
             ),
-            Literal::Text(s) => Text(vector![s[1..s.len() - 1].to_string()]),
+            Literal::Text(s) => Text(crate::value::Text(vector![s[1..s.len() - 1].to_string()])),
             Literal::Blob(v) => Blob(v),
         })
     }

@@ -32,7 +32,7 @@ pub type Span = Range<usize>;
 #[serde(tag = "source_type")]
 pub enum Source {
     Known { span: Span, line: usize, col: usize },
-    ExpStep(Box<Source>),
+    ExpStep { source: Box<Source> },
     Unknown,
     Evaluation,
     CoreInit,
@@ -66,8 +66,8 @@ impl Source {
             (_, CoreInit) => todo!(),
             (Evaluation, _) => todo!(),
             (_, Evaluation) => todo!(),
-            (ExpStep(_), _) => todo!(),
-            (_, ExpStep(_)) => todo!(),
+            (ExpStep { .. }, _) => todo!(),
+            (_, ExpStep { .. }) => todo!(),
         }
     }
 }
@@ -79,8 +79,8 @@ impl std::fmt::Display for Source {
             Source::Known { span, line, col } => {
                 write!(f, "{}..{} @ {}:{}", span.start, span.end, line, col)
             }
-            Source::ExpStep(s) => {
-                write!(f, "ExpStep({})", s)
+            Source::ExpStep { source } => {
+                write!(f, "ExpStep({})", source)
             }
             Source::Unknown => write!(f, "(unknown source)"),
             Source::Evaluation => write!(f, "(evaluation)"),

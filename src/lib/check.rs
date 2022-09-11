@@ -51,8 +51,9 @@ fn prepare_token_tree(tt: TokenTree) -> TokenTree {
 
 pub fn parse(input: &str) -> Result<Prog, SyntaxError> {
     use log::info;
-    let tt = create_token_tree(input)
-        .map_err(|_| SyntaxError::Custom("Unknown lexer error".to_string()))?;
+    let tt = create_token_tree(input).map_err(|_| SyntaxError::Custom {
+        message: "Unknown lexer error".to_string(),
+    })?;
     info!("parse::tt= {:?}", tt);
     // let tokens = filter_token_tree(tt)
     //     .map(TokenTree::flatten)

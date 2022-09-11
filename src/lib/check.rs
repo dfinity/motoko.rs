@@ -5,6 +5,7 @@ use crate::ast::{Loc, Prog, Source};
 use crate::format::{format_one_line, format_pretty};
 use crate::lexer::create_token_tree;
 use crate::lexer_types::{GroupType, Token, TokenTree};
+use crate::parser_types::SyntaxError;
 use crate::vm_types::Interruption;
 
 // TODO: refactor lalrpop lexer details
@@ -48,9 +49,10 @@ fn prepare_token_tree(tt: TokenTree) -> TokenTree {
     }
 }
 
-pub fn parse(input: &str) -> Result<Prog, ()> {
+pub fn parse(input: &str) -> Result<Prog, SyntaxError> {
     use log::info;
-    let tt = create_token_tree(input)?;
+    let tt = create_token_tree(input)
+        .map_err(|_| SyntaxError::Custom("Unknown lexer error".to_string()))?;
     info!("parse::tt= {:?}", tt);
     // let tokens = filter_token_tree(tt)
     //     .map(TokenTree::flatten)
@@ -58,10 +60,10 @@ pub fn parse(input: &str) -> Result<Prog, ()> {
     let prepared_tt = prepare_token_tree(tt);
     let input = format!("{}", prepared_tt);
 
-    Ok(crate::parser::ProgParser::new()
+    crate::parser::ProgParser::new()
         // .parse(tokens.into_iter())
         .parse(&LineColLookup::new(&input), &input)
-        .unwrap())
+        .map_err(SyntaxError::from_parse_error)
 }
 
 #[allow(unused_variables)]

@@ -232,7 +232,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
     let source = exp.1.clone();
     match *exp.0 {
         Literal(l) => {
-            core.cont = Cont::Value(Value::from_literal(l).map_err(|_| Interruption::ParseError)?);
+            core.cont = Cont::Value(Value::from_literal(l).map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         Function(f) => {
@@ -1076,7 +1076,8 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
     info!("eval_limit:");
     info!("  - prog = {}", prog);
     info!("  - limits = {:#?}", limits);
-    let p = crate::check::parse(&prog)?;
+    use crate::vm_types::Interruption::SyntaxError;
+    let p = crate::check::parse(&prog).map_err(SyntaxError)?;
     info!("eval_limit: parsed.");
     let mut l = Local::new(Core::new(p));
     let s = l.run(limits).map_err(|_| ())?;

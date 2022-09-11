@@ -8,6 +8,7 @@ pub mod lexer_types;
 pub mod package;
 #[allow(clippy::all)]
 pub mod parser;
+pub mod parser_types;
 mod parser_utils;
 pub mod value;
 pub mod vm;

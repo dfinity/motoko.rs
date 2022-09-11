@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 // TODO: move?
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "syntax_error_type")]
 pub enum SyntaxError {
     InvalidToken {
         location: usize,
@@ -21,7 +22,9 @@ pub enum SyntaxError {
         start: usize,
         end: usize,
     },
-    Custom(String),
+    Custom {
+        message: String,
+    },
 }
 
 impl SyntaxError {
@@ -43,7 +46,9 @@ impl SyntaxError {
                 start: token.0,
                 end: token.2,
             },
-            User { error } => Self::Custom(error.to_owned()),
+            User { error } => Self::Custom {
+                message: error.to_owned(),
+            },
         }
     }
 }

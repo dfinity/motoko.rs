@@ -408,6 +408,7 @@ fn return_(core: &mut Core, v: Value) -> Result<Step, Interruption> {
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
                 FrameCont::Call3 => {
+                    core.env = fr.env;
                     core.stack = stack;
                     core.cont = Cont::Value(v);
                     return Ok(Step {});

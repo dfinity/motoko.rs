@@ -2,7 +2,8 @@ use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
 use crate::ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span};
-use crate::value::Value;
+use crate::parser_types::SyntaxError;
+use crate::value::{Value, ValueError};
 
 /// Or maybe a string?
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -215,7 +216,8 @@ pub enum Interruption {
     Dangling(Pointer),
     TypeMismatch,
     NoMatchingCase,
-    ParseError,
+    SyntaxError(SyntaxError),
+    ValueError(ValueError),
     UnboundIdentifer(Identifier),
     BlockedAwaiting,
     Limit(Limit),

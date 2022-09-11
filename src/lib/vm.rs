@@ -187,6 +187,7 @@ fn call_function(
 ) -> Result<Step, Interruption> {
     if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.3 .0, &args) {
         let source = core.cont_source.clone();
+        let env_saved = core.env.clone();
         core.env = env_;
         cf.0.content
             .0
@@ -195,7 +196,7 @@ fn call_function(
         core.cont = Cont::Exp_(cf.0.content.6.clone(), Vector::new());
         core.stack.push_front(Frame {
             source,
-            env: HashMap::new(),
+            env: env_saved,
             cont: FrameCont::Call3,
             cont_prim_type: None, /* to do */
         }); // to match with Return, if any.
@@ -409,6 +410,7 @@ fn return_(core: &mut Core, v: Value) -> Result<Step, Interruption> {
             match fr.cont {
                 FrameCont::Call3 => {
                     core.stack = stack;
+                    core.env = fr.env;
                     core.cont = Cont::Value(v);
                     return Ok(Step {});
                 }

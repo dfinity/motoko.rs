@@ -250,3 +250,9 @@ fn prim_debug_print() {
         "()",
     );
 }
+
+#[test]
+fn function_call_return_restores_env() {
+    assert_("func f() { }; let x = 0; x", "0");
+    assert_("func f() { }; let x = 0; f(); x", "0");
+}

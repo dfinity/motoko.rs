@@ -69,11 +69,13 @@ fn binop(
 ) -> Result<Value, Interruption> {
     use BinOp::*;
     use Value::*;
+    if let Unit = v1 { return Err(Interruption::TypeMismatch) };
+    if let Unit = v2 { return Err(Interruption::TypeMismatch) };
     match binop {
         Add => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 + n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 + i2)),
-            _ => todo!(),
+            _ => Err(Interruption::NotYetImplemented)
         },
         Sub => match (v1, v2) {
             (Nat(n1), Nat(n2)) => {
@@ -85,12 +87,12 @@ fn binop(
             }
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
             (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
-            _ => todo!(),
+            _ => Err(Interruption::NotYetImplemented)
         },
         Mul => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
-            _ => todo!(),
+            _ => Err(Interruption::NotYetImplemented)
         },
         WAdd => match (cont_prim_type, v1, v2) {
             (None, _, _) => Err(Interruption::AmbiguousOperation),
@@ -99,11 +101,11 @@ fn binop(
                 PrimType::Nat8 => Ok(Value::Nat(
                     (n1 + n2) % BigUint::parse_bytes(b"256", 10).unwrap(),
                 )),
-                _ => todo!(),
+                _ => Err(Interruption::NotYetImplemented)
             },
-            _ => todo!(),
+            _ => Err(Interruption::NotYetImplemented)
         },
-        _ => todo!(),
+        _ => Err(Interruption::NotYetImplemented)
     }
 }
 
@@ -119,14 +121,14 @@ fn relop(
         Eq => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Bool(n1 == n2)),
             (Int(i1), Int(i2)) => Ok(Bool(i1 == i2)),
-            _ => todo!(),
+            _ => Err(Interruption::NotYetImplemented)
         },
         Neq => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Bool(n1 != n2)),
             (Int(i1), Int(i2)) => Ok(Bool(i1 != i2)),
-            _ => todo!(),
+            _ => Err(Interruption::NotYetImplemented)
         },
-        _ => todo!(),
+        _ => Err(Interruption::NotYetImplemented)
     }
 }
 
@@ -339,9 +341,9 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
                 core.cont = Cont::Value(Value::PrimFunction(PrimFunction::DebugPrint));
                 Ok(Step {})
             }
-            s => todo!("Prim({})", s),
+            _ => Err(Interruption::NotYetImplemented)
         },
-        _ => todo!(),
+        _ => Err(Interruption::NotYetImplemented)
     }
 }
 
@@ -883,7 +885,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Ok(Step {})
             }
             Return => return_(core, v),
-            _ => todo!(),
+            _ => Err(Interruption::NotYetImplemented)
         }
     }
 }
@@ -989,7 +991,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                     }
                     Dec::Var(p, e) => match *p.0 {
                         Pat::Var(x) => exp_conts(core, FrameCont::Var(*x.0, Cont::Decs(decs)), e),
-                        _ => todo!(),
+                        _ => Err(Interruption::NotYetImplemented)
                     },
                     Dec::Func(f) => {
                         let id = f.0.clone();
@@ -1008,7 +1010,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                     }
-                    _ => todo!(),
+                    _ => Err(Interruption::NotYetImplemented)
                 }
             }
         } //_ => unimplemented!(),

@@ -227,6 +227,7 @@ pub enum Interruption {
     IndexOutOfBounds,
     NoDoQuestBangNull,
     MisplacedReturn,
+    NotYetImplemented,
     Unknown,
     Impossible,
 }

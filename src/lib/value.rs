@@ -1,13 +1,10 @@
-use std::char::ParseCharError;
-use std::num::ParseFloatError;
-
 use crate::ast::{Dec, Decs, Exp, Function, Id, Id_, Literal, Mut};
 use crate::vm_types::Env;
 
 use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
-use num_bigint::{BigInt, BigUint, ParseBigIntError};
+use num_bigint::{BigInt, BigUint};
 use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
@@ -107,31 +104,30 @@ impl Value {
                 let n = n.replace('_', "");
                 if n.starts_with("0x") {
                     use num_traits::Num;
-                    BigUint::from_str_radix(&n[2..], 16).map_err(ValueError::ParseBigIntError)?
+                    BigUint::from_str_radix(&n[2..], 16).map_err(|_| ValueError::BigInt)?
                 } else {
-                    n.parse().map_err(ValueError::ParseBigIntError)?
+                    n.parse().map_err(|_| ValueError::BigInt)?
                 }
             }),
             // Literal::Int(i) => Int(i.parse()?),
-            Literal::Float(n) => Float(
-                n.replace('_', "")
-                    .parse()
-                    .map_err(ValueError::ParseFloatError)?,
-            ),
-            Literal::Char(s) => Char(
-                s[1..s.len() - 1]
-                    .parse()
-                    .map_err(ValueError::ParseCharError)?,
-            ),
+            Literal::Float(n) => Float(n.replace('_', "").parse().map_err(|_| ValueError::Float)?),
+            Literal::Char(s) => Char(s[1..s.len() - 1].parse().map_err(|_| ValueError::Char)?),
             Literal::Text(s) => Text(crate::value::Text(vector![s[1..s.len() - 1].to_string()])),
             Literal::Blob(v) => Blob(v),
         })
     }
 }
 
+// #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+// pub enum ValueErrorKind {
+//     Empty,
+//     Invalid,
+// }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueError {
-    ParseCharError(ParseCharError),
-    ParseBigIntError(ParseBigIntError),
-    ParseFloatError(ParseFloatError),
+    Char,   //(ValueErrorKind),
+    BigInt, //(ValueErrorKind),
+    Float,  //(ValueErrorKind),
     NotAValue,
 }

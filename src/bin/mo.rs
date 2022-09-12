@@ -10,22 +10,29 @@ use motoko::vm_types::Limits;
 pub type OurResult<X> = Result<X, OurError>;
 
 impl From<()> for OurError {
-    fn from(_unit: ()) -> Self {
-        OurError::Unit
+    fn from(_: ()) -> Self {
+        OurError::Unknown
     }
 }
 
 impl From<motoko::vm_types::Error> for OurError {
-    fn from(vm: motoko::vm_types::Error) -> Self {
-        OurError::VM(vm)
+    fn from(err: motoko::vm_types::Error) -> Self {
+        OurError::VM(err)
+    }
+}
+
+impl From<motoko::parser_types::SyntaxError> for OurError {
+    fn from(err: motoko::parser_types::SyntaxError) -> Self {
+        OurError::Syntax(err)
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum OurError {
-    Unit,
+    Unknown,
     String(String),
     VM(motoko::vm_types::Error),
+    Syntax(motoko::parser_types::SyntaxError),
 }
 
 /// Motoko tools in Rust.

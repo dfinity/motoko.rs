@@ -6,7 +6,7 @@ use crate::value::{Closed, ClosedFunction, PrimFunction, Value};
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
-    Signal, Step,
+    Signal, Step, NYI,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
@@ -30,6 +30,15 @@ impl Limits {
     pub fn step(&mut self, s: usize) {
         self.step = Some(s);
     }
+}
+
+macro_rules! nyi {
+    ($line:expr) => {
+        Err(Interruption::NotYetImplemented(NYI {
+            file: file!().to_string(),
+            line: $line,
+        }))
+    };
 }
 
 fn core_init(prog: Prog) -> Core {
@@ -57,7 +66,7 @@ fn core_init(prog: Prog) -> Core {
 fn unop(un: UnOp, v: Value) -> Result<Value, Interruption> {
     match (un, v) {
         (UnOp::Neg, Value::Nat(n)) => Ok(Value::Int(-BigInt::from(n))),
-        _ => todo!(),
+        _ => nyi!(line!()),
     }
 }
 
@@ -69,11 +78,17 @@ fn binop(
 ) -> Result<Value, Interruption> {
     use BinOp::*;
     use Value::*;
+    if let Unit = v1 {
+        return Err(Interruption::TypeMismatch);
+    };
+    if let Unit = v2 {
+        return Err(Interruption::TypeMismatch);
+    };
     match binop {
         Add => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 + n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 + i2)),
-            _ => todo!(),
+            _ => nyi!(line!()),
         },
         Sub => match (v1, v2) {
             (Nat(n1), Nat(n2)) => {
@@ -85,12 +100,12 @@ fn binop(
             }
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
             (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
-            _ => todo!(),
+            _ => nyi!(line!()),
         },
         Mul => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
-            _ => todo!(),
+            _ => nyi!(line!()),
         },
         WAdd => match (cont_prim_type, v1, v2) {
             (None, _, _) => Err(Interruption::AmbiguousOperation),
@@ -99,11 +114,11 @@ fn binop(
                 PrimType::Nat8 => Ok(Value::Nat(
                     (n1 + n2) % BigUint::parse_bytes(b"256", 10).unwrap(),
                 )),
-                _ => todo!(),
+                _ => nyi!(line!()),
             },
-            _ => todo!(),
+            _ => nyi!(line!()),
         },
-        _ => todo!(),
+        _ => nyi!(line!()),
     }
 }
 
@@ -119,14 +134,14 @@ fn relop(
         Eq => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Bool(n1 == n2)),
             (Int(i1), Int(i2)) => Ok(Bool(i1 == i2)),
-            _ => todo!(),
+            _ => nyi!(line!()),
         },
         Neq => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Bool(n1 != n2)),
             (Int(i1), Int(i2)) => Ok(Bool(i1 != i2)),
-            _ => todo!(),
+            _ => nyi!(line!()),
         },
-        _ => todo!(),
+        _ => nyi!(line!()),
     }
 }
 
@@ -187,6 +202,7 @@ fn call_function(
 ) -> Result<Step, Interruption> {
     if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.3 .0, &args) {
         let source = core.cont_source.clone();
+        let env_saved = core.env.clone();
         core.env = env_;
         cf.0.content
             .0
@@ -195,7 +211,7 @@ fn call_function(
         core.cont = Cont::Exp_(cf.0.content.6.clone(), Vector::new());
         core.stack.push_front(Frame {
             source,
-            env: HashMap::new(),
+            env: env_saved,
             cont: FrameCont::Call3,
             cont_prim_type: None, /* to do */
         }); // to match with Return, if any.
@@ -231,7 +247,7 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
     let source = exp.1.clone();
     match *exp.0 {
         Literal(l) => {
-            core.cont = Cont::Value(Value::from_literal(l).map_err(|_| Interruption::ParseError)?);
+            core.cont = Cont::Value(Value::from_literal(l).map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         Function(f) => {
@@ -338,9 +354,9 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
                 core.cont = Cont::Value(Value::PrimFunction(PrimFunction::DebugPrint));
                 Ok(Step {})
             }
-            s => todo!("Prim({})", s),
+            _ => nyi!(line!()),
         },
-        _ => todo!(),
+        _ => nyi!(line!()),
     }
 }
 
@@ -410,6 +426,7 @@ fn return_(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 FrameCont::Call3 => {
                     core.env = fr.env;
                     core.stack = stack;
+                    core.env = fr.env;
                     core.cont = Cont::Value(v);
                     return Ok(Step {});
                 }
@@ -882,7 +899,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Ok(Step {})
             }
             Return => return_(core, v),
-            _ => todo!(),
+            _ => nyi!(line!()),
         }
     }
 }
@@ -991,7 +1008,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                     }
                     Dec::Var(p, e) => match *p.0 {
                         Pat::Var(x) => exp_conts(core, FrameCont::Var(*x.0, Cont::Decs(decs)), e),
-                        _ => todo!(),
+                        _ => nyi!(line!()),
                     },
                     Dec::Func(f) => {
                         let id = f.0.clone();
@@ -1010,7 +1027,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                     }
-                    _ => todo!(),
+                    _ => nyi!(line!()),
                 }
             }
         } //_ => unimplemented!(),
@@ -1078,7 +1095,8 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
     info!("eval_limit:");
     info!("  - prog = {}", prog);
     info!("  - limits = {:#?}", limits);
-    let p = crate::check::parse(&prog)?;
+    use crate::vm_types::Interruption::SyntaxError;
+    let p = crate::check::parse(&prog).map_err(SyntaxError)?;
     info!("eval_limit: parsed.");
     let mut l = Local::new(Core::new(p));
     let s = l.run(limits).map_err(|_| ())?;

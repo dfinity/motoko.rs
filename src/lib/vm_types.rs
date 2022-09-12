@@ -227,8 +227,15 @@ pub enum Interruption {
     IndexOutOfBounds,
     NoDoQuestBangNull,
     MisplacedReturn,
+    NotYetImplemented(NYI),
     Unknown,
     Impossible,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, Deserialize)]
+pub struct NYI {
+    pub file: String,
+    pub line: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

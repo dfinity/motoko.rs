@@ -126,6 +126,7 @@ pub type Store = HashMap<Pointer, Value>;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Counts {
     pub step: usize,
+    pub step_redex: usize,
     /*
     pub call: usize,
     pub alloc: usize,
@@ -140,16 +141,17 @@ pub struct Counts {
 /// eventually version it and generate a DAG of relationships.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Core {
-    pub store: Store,
-    pub stack: Stack,
-    pub env: Env,
     pub cont: Cont,
     pub cont_source: Source,
     /// `Some(t)` when evaluating under an annotation of type `t`.
     /// (`e : Nat8`  makes `Nat8` the `cont_prim_type` for `e`)
     pub cont_prim_type: Option<PrimType>,
-    pub counts: Counts,
+    pub env: Env,
+    pub stack: Stack,
+    pub store: Store,
     pub debug_print_out: Vector<crate::value::Text>,
+
+    pub counts: Counts,
 }
 
 /// Encapsulates the VM state running Motoko code locally,

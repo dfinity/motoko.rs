@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one, node};
-use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, SortPat_, Sugar};
+use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, SortPat_, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
 
@@ -452,6 +452,7 @@ DecNonVar_: Dec_ = Node<DecNonVar>;
 
 DecNonVar: Dec = {
     "let" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Let(p, e),
+    "module" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetModule(i, Sugar(s.is_some()), ob),
     <sp:SortPat_> "func" <i:(Id_)?> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func((i, sp, Delim::new(), p, t.map(|t|{t.1}), Sugar(false), b)),
     <sp:SortPat_> "func" <i:(Id_?)> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func((i, sp, Delim::new(), p, t.map(|t|{t.1}), Sugar(true), e)),
     // type
@@ -498,6 +499,33 @@ BinOp: BinOp = {
     "<<>" => BinOp::RotL,
     "<>>" => BinOp::RotR,
     "#" => BinOp::Cat,
+}
+
+ObjBody: DecFields = {
+    "{" <dfs:Delim0<DecField_, ";">> "}" => dfs
+}
+
+#[inline]
+Vis_: Vis_ = Node<Vis>;
+
+Vis: Vis = {
+  "public" => Vis::Private,
+  "private" => Vis::Private,
+}
+
+#[inline]
+Stab_: Stab_ = Node<Stab>;
+
+Stab: Stab = {
+  "stable" => Stab::Stable,
+  "flexible" => Stab::Flexible,
+}
+
+#[inline]
+DecField_: DecField_ = Node<DecField>;
+
+DecField: DecField = {
+    <vis:(Vis_)?> <stab:(Stab_)?> <dec:Dec_> => DecField{ vis, stab, dec }
 }
 
 // Precedence

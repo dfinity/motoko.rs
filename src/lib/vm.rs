@@ -53,6 +53,7 @@ fn core_init(prog: Prog) -> Core {
         debug_print_out: Vector::new(),
         counts: Counts {
             step: 0,
+            step_redex: 0,
             /*
             stack: 0,
             call: 0,
@@ -186,6 +187,7 @@ fn call_prim_function(
             Value::Text(s) => {
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, s);
                 core.debug_print_out.push_back(s);
+                core.counts.step_redex += 1;
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
@@ -209,6 +211,7 @@ fn call_function(
             .clone()
             .map(|f| core.env.insert(*f.0, Value::Function(cf.clone())));
         core.cont = Cont::Exp_(cf.0.content.6.clone(), Vector::new());
+        core.counts.step_redex += 1;
         core.stack.push_front(Frame {
             source,
             env: env_saved,
@@ -394,6 +397,7 @@ fn switch(core: &mut Core, _limits: &Limits, v: Value, cases: Cases) -> Result<S
             core.env = env;
             core.cont_source = case.0.exp.1.clone();
             core.cont = Cont::Exp_(case.0.exp, Vector::new());
+            core.counts.step_redex += 1;
             return Ok(Step {});
         }
     }
@@ -407,6 +411,7 @@ fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
             match fr.cont {
                 FrameCont::DoOpt => {
                     core.stack = stack;
+                    core.counts.step_redex += 1;
                     core.cont = Cont::Value(Value::Null);
                     return Ok(Step {});
                 }
@@ -424,9 +429,9 @@ fn return_(core: &mut Core, v: Value) -> Result<Step, Interruption> {
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
                 FrameCont::Call3 => {
+                    core.counts.step_redex += 1;
                     core.env = fr.env;
                     core.stack = stack;
-                    core.env = fr.env;
                     core.cont = Cont::Value(v);
                     return Ok(Step {});
                 }
@@ -554,16 +559,19 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
         match frame.cont {
             UnOp(un) => {
                 core.cont = Cont::Value(unop(un, v)?);
+                core.counts.step_redex += 1;
                 Ok(Step {})
             }
             RelOp1(relop, e2) => exp_conts(core, RelOp2(v, relop), e2),
             RelOp2(v1, rel) => {
                 core.cont = Cont::Value(relop(&core.cont_prim_type, rel, v1, v)?);
+                core.counts.step_redex += 1;
                 Ok(Step {})
             }
             BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), e2),
             BinOp2(v1, bop) => {
                 core.cont = Cont::Value(binop(&core.cont_prim_type, bop, v1, v)?);
+                core.counts.step_redex += 1;
                 Ok(Step {})
             }
             Assign1(e2) => match v {
@@ -573,11 +581,13 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             Assign2(Value::Pointer(p)) => {
                 store::mutate(core, p, v)?;
+                core.counts.step_redex += 1;
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
             Assign2(Value::ArrayOffset(p, i)) => {
                 store::mutate_array(core, p, i, v)?;
+                core.counts.step_redex += 1;
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
@@ -592,6 +602,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                         (Value::Pointer(p), Value::Nat(i)) => {
                             // save array pointer and offset until after RHS is evaluated.
                             let i = usize_from_biguint(i, None)?;
+                            core.counts.step_redex += 1;
                             core.cont = Cont::Value(Value::ArrayOffset(p, i));
                             Ok(Step {})
                         }
@@ -601,6 +612,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     match (v1, v) {
                         (Value::Array(_mut_, a), Value::Nat(i)) => {
                             let i = usize_from_biguint(i, Some(a.len()))?;
+                            core.counts.step_redex += 1;
                             core.cont = Cont::Value(a.get(i.into()).unwrap().clone());
                             Ok(Step {})
                         }
@@ -608,6 +620,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                             None => Err(Interruption::Dangling(p.clone())),
                             Some(Value::Array(_mut_, a)) => {
                                 let i = usize_from_biguint(i, Some(a.len()))?;
+                                core.counts.step_redex += 1;
                                 core.cont = Cont::Value(a.get(i).unwrap().clone());
                                 Ok(Step {})
                             }
@@ -622,6 +635,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     core.env = env;
                     core.cont_source = source_from_cont(&cont);
                     core.cont = cont;
+                    core.counts.step_redex += 1;
                     Ok(Step {})
                 } else {
                     Err(Interruption::TypeMismatch)
@@ -661,18 +675,21 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 }
             }
             Do => {
+                core.counts.step_redex += 1; // debatable.
                 core.cont = Cont::Value(v);
                 Ok(Step {})
             }
             Assert => match v {
                 Value::Bool(true) => {
                     core.cont = Cont::Value(Value::Unit);
+                    core.counts.step_redex += 1;
                     Ok(Step {})
                 }
                 Value::Bool(false) => Err(Interruption::AssertionFailure),
                 _ => Err(Interruption::TypeMismatch),
             },
             Ignore => {
+                core.counts.step_redex += 1; // debatable.
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
@@ -755,6 +772,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     if i < vs.len() {
                         let vi = vs.get(i).unwrap();
                         core.cont = Cont::Value(vi.clone());
+                        core.counts.step_redex += 1;
                         Ok(Step {})
                     } else {
                         Err(Interruption::TypeMismatch)
@@ -766,6 +784,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Value::Object(fs) => {
                     if let Some(f) = fs.get(&*f.0) {
                         core.cont = Cont::Value(f.val.clone());
+                        core.counts.step_redex += 1;
                         Ok(Step {})
                     } else {
                         Err(Interruption::TypeMismatch)
@@ -776,12 +795,14 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             Debug => match v {
                 Value::Unit => {
                     core.cont = Cont::Value(v);
+                    core.counts.step_redex += 1; // debatable.
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
             If(e2, e3) => match v {
                 Value::Bool(b) => {
+                    core.counts.step_redex += 1;
                     core.cont = if b {
                         Cont::Exp_(e2, Vector::new())
                     } else {
@@ -796,6 +817,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             While1(e1, e2) => match v {
                 Value::Bool(b) => {
+                    core.counts.step_redex += 1;
                     if b {
                         exp_conts(core, FrameCont::While2(e1, e2.clone()), e2)
                     } else {
@@ -811,11 +833,13 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             For1(p, e1, e2) => match v {
                 Value::Null => {
+                    core.counts.step_redex += 1;
                     core.cont = Cont::Value(Value::Unit);
                     Ok(Step {})
                 }
                 Value::Option(v_) => {
                     if let Some(env) = pattern_matches(&core.env, &*p.0, &v_) {
+                        core.counts.step_redex += 1;
                         core.env = env;
                         exp_conts(core, FrameCont::For2(p, e1, e2.clone()), e2)
                     } else {
@@ -830,6 +854,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             And1(e2) => match v {
                 Value::Bool(b) => {
+                    core.counts.step_redex += 1;
                     if b {
                         exp_conts(core, FrameCont::And2, e2)
                     } else {
@@ -841,6 +866,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             And2 => match v {
                 Value::Bool(b) => {
+                    core.counts.step_redex += 1;
                     core.cont = Cont::Value(Value::Bool(b));
                     Ok(Step {})
                 }
@@ -848,6 +874,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             Or1(e2) => match v {
                 Value::Bool(b) => {
+                    core.counts.step_redex += 1;
                     if b {
                         core.cont = Cont::Value(Value::Bool(true));
                         Ok(Step {})
@@ -859,6 +886,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             Or2 => match v {
                 Value::Bool(b) => {
+                    core.counts.step_redex += 1;
                     core.cont = Cont::Value(Value::Bool(b));
                     Ok(Step {})
                 }
@@ -866,6 +894,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             Not => match v {
                 Value::Bool(b) => {
+                    core.counts.step_redex += 1;
                     core.cont = Cont::Value(Value::Bool(!b));
                     Ok(Step {})
                 }
@@ -881,6 +910,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             }
             Bang => match v {
                 Value::Option(v) => {
+                    core.counts.step_redex += 1;
                     core.cont = Cont::Value(*v);
                     Ok(Step {})
                 }
@@ -907,13 +937,16 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
 // To advance the core Motoko state by a single step.
 fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
     use log::trace;
-    trace!("# step {}", core.counts.step);
+    trace!(
+        "# step {} (redex {})",
+        core.counts.step,
+        core.counts.step_redex
+    );
     trace!(" - cont = {:?}", core.cont);
     trace!("   - cont_source = {:?}", core.cont_source);
     trace!("   - env = {:?}", core.env);
     trace!(" - stack = {:#?}", core.stack);
     trace!(" - store = {:#?}", core.store);
-    core.counts.step += 1;
     if let Some(step_limit) = limits.step {
         if core.counts.step > step_limit {
             return Err(Interruption::Limit(Limit::Step));
@@ -1003,8 +1036,8 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                             exp_conts(core, FrameCont::Let(*p.0, Cont::Decs(decs)), e)
                         }
                     }
-                    Dec::LetModule(i, _, dfs) => {
-                        todo!("modules")
+                    Dec::LetModule(_i, _, _dfs) => {
+                        nyi!(line!())
                     }
                     Dec::Var(p, e) => match *p.0 {
                         Pat::Var(x) => exp_conts(core, FrameCont::Var(*x.0, Cont::Decs(decs)), e),
@@ -1072,7 +1105,7 @@ fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
             return Ok(Signal::Breakpoint(break_span));
         }
         match core_step(&mut local.active, limits) {
-            Ok(_step) => { /* to do */ }
+            Ok(_step) => local.active.counts.step += 1,
             Err(Interruption::Done(v)) => return Ok(Signal::Done(v)),
             Err(other_interruption) => return Ok(Signal::Interruption(other_interruption)),
         }

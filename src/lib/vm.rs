@@ -6,7 +6,7 @@ use crate::value::{Closed, ClosedFunction, PrimFunction, Value};
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
-    Signal, Step,
+    Signal, Step, NYI,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
@@ -30,6 +30,15 @@ impl Limits {
     pub fn step(&mut self, s: usize) {
         self.step = Some(s);
     }
+}
+
+macro_rules! nyi {
+    ($line:expr) => {
+        Err(Interruption::NotYetImplemented(NYI {
+            file: stringify!(file!()).to_string(),
+            line: $line,
+        }))
+    };
 }
 
 fn core_init(prog: Prog) -> Core {
@@ -57,7 +66,7 @@ fn core_init(prog: Prog) -> Core {
 fn unop(un: UnOp, v: Value) -> Result<Value, Interruption> {
     match (un, v) {
         (UnOp::Neg, Value::Nat(n)) => Ok(Value::Int(-BigInt::from(n))),
-        _ => todo!(),
+        _ => nyi!(line!()),
     }
 }
 
@@ -69,13 +78,17 @@ fn binop(
 ) -> Result<Value, Interruption> {
     use BinOp::*;
     use Value::*;
-    if let Unit = v1 { return Err(Interruption::TypeMismatch) };
-    if let Unit = v2 { return Err(Interruption::TypeMismatch) };
+    if let Unit = v1 {
+        return Err(Interruption::TypeMismatch);
+    };
+    if let Unit = v2 {
+        return Err(Interruption::TypeMismatch);
+    };
     match binop {
         Add => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 + n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 + i2)),
-            _ => Err(Interruption::NotYetImplemented)
+            _ => nyi!(line!()),
         },
         Sub => match (v1, v2) {
             (Nat(n1), Nat(n2)) => {
@@ -87,12 +100,12 @@ fn binop(
             }
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
             (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
-            _ => Err(Interruption::NotYetImplemented)
+            _ => nyi!(line!()),
         },
         Mul => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
-            _ => Err(Interruption::NotYetImplemented)
+            _ => nyi!(line!()),
         },
         WAdd => match (cont_prim_type, v1, v2) {
             (None, _, _) => Err(Interruption::AmbiguousOperation),
@@ -101,11 +114,11 @@ fn binop(
                 PrimType::Nat8 => Ok(Value::Nat(
                     (n1 + n2) % BigUint::parse_bytes(b"256", 10).unwrap(),
                 )),
-                _ => Err(Interruption::NotYetImplemented)
+                _ => nyi!(line!()),
             },
-            _ => Err(Interruption::NotYetImplemented)
+            _ => nyi!(line!()),
         },
-        _ => Err(Interruption::NotYetImplemented)
+        _ => nyi!(line!()),
     }
 }
 
@@ -121,14 +134,14 @@ fn relop(
         Eq => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Bool(n1 == n2)),
             (Int(i1), Int(i2)) => Ok(Bool(i1 == i2)),
-            _ => Err(Interruption::NotYetImplemented)
+            _ => nyi!(line!()),
         },
         Neq => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Bool(n1 != n2)),
             (Int(i1), Int(i2)) => Ok(Bool(i1 != i2)),
-            _ => Err(Interruption::NotYetImplemented)
+            _ => nyi!(line!()),
         },
-        _ => Err(Interruption::NotYetImplemented)
+        _ => nyi!(line!()),
     }
 }
 
@@ -341,9 +354,9 @@ fn exp_step(core: &mut Core, exp: Exp_, _limits: &Limits) -> Result<Step, Interr
                 core.cont = Cont::Value(Value::PrimFunction(PrimFunction::DebugPrint));
                 Ok(Step {})
             }
-            _ => Err(Interruption::NotYetImplemented)
+            _ => nyi!(line!()),
         },
-        _ => Err(Interruption::NotYetImplemented)
+        _ => nyi!(line!()),
     }
 }
 
@@ -885,7 +898,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 Ok(Step {})
             }
             Return => return_(core, v),
-            _ => Err(Interruption::NotYetImplemented)
+            _ => nyi!(line!()),
         }
     }
 }
@@ -991,7 +1004,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                     }
                     Dec::Var(p, e) => match *p.0 {
                         Pat::Var(x) => exp_conts(core, FrameCont::Var(*x.0, Cont::Decs(decs)), e),
-                        _ => Err(Interruption::NotYetImplemented)
+                        _ => nyi!(line!()),
                     },
                     Dec::Func(f) => {
                         let id = f.0.clone();
@@ -1010,7 +1023,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                     }
-                    _ => Err(Interruption::NotYetImplemented)
+                    _ => nyi!(line!()),
                 }
             }
         } //_ => unimplemented!(),

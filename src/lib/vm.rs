@@ -35,7 +35,7 @@ impl Limits {
 macro_rules! nyi {
     ($line:expr) => {
         Err(Interruption::NotYetImplemented(NYI {
-            file: stringify!(file!()).to_string(),
+            file: file!().to_string(),
             line: $line,
         }))
     };

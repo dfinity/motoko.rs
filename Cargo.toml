@@ -4,6 +4,8 @@ version = "0.0.1"
 authors = ["Matthew Hammer", "Ryan Vandersmith"]
 edition = "2018"
 build = "build.rs"
+description = "Motoko VM"
+license = "Apache-2.0"
 
 [build-dependencies]
 lalrpop = "0.19.7"

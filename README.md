@@ -1,16 +1,12 @@
 # motoko.rs
 
-Motoko concrete syntax parser and dynamic evaluator (VM) in Rust.
+Motoko support in Rust.
+
+[Online demo.](https://mo-vm.netlify.app/)
 
 ## Motoko VM
 
-The Motoko VM explores a more dynamic way for Motoko to execute.
-
-The VM runs programs that parse without type-checking them, and it
-issues dynamic type errors when execution fails to progress.
-
-The VM executes source syntax trees directly, for greater simplicity
-and greater transparency over more advanced, compilation-based techniques.
+Motoko VM explores a more dynamic way to run Motoko.
 
 ## Priorities (WIP)
 

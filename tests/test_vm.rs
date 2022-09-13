@@ -268,12 +268,9 @@ fn module() {
     }
 }
 
-pub mod demos {
-    use super::assert_;
-
-    #[test]
-    fn for_() {
-        let prog = r#"
+#[test]
+fn demo_for_() {
+    let prog = r#"
 let Debug = { print = prim "debugPrint"};
 var x = 0;
 let Iter = { range = func(end){
@@ -289,8 +286,7 @@ let i = Iter.range(3);
 var sum = 0;
 for (y in i) {
   sum := sum + 1;
-  Debug.print sum;
+  Debug.print sum
 }"#;
-        assert_(prog, "()");
-    }
+    assert_(prog, "()");
 }

@@ -103,7 +103,7 @@ pub fn assert_roundtrip(input: &str) {
 }
 
 pub fn assert_vm_eval(input_prog: &str, expected_result: &str) {
-    println!(
+    log::info!(
         "\nassert_vm_eval(\"{}\", \"{}\")",
         input_prog, expected_result
     );
@@ -113,7 +113,7 @@ pub fn assert_vm_eval(input_prog: &str, expected_result: &str) {
 }
 
 pub fn assert_vm_interruption(input_prog: &str, expected_interruption: &Interruption) {
-    println!(
+    log::info!(
         "\nassert_vm_interruption(\"{:?}\", \"{:?}\")",
         input_prog, expected_interruption
     );

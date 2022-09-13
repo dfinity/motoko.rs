@@ -269,6 +269,26 @@ fn module() {
 }
 
 #[test]
+fn demo_redex_stepping() {
+    let prog = r#"
+let a = 1;
+(prim "debugPrint") "Hello, VM 1!";
+(prim "debugPrint") "Hello, VM 2!";
+(prim "debugPrint") "Hello, VM 3!";
+(prim "debugPrint") "Hello, VM 4!";
+var y = 666;
+(prim "debugPrint") "Hello, VM 5!";
+(prim "debugPrint") "Hello, VM 6!";
+(prim "debugPrint") "Hello, VM 7!";
+var x = y + a;
+(prim "debugPrint") "Hello, VM 8!";
+(prim "debugPrint") "Hello, VM 9!";
+x + 1;
+"#;
+    assert_(prog, "668");
+}
+
+#[test]
 fn demo_simple_recursion() {
     let prog = r#"
 var x = true;

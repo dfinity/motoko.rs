@@ -103,9 +103,10 @@ pub fn assert_roundtrip(input: &str) {
 }
 
 pub fn assert_vm_eval(input_prog: &str, expected_result: &str) {
-    println!(
+    log::info!(
         "\nassert_vm_eval(\"{}\", \"{}\")",
-        input_prog, expected_result
+        input_prog,
+        expected_result
     );
     let v1 = crate::vm::eval(input_prog).unwrap();
     let v2 = crate::vm::eval(expected_result).unwrap();
@@ -113,9 +114,10 @@ pub fn assert_vm_eval(input_prog: &str, expected_result: &str) {
 }
 
 pub fn assert_vm_interruption(input_prog: &str, expected_interruption: &Interruption) {
-    println!(
+    log::info!(
         "\nassert_vm_interruption(\"{:?}\", \"{:?}\")",
-        input_prog, expected_interruption
+        input_prog,
+        expected_interruption
     );
     match crate::vm::eval_(input_prog) {
         Err(ref i) => assert_eq!(i, expected_interruption),

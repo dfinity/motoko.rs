@@ -267,3 +267,80 @@ fn module() {
         )
     }
 }
+
+#[test]
+fn demo_redex_stepping() {
+    let prog = r#"
+let a = 1;
+(prim "debugPrint") "Hello, VM 1!";
+(prim "debugPrint") "Hello, VM 2!";
+(prim "debugPrint") "Hello, VM 3!";
+(prim "debugPrint") "Hello, VM 4!";
+var y = 666;
+(prim "debugPrint") "Hello, VM 5!";
+(prim "debugPrint") "Hello, VM 6!";
+(prim "debugPrint") "Hello, VM 7!";
+var x = y + a;
+(prim "debugPrint") "Hello, VM 8!";
+(prim "debugPrint") "Hello, VM 9!";
+x + 1;
+"#;
+    assert_(prog, "668");
+}
+
+#[test]
+fn demo_simple_recursion() {
+    let prog = r#"
+var x = true;
+func f() {
+  if x {
+    x := false;
+    f()
+  } else {
+    x
+  }
+};
+f()
+"#;
+    assert_(prog, "false");
+}
+
+#[test]
+fn demo_for_() {
+    let prog = r#"
+let Debug = { print = prim "debugPrint"};
+var x = 0;
+let Iter = { range = func(end){
+  { next = func() {
+  if (x == end) {
+    null
+  } else {
+    let x_ = x;
+    x := x_ + 1;
+    ?x_
+  }}}}};
+let i = Iter.range(3);
+var sum = 0;
+for (y in i) {
+  sum := sum + 1;
+  Debug.print sum
+}"#;
+    assert_(prog, "()");
+}
+
+#[test]
+fn demo_more_recursion() {
+    let prog = r#"
+var x = 0;
+func f() {
+  if (x != 666) {
+    x := x + 1;
+    f()
+  } else {
+    x
+  }
+};
+f()
+"#;
+    assert_(prog, "666");
+}

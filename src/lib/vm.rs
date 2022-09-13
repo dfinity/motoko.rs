@@ -681,6 +681,7 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 core.env.insert(x, Value::Pointer(ptr));
                 core.cont_source = source_from_cont(&cont);
                 core.cont = cont;
+                mark_redex(core, limits)?;
                 Ok(Step {})
             }
             Paren => {

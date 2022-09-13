@@ -126,7 +126,7 @@ pub type Store = HashMap<Pointer, Value>;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Counts {
     pub step: usize,
-    pub step_redex: usize,
+    pub redex: usize,
     /*
     pub call: usize,
     pub alloc: usize,
@@ -185,6 +185,7 @@ pub struct Limits {
     pub breakpoints: Vec<Breakpoint>,
 
     pub step: Option<usize>,
+    pub redex: Option<usize>,
     /*
     pub stack: Option<usize>,
     pub call: Option<usize>,
@@ -196,10 +197,7 @@ pub struct Limits {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Limit {
     Step,
-    Stack,
-    Call,
-    Alloc,
-    Send,
+    Redex,
 }
 
 // to do Q -- how much detail to provide about stepping?

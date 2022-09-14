@@ -5,6 +5,47 @@ use crate::ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span};
 use crate::parser_types::SyntaxError;
 use crate::value::{Value, ValueError};
 
+pub mod def {
+    use crate::ast::{Stab_, Vis_};
+    use im_rc::HashMap;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+    pub struct CtxId(usize);
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Ctx {
+        parent: Option<CtxId>,
+        fields: HashMap<CtxId, Field>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Field {
+        pub def: Def,
+        pub vis: Option<Vis_>,
+        pub stab: Option<Stab_>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub enum Def {
+        Module(Module),
+        Function(Function),
+        Value(crate::value::Value),
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Module {
+        parent: CtxId,
+        fields: CtxId,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Function {
+        context: CtxId,
+        function: crate::ast::Function,
+    }
+}
+
 /// Or maybe a string?
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Id(u64);

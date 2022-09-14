@@ -189,6 +189,17 @@ fn exp_conts_(
     Ok(Step {})
 }
 
+fn exp_conts_redex(
+    core: &mut Core,
+    limits: &Limits,
+    frame_cont: FrameCont,
+    cont: Exp_,
+) -> Result<Step, Interruption> {
+    let r = exp_conts(core, frame_cont, cont)?;
+    mark_redex(core, limits)?;
+    Ok(r)
+}
+
 fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: Exp_) -> Result<Step, Interruption> {
     let cont_source = cont.1.clone();
     exp_conts_(
@@ -218,8 +229,8 @@ fn call_prim_function(
             Value::Text(s) => {
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, s);
                 core.debug_print_out.push_back(s);
-                mark_redex(core, limits)?;
                 core.cont = Cont::Value(Value::Unit);
+                mark_redex(core, limits)?;
                 Ok(Step {})
             }
             v => {
@@ -228,8 +239,8 @@ fn call_prim_function(
                 let txt = crate::value::Text(txt);
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
                 core.debug_print_out.push_back(txt);
-                mark_redex(core, limits)?;
                 core.cont = Cont::Value(Value::Unit);
+                mark_redex(core, limits)?;
                 Ok(Step {})
             }
         },
@@ -252,13 +263,13 @@ fn call_function(
             .clone()
             .map(|f| core.env.insert(*f.0, Value::Function(cf.clone())));
         core.cont = Cont::Exp_(cf.0.content.6.clone(), Vector::new());
-        mark_redex(core, limits)?;
         core.stack.push_front(Frame {
             source,
             env: env_saved,
             cont: FrameCont::Call3,
             cont_prim_type: None, /* to do */
         }); // to match with Return, if any.
+        mark_redex(core, limits)?;
         Ok(Step {})
     } else {
         Err(Interruption::TypeMismatch)
@@ -452,8 +463,8 @@ fn bang_null(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
             match fr.cont {
                 FrameCont::DoOpt => {
                     core.stack = stack;
-                    mark_redex(core, limits)?;
                     core.cont = Cont::Value(Value::Null);
+                    mark_redex(core, limits)?;
                     return Ok(Step {});
                 }
                 _ => {}
@@ -470,10 +481,10 @@ fn return_(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interrupt
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
                 FrameCont::Call3 => {
-                    mark_redex(core, limits)?;
                     core.env = fr.env;
                     core.stack = stack;
                     core.cont = Cont::Value(v);
+                    mark_redex(core, limits)?;
                     return Ok(Step {});
                 }
                 _ => {}
@@ -622,14 +633,14 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             Assign2(Value::Pointer(p)) => {
                 store::mutate(core, p, v)?;
-                mark_redex(core, limits)?;
                 core.cont = Cont::Value(Value::Unit);
+                mark_redex(core, limits)?;
                 Ok(Step {})
             }
             Assign2(Value::ArrayOffset(p, i)) => {
                 store::mutate_array(core, p, i, v)?;
-                mark_redex(core, limits)?;
                 core.cont = Cont::Value(Value::Unit);
+                mark_redex(core, limits)?;
                 Ok(Step {})
             }
             Idx1(e2) => exp_conts(core, Idx2(v), e2),
@@ -643,8 +654,8 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                         (Value::Pointer(p), Value::Nat(i)) => {
                             // save array pointer and offset until after RHS is evaluated.
                             let i = usize_from_biguint(i, None)?;
-                            mark_redex(core, limits)?;
                             core.cont = Cont::Value(Value::ArrayOffset(p, i));
+                            mark_redex(core, limits)?;
                             Ok(Step {})
                         }
                         _ => Err(Interruption::TypeMismatch),
@@ -653,16 +664,16 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                     match (v1, v) {
                         (Value::Array(_mut_, a), Value::Nat(i)) => {
                             let i = usize_from_biguint(i, Some(a.len()))?;
-                            mark_redex(core, limits)?;
                             core.cont = Cont::Value(a.get(i.into()).unwrap().clone());
+                            mark_redex(core, limits)?;
                             Ok(Step {})
                         }
                         (Value::Pointer(p), Value::Nat(i)) => match store::deref(core, &p) {
                             None => Err(Interruption::Dangling(p.clone())),
                             Some(Value::Array(_mut_, a)) => {
                                 let i = usize_from_biguint(i, Some(a.len()))?;
-                                mark_redex(core, limits)?;
                                 core.cont = Cont::Value(a.get(i).unwrap().clone());
+                                mark_redex(core, limits)?;
                                 Ok(Step {})
                             }
                             _ => Err(Interruption::TypeMismatch),
@@ -717,8 +728,8 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 }
             }
             Do => {
-                mark_redex(core, limits)?; // debatable.
                 core.cont = Cont::Value(v);
+                mark_redex(core, limits)?; // debatable.
                 Ok(Step {})
             }
             Assert => match v {
@@ -731,8 +742,8 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                 _ => Err(Interruption::TypeMismatch),
             },
             Ignore => {
-                mark_redex(core, limits)?; // debatable.
                 core.cont = Cont::Value(Value::Unit);
+                mark_redex(core, limits)?; // debatable.
                 Ok(Step {})
             }
             Tuple(mut done, mut rest) => {
@@ -844,7 +855,6 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             If(e2, e3) => match v {
                 Value::Bool(b) => {
-                    mark_redex(core, limits)?;
                     core.cont = if b {
                         Cont::Exp_(e2, Vector::new())
                     } else {
@@ -853,17 +863,18 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
                             None => Cont::Value(Value::Unit),
                         }
                     };
+                    mark_redex(core, limits)?;
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
             While1(e1, e2) => match v {
                 Value::Bool(b) => {
-                    mark_redex(core, limits)?;
                     if b {
-                        exp_conts(core, FrameCont::While2(e1, e2.clone()), e2)
+                        exp_conts_redex(core, limits, FrameCont::While2(e1, e2.clone()), e2)
                     } else {
                         core.cont = Cont::Value(Value::Unit);
+                        mark_redex(core, limits)?;
                         Ok(Step {})
                     }
                 }
@@ -875,15 +886,14 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             For1(p, e1, e2) => match v {
                 Value::Null => {
-                    mark_redex(core, limits)?;
                     core.cont = Cont::Value(Value::Unit);
+                    mark_redex(core, limits)?;
                     Ok(Step {})
                 }
                 Value::Option(v_) => {
                     if let Some(env) = pattern_matches(&core.env, &*p.0, &v_) {
-                        mark_redex(core, limits)?;
                         core.env = env;
-                        exp_conts(core, FrameCont::For2(p, e1, e2.clone()), e2)
+                        exp_conts_redex(core, limits, FrameCont::For2(p, e1, e2.clone()), e2)
                     } else {
                         Err(Interruption::TypeMismatch)
                     }
@@ -896,11 +906,11 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             And1(e2) => match v {
                 Value::Bool(b) => {
-                    mark_redex(core, limits)?;
                     if b {
-                        exp_conts(core, FrameCont::And2, e2)
+                        exp_conts_redex(core, limits, FrameCont::And2, e2)
                     } else {
                         core.cont = Cont::Value(Value::Bool(false));
+                        mark_redex(core, limits)?;
                         Ok(Step {})
                     }
                 }
@@ -908,36 +918,36 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             },
             And2 => match v {
                 Value::Bool(b) => {
-                    mark_redex(core, limits)?;
                     core.cont = Cont::Value(Value::Bool(b));
+                    mark_redex(core, limits)?;
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
             Or1(e2) => match v {
                 Value::Bool(b) => {
-                    mark_redex(core, limits)?;
                     if b {
                         core.cont = Cont::Value(Value::Bool(true));
+                        mark_redex(core, limits)?;
                         Ok(Step {})
                     } else {
-                        exp_conts(core, FrameCont::Or2, e2)
+                        exp_conts_redex(core, limits, FrameCont::Or2, e2)
                     }
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
             Or2 => match v {
                 Value::Bool(b) => {
-                    mark_redex(core, limits)?;
                     core.cont = Cont::Value(Value::Bool(b));
+                    mark_redex(core, limits)?;
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
             Not => match v {
                 Value::Bool(b) => {
-                    mark_redex(core, limits)?;
                     core.cont = Cont::Value(Value::Bool(!b));
+                    mark_redex(core, limits)?;
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
@@ -952,8 +962,8 @@ fn stack_cont(core: &mut Core, limits: &Limits, v: Value) -> Result<Step, Interr
             }
             Bang => match v {
                 Value::Option(v) => {
-                    mark_redex(core, limits)?;
                     core.cont = Cont::Value(*v);
+                    mark_redex(core, limits)?;
                     Ok(Step {})
                 }
                 Value::Null => bang_null(core, limits),

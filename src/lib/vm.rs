@@ -623,7 +623,8 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
 // continue execution using the top-most stack frame, if any.
 fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
     if core.stack.len() == 0 {
-        Err(Interruption::Done(v.clone()))
+        core.cont = Cont::Value(v.clone());
+        Err(Interruption::Done(v))
     } else {
         use FrameCont::*;
         let frame = core.stack.pop_front().unwrap();

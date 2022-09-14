@@ -992,7 +992,7 @@ fn core_step_(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
     trace!(" - stack = {:#?}", core.stack);
     trace!(" - store = {:#?}", core.store);
     if let Some(step_limit) = limits.step {
-        if core.counts.step > step_limit {
+        if core.counts.step >= step_limit {
             return Err(Interruption::Limit(Limit::Step));
         }
     }

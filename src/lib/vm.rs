@@ -19,6 +19,10 @@ impl From<()> for Interruption {
 }
 
 impl Limits {
+    pub fn default() -> Self {
+        Self::none()
+    }
+
     /// No limits.
     pub fn none() -> Limits {
         Limits {
@@ -28,12 +32,14 @@ impl Limits {
         }
     }
     /// Set step limit.
-    pub fn step(&mut self, s: usize) {
+    pub fn step(mut self, s: usize) -> Self {
         self.step = Some(s);
+        self
     }
-    /// Set step limit.
-    pub fn step_redex(&mut self, s: usize) {
-        self.step = Some(s);
+    /// Set redex limit.
+    pub fn redex(mut self, s: usize) -> Self {
+        self.redex = Some(s);
+        self
     }
 }
 

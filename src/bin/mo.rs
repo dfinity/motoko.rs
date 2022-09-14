@@ -125,10 +125,9 @@ fn main() -> OurResult<()> {
             println!("{}", format_pretty(&p, width));
         }
         CliCommand::Eval { input, step_limit } => {
-            let mut limits = Limits::none();
-            match step_limit {
-                None => {}
-                Some(limit) => limits.step(limit),
+            let limits = match step_limit {
+                None => Limits::none(),
+                Some(limit) => Limits::none().step(limit),
             };
             let v = motoko::vm::eval_limit(&input, &limits);
             println!("final value: {:?}", v)

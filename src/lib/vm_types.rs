@@ -213,6 +213,7 @@ pub struct Step {
 #[serde(tag = "interruption_type", content = "value")]
 pub enum Interruption {
     Done(Value),
+    Breakpoint(Breakpoint),
     Dangling(Pointer),
     TypeMismatch,
     NoMatchingCase,
@@ -241,7 +242,6 @@ pub struct NYI {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Signal {
     Done(Value),
-    Breakpoint(Breakpoint),
     Interruption(Interruption),
 }
 

@@ -3,7 +3,7 @@ use std::ops::Range;
 use serde::{Deserialize, Serialize};
 
 /// A "located `X`" has a source location of type `Source`.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Loc<X>(pub X, pub Source);
 
 impl<X: std::fmt::Debug> std::fmt::Debug for Loc<X> {
@@ -28,7 +28,7 @@ impl<X> Node<X> {
 
 pub type Span = Range<usize>;
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(tag = "source_type")]
 pub enum Source {
     Known { span: Span, line: usize, col: usize },
@@ -101,7 +101,7 @@ impl std::default::Default for Source {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Delim<X> {
     pub vec: Vec<X>,
     pub has_trailing: bool,
@@ -114,11 +114,17 @@ impl<X> Delim<X> {
             has_trailing: false,
         }
     }
+    pub fn from(vec: Vec<X>) -> Self {
+        Delim {
+            vec,
+            has_trailing: false,
+        }
+    }
 }
 
 pub type Literal_ = Node<Literal>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Literal {
     Null,
     Bool(bool),
@@ -131,14 +137,14 @@ pub enum Literal {
     Blob(Vec<u8>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum ObjSort {
     Object,
     Actor,
     Module,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Shared<T /*: std::fmt::Debug + Clone + PartialEq + Eq*/> {
     Local,
     Shared(T),
@@ -156,7 +162,7 @@ pub type Prog = Decs;
 
 pub type Dec_ = Node<Dec>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Dec {
     Exp(Exp),
     Let(Pat_, Exp_),
@@ -178,19 +184,19 @@ pub enum Dec {
 
 pub type SortPat_ = Node<SortPat>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum SortPat {
     Local,
     Shared(SharedSort, Pat_),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum SharedSort {
     Query,
     Update,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum BindSort {
     Scope,
     Type,
@@ -198,7 +204,7 @@ pub enum BindSort {
 
 pub type TypeBind_ = Node<TypeBind>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct TypeBind {
     pub var: Id_,
     pub sort: BindSort,
@@ -206,7 +212,7 @@ pub struct TypeBind {
 }
 
 /// Mutability setting, for arrays, record fields and lexically-scoped bindings.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Mut {
     Const,
     Var,
@@ -220,7 +226,7 @@ pub type TypeFields = Delim<TypeField_>;
 
 pub type Case_ = Node<Case>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Case {
     pub pat: Pat_,
     pub exp: Exp_,
@@ -228,7 +234,7 @@ pub struct Case {
 
 pub type ExpField_ = Node<ExpField>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct ExpField {
     pub mut_: Mut,
     pub id: Id_,
@@ -238,7 +244,7 @@ pub struct ExpField {
 
 pub type DecField_ = Node<DecField>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct DecField {
     pub dec: Dec_,
     pub vis: Option<Vis_>,
@@ -247,7 +253,7 @@ pub struct DecField {
 
 pub type PatField_ = Node<PatField>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct PatField {
     pub id: Id_,
     pub pat: Pat_,
@@ -255,7 +261,7 @@ pub struct PatField {
 
 pub type TypeField_ = Node<TypeField>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct TypeField {
     pub mut_: Mut,
     pub id: Id_,
@@ -264,7 +270,7 @@ pub struct TypeField {
 
 pub type Vis_ = Node<Vis>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Vis {
     Public(Option<Id_>),
     Private,
@@ -273,13 +279,13 @@ pub enum Vis {
 
 pub type Stab_ = Node<Stab>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Stab {
     Stable,
     Flexible,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum ResolvedImport {
     Unresolved,
     Lib(String),
@@ -287,10 +293,10 @@ pub enum ResolvedImport {
     Prim,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Sugar(pub bool);
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum PrimType {
     Null,
     Unit,
@@ -313,7 +319,7 @@ pub enum PrimType {
 
 pub type Type_ = Node<Type>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Type {
     // Path (type path)?
     Prim(PrimType),
@@ -347,7 +353,7 @@ pub type Function = (
     Exp_,
 );
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {
     Hole,
     Prim(Id),
@@ -401,7 +407,7 @@ pub enum Exp {
 
 pub type Pat_ = Node<Pat>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Pat {
     Wild,
     Var(Id_),
@@ -416,14 +422,14 @@ pub enum Pat {
     Paren(Pat_),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum UnOp {
     Pos,
     Neg,
     Not,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum BinOp {
     Add,
     Sub,
@@ -447,7 +453,7 @@ pub enum BinOp {
     BitAnd,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum RelOp {
     Eq,
     Neq,

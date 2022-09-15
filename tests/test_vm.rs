@@ -268,7 +268,9 @@ fn prim_collection_hashmap() {
            "?2");
 
     assert_("let (hm, _) = prim \"hashMapPut\" (prim \"hashMapNew\" (), 1, 2); (prim \"hashMapPut\" (hm, 1, 3)).1",
-           "?2")
+           "?2");
+
+    assert_("var _hm = (prim \"hashMapNew\") (); let hm = { put = func (k_, v_) { let (hm__, v) = prim \"hashMapPut\" (_hm, k_, v_);  _hm := hm__; };  get = func k { prim \"hashMapGet\" (_hm, k) } }; let _ = hm . put (1, 2) ; let _ = hm.get(1) ; let _ = hm.put(2, 3) ; (hm.get(1), hm.get(2))", "(?2, ?3)")
 }
 
 #[test]

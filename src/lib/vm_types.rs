@@ -220,6 +220,7 @@ pub enum Interruption {
     SyntaxError(SyntaxError),
     ValueError(ValueError),
     UnboundIdentifer(Identifier),
+    UnrecognizedPrim(String),
     BlockedAwaiting,
     Limit(Limit),
     DivideByZero,

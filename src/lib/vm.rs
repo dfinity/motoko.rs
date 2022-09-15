@@ -1,8 +1,11 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Mut, Pat, PrimType, Prog, RelOp, Source, Type, UnOp,
+    BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, PrimType, Prog, RelOp, Source,
+    Type, UnOp,
 };
 use crate::ast_traversal::ToNode;
-use crate::value::{Closed, ClosedFunction, PrimFunction, Value};
+use crate::value::{
+    Closed, ClosedFunction, CollectionFunction, HashMapFunction, PrimFunction, Value,
+};
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
@@ -10,6 +13,7 @@ use crate::vm_types::{
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
+use std::vec::Vec;
 
 impl From<()> for Interruption {
     // try to avoid this conversion, except in temp code.
@@ -194,7 +198,7 @@ fn string_from_value(v: &Value) -> Result<String, Interruption> {
 fn call_prim_function(
     core: &mut Core,
     pf: PrimFunction,
-    _targs: Option<Inst>,
+    targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
     use PrimFunction::*;
@@ -216,6 +220,33 @@ fn call_prim_function(
                 Ok(Step {})
             }
         },
+        Collection(cf) => call_collection_function(core, cf, targs, args),
+    }
+}
+
+fn call_collection_function(
+    core: &mut Core,
+    cf: CollectionFunction,
+    targs: Option<Inst>,
+    args: Value,
+) -> Result<Step, Interruption> {
+    use CollectionFunction::*;
+    match cf {
+        HashMap(hmf) => call_hashmap_function(core, hmf, targs, args),
+    }
+}
+
+fn call_hashmap_function(
+    core: &mut Core,
+    hmf: HashMapFunction,
+    _targs: Option<Inst>,
+    args: Value,
+) -> Result<Step, Interruption> {
+    use HashMapFunction::*;
+    match hmf {
+        New => collection::hashmap::new(core, args),
+        Put => collection::hashmap::put(core, args),
+        Get => collection::hashmap::get(core, args),
     }
 }
 
@@ -265,6 +296,88 @@ fn call_dot_next(core: &mut Core, exp: Exp_) -> Exp_ {
         )),
         s,
     )
+}
+
+mod pattern {
+    use super::*;
+    use crate::ast::{Delim, Loc, Node, Pat_};
+
+    pub fn node<X>(core: &Core, x: X) -> Node<X> {
+        let s = Source::ExpStep {
+            source: Box::new(core.cont_source.clone()),
+        };
+        Loc(Box::new(x), s)
+    }
+
+    pub fn var_(core: &Core, id: &str) -> Pat_ {
+        node(core, Pat::Var(node(core, id.to_string())))
+    }
+
+    pub fn vars(core: &Core, ids: Vector<&str>) -> Pat {
+        let vars: Vec<_> = ids.into_iter().map(|i| var_(core, i)).collect();
+        Pat::Tuple(Delim::from(vars))
+    }
+}
+
+mod collection {
+    pub mod hashmap {
+        use super::super::*;
+        use crate::value::Collection;
+        use im_rc::vector;
+
+        pub fn new(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+            if let Some(_) = pattern_matches(&core.env, &Pat::Literal(Literal::Unit), &v) {
+                core.cont = Cont::Value(Value::Collection(Collection::HashMap(HashMap::new())));
+                Ok(Step {})
+            } else {
+                Err(Interruption::TypeMismatch)
+            }
+        }
+        pub fn put(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+            if let Some(env) =
+                pattern_matches(&core.env, &pattern::vars(core, vector!["hm", "k", "v"]), &v)
+            {
+                let hm = env.get("hm").unwrap();
+                let k = env.get("k").unwrap();
+                let v = env.get("v").unwrap();
+                let old = {
+                    if let Value::Collection(Collection::HashMap(mut hm)) = hm.clone() {
+                        match hm.insert(k.clone(), v.clone()) {
+                            None => Value::Null,
+                            Some(old) => Value::Option(Box::new(old)),
+                        }
+                    } else {
+                        return Err(Interruption::TypeMismatch);
+                    }
+                };
+                let ret = Value::Tuple(vector![hm.clone(), old]);
+                core.cont = Cont::Value(ret);
+                Ok(Step {})
+            } else {
+                Err(Interruption::TypeMismatch)
+            }
+        }
+        pub fn get(_core: &mut Core, _v: Value) -> Result<Step, Interruption> {
+            nyi!(line!())
+        }
+    }
+}
+
+fn prim_value(name: &str) -> Result<Value, Interruption> {
+    //use crate::value::{CollectionFunction, HashMapFunction, PrimFunction};
+    use CollectionFunction::*;
+    use PrimFunction::*;
+    if let Some(pf) = match name {
+        "\"debugPrint\"" => Some(DebugPrint),
+        "\"hashMapNew\"" => Some(Collection(HashMap(HashMapFunction::New))),
+        "\"hashMapPut\"" => Some(Collection(HashMap(HashMapFunction::Put))),
+        "\"hashMapGet\"" => Some(Collection(HashMap(HashMapFunction::Get))),
+        _ => None,
+    } {
+        Ok(Value::PrimFunction(pf))
+    } else {
+        Err(Interruption::UnrecognizedPrim(name.to_string()))
+    }
 }
 
 fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
@@ -374,19 +487,15 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Bang(e) => exp_conts(core, FrameCont::Bang, e),
         Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
         Debug(e) => exp_conts(core, FrameCont::Debug, e),
-        Prim(s) => match &s.as_str() {
-            &"\"debugPrint\"" => {
-                core.cont = Cont::Value(Value::PrimFunction(PrimFunction::DebugPrint));
-                Ok(Step {})
-            }
-            _ => nyi!(line!()),
-        },
+        Prim(s) => {
+            core.cont = Cont::Value(prim_value(&s)?);
+            Ok(Step {})
+        }
         _ => nyi!(line!()),
     }
 }
 
 fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
-    use crate::ast::Literal;
     match (pat, v) {
         (Pat::Wild, _) => Some(env.clone()),
         (Pat::Literal(Literal::Unit), Value::Unit) => Some(env.clone()),

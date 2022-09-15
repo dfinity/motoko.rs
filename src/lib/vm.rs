@@ -519,6 +519,23 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
             };
             pattern_matches(env, &*pat_.0, &*v_)
         }
+        (Pat::Tuple(ps), Value::Tuple(vs)) => {
+            if ps.vec.len() != vs.len() {
+                None
+            } else {
+                let mut env = env.clone();
+                for i in 0..ps.vec.len() {
+                    if let Some(env_) =
+                        pattern_matches(&env, &*ps.vec.get(i).unwrap().0, vs.get(i).unwrap())
+                    {
+                        env = env_
+                    } else {
+                        return None;
+                    }
+                }
+                Some(env)
+            }
+        }
         _ => None,
     }
 }

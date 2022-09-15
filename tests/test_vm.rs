@@ -252,6 +252,12 @@ fn prim_debug_print() {
 }
 
 #[test]
+fn prim_collection_hashmap() {
+    let p = "let hm = prim \"hashMapNew\" (); let hm2 = prim \"hashMapPut\" (hm, 1, 2); let hm3 = prim \"hashMapPut\" (hm2.0, 2, 3); (hm, hm2, hm3)";
+    assert_(p, p)
+}
+
+#[test]
 fn function_call_return_restores_env() {
     assert_("func f() { }; let x = 0; x", "0");
     assert_("func f() { }; let x = 0; f(); x", "0");

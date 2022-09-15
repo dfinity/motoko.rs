@@ -10,6 +10,7 @@ pub mod package;
 pub mod parser;
 pub mod parser_types;
 mod parser_utils;
+mod serde;
 pub mod value;
 pub mod vm;
 pub mod vm_types;

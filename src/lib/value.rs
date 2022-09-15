@@ -51,7 +51,7 @@ pub enum Value {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash)]
 pub enum Collection {
-    HashMap(HashMap<Value, Value>),
+    HashMap(#[serde(with = "crate::serde::im_rc_hashmap")] HashMap<Value, Value>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

@@ -257,7 +257,18 @@ fn prim_debug_print() {
 #[test]
 fn prim_collection_hashmap() {
     let p = "let hm = prim \"hashMapNew\" (); let hm2 = prim \"hashMapPut\" (hm, 1, 2); let hm3 = prim \"hashMapPut\" (hm2.0, 2, 3); (hm, hm2, hm3)";
-    assert_(p, p)
+    assert_(p, p);
+
+    assert_(
+        "let (hm, old) = prim \"hashMapPut\" (prim \"hashMapNew\" (), 1, 2); old",
+        "null",
+    );
+
+    assert_("let (hm, _) = prim \"hashMapPut\" (prim \"hashMapNew\" (), 1, 2); prim \"hashMapGet\" (hm, 1)",
+           "?2");
+
+    assert_("let (hm, _) = prim \"hashMapPut\" (prim \"hashMapNew\" (), 1, 2); (prim \"hashMapPut\" (hm, 1, 3)).1",
+           "?2")
 }
 
 #[test]

@@ -358,8 +358,27 @@ mod collection {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn get(_core: &mut Core, _v: Value) -> Result<Step, Interruption> {
-            nyi!(line!())
+        pub fn get(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+            if let Some(env) =
+                pattern_matches(&core.env, &pattern::vars(core, vector!["hm", "k"]), &v)
+            {
+                let hm = env.get("hm").unwrap();
+                let k = env.get("k").unwrap();
+                let ret = {
+                    if let Value::Collection(Collection::HashMap(hm)) = hm {
+                        match hm.get(k) {
+                            None => Value::Null,
+                            Some(v) => Value::Option(Box::new(v.clone())),
+                        }
+                    } else {
+                        return Err(Interruption::TypeMismatch);
+                    }
+                };
+                core.cont = Cont::Value(ret);
+                Ok(Step {})
+            } else {
+                Err(Interruption::TypeMismatch)
+            }
         }
     }
 }

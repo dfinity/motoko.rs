@@ -340,17 +340,18 @@ mod collection {
                 let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let v = env.get("v").unwrap();
-                let old = {
+                let (hm, old) = {
                     if let Value::Collection(Collection::HashMap(mut hm)) = hm.clone() {
                         match hm.insert(k.clone(), v.clone()) {
-                            None => Value::Null,
-                            Some(old) => Value::Option(Box::new(old)),
+                            None => (hm, Value::Null),
+                            Some(old) => (hm, Value::Option(Box::new(old))),
                         }
                     } else {
                         return Err(Interruption::TypeMismatch);
                     }
                 };
-                let ret = Value::Tuple(vector![hm.clone(), old]);
+                let hm = Value::Collection(Collection::HashMap(hm));
+                let ret = Value::Tuple(vector![hm, old]);
                 core.cont = Cont::Value(ret);
                 Ok(Step {})
             } else {

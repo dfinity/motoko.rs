@@ -334,9 +334,11 @@ mod collection {
             }
         }
         pub fn put(core: &mut Core, v: Value) -> Result<Step, Interruption> {
-            if let Some(env) =
-                pattern_matches(&core.env, &pattern::vars(core, vector!["hm", "k", "v"]), &v)
-            {
+            if let Some(env) = pattern_matches(
+                &HashMap::new(),
+                &pattern::vars(core, vector!["hm", "k", "v"]),
+                &v,
+            ) {
                 let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let v = env.get("v").unwrap();
@@ -359,9 +361,11 @@ mod collection {
             }
         }
         pub fn get(core: &mut Core, v: Value) -> Result<Step, Interruption> {
-            if let Some(env) =
-                pattern_matches(&core.env, &pattern::vars(core, vector!["hm", "k"]), &v)
-            {
+            if let Some(env) = pattern_matches(
+                &HashMap::new(),
+                &pattern::vars(core, vector!["hm", "k"]),
+                &v,
+            ) {
                 let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let ret = {

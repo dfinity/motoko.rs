@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
 /// Permit sharing, and fast concats.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Text(pub Vector<String>);
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct FieldValue {
     pub mut_: Mut,
     pub id: Id,
@@ -23,17 +23,17 @@ pub type Value_ = Box<Value>;
 
 pub type Pointer = crate::vm_types::Pointer;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct ClosedFunction(pub Closed<Function>);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash)]
 pub enum Value {
     Null,
     Bool(bool),
     Unit,
     Nat(BigUint),
     Int(BigInt),
-    Float(f64),
+    //Float(f64),
     Char(char),
     Text(Text),
     Blob(Vec<u8>),
@@ -46,14 +46,33 @@ pub enum Value {
     ArrayOffset(Pointer, usize),
     Function(ClosedFunction),
     PrimFunction(PrimFunction),
+    Collection(Collection),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash)]
+pub enum Collection {
+    HashMap(HashMap<Value, Value>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum PrimFunction {
     DebugPrint,
+    Collection(CollectionFunction),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum CollectionFunction {
+    HashMap(HashMapFunction),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum HashMapFunction {
+    New,
+    Put,
+    Get,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Closed<X> {
     pub env: Env,
     pub content: X,
@@ -110,7 +129,7 @@ impl Value {
                 }
             }),
             // Literal::Int(i) => Int(i.parse()?),
-            Literal::Float(n) => Float(n.replace('_', "").parse().map_err(|_| ValueError::Float)?),
+            Literal::Float(_n) => todo!(), /* Float(n.replace('_', "").parse().map_err(|_| ValueError::Float)?), */
             Literal::Char(s) => Char(s[1..s.len() - 1].parse().map_err(|_| ValueError::Char)?),
             Literal::Text(s) => Text(crate::value::Text(vector![s[1..s.len() - 1].to_string()])),
             Literal::Blob(v) => Blob(v),

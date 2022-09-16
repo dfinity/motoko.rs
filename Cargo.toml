@@ -18,7 +18,7 @@ log = "0.4.17"
 structopt = "0.3.26"
 num-bigint = { version = "0.4.3", features = ["serde"] }
 num-traits = "0.2.15"
-float-cmp = "0.9.0"
+ordered-float = { version = "3.0.0", features = ["serde"] }
 pretty = "0.11.3"
 logos = "0.12.1"
 line-col = "0.2.1"

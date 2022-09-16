@@ -5,6 +5,7 @@ use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
 use num_bigint::{BigInt, BigUint};
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
@@ -26,14 +27,16 @@ pub type Pointer = crate::vm_types::Pointer;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct ClosedFunction(pub Closed<Function>);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash)]
+pub type Float = OrderedFloat<f64>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Value {
     Null,
     Bool(bool),
     Unit,
     Nat(BigUint),
     Int(BigInt),
-    //Float(f64),
+    Float(Float),
     Char(char),
     Text(Text),
     Blob(Vec<u8>),
@@ -49,7 +52,7 @@ pub enum Value {
     Collection(Collection),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Collection {
     HashMap(#[serde(with = "crate::serde::im_rc_hashmap")] HashMap<Value, Value>),
 }
@@ -77,9 +80,6 @@ pub struct Closed<X> {
     pub env: Env,
     pub content: X,
 }
-
-// TODO: custom `PartialEq` implementation for approximate f64 equality?
-impl Eq for Value {}
 
 impl Value {
     pub fn from_dec(dec: Dec) -> Result<Value, ValueError> {
@@ -129,7 +129,9 @@ impl Value {
                 }
             }),
             // Literal::Int(i) => Int(i.parse()?),
-            Literal::Float(_n) => todo!(), /* Float(n.replace('_', "").parse().map_err(|_| ValueError::Float)?), */
+            Literal::Float(n) => {
+                Value::Float(n.replace('_', "").parse().map_err(|_| ValueError::Float)?)
+            }
             Literal::Char(s) => Char(s[1..s.len() - 1].parse().map_err(|_| ValueError::Char)?),
             Literal::Text(s) => Text(crate::value::Text(vector![s[1..s.len() - 1].to_string()])),
             Literal::Blob(v) => Blob(v),

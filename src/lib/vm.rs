@@ -346,11 +346,11 @@ mod collection {
                 &pattern::vars(core, vector!["seed", "size"]),
                 &v,
             ) {
-                let seed: BigUint = env.get("seed").unwrap().convert()?; // or else TypeMismatch
-                let size: Option<BigUint> = env.get("size").unwrap().convert()?; // or else TypeMismatch
+                let seed: u32 = env.get("seed").unwrap().convert().map_err(Interruption::ValueError)?; // or else TypeMismatch
+                let size: Option<u32> = env.get("size").unwrap().convert().map_err(Interruption::ValueError)?; // or else TypeMismatch
                 // todo targs -- determine the type of values we are randomly producing.
                 core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
-                    FastRandIter::new(seed, size),
+                    FastRandIter::new(size, seed),
                 )));
                 Ok(Step {})
             } else {

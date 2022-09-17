@@ -5,6 +5,7 @@ use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
 use num_bigint::{BigInt, BigUint};
+use num_traits::ToPrimitive;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
@@ -12,6 +13,12 @@ use serde::{Deserialize, Serialize};
 /// Permit sharing, and fast concats.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Text(pub Vector<String>);
+
+impl ToString for Text {
+    fn to_string(&self) -> String {
+        self.0.iter().cloned().collect()
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct FieldValue {
@@ -139,6 +146,62 @@ impl Value {
     }
 }
 
+impl Value {
+    pub fn json_value(&self) -> Result<serde_json::Value, ValueError> {
+        use serde_json::json;
+        use serde_json::Value::*;
+        Ok(match self {
+            Value::Null => Null,
+            Value::Bool(b) => Bool(*b),
+            Value::Unit => Array(vec![]),
+            Value::Nat(n) => Number(n.to_u64().ok_or(ValueError::BigInt)?.into()),
+            Value::Int(n) => Number(n.to_i64().ok_or(ValueError::BigInt)?.into()),
+            Value::Float(f) => json!(f.0),
+            Value::Char(c) => String(c.to_string()),
+            Value::Text(s) => String(s.to_string()),
+            Value::Blob(b) => Array(b.iter().map(|u| Number((*u as u64).into())).collect()),
+            Value::Array(_, vs) => Array(
+                vs.into_iter()
+                    .map(|v| v.json_value())
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+            Value::Tuple(vs) => Array(
+                vs.into_iter()
+                    .map(|v| v.json_value())
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+            Value::Object(m) => {
+                let mut map = serde_json::Map::new();
+                for (k, v) in m {
+                    map.insert(k.to_string(), v.val.json_value()?);
+                }
+                Object(map)
+            }
+            Value::Option(v) => v.as_ref().json_value()?,
+            Value::Variant(s, v) => match v {
+                Some(v) => Array(vec![String(*s.0.clone()), v.as_ref().json_value()?]),
+                None => Null,
+            },
+            Value::Pointer(_) => Err(ValueError::NotConvertible("Pointer".to_string()))?,
+            Value::ArrayOffset(_, _) => Err(ValueError::NotConvertible("ArrayOffset".to_string()))?,
+            Value::Function(_) => Err(ValueError::NotConvertible("Function".to_string()))?,
+            Value::PrimFunction(_) => Err(ValueError::NotConvertible("PrimFunction".to_string()))?,
+            Value::Collection(c) => match c {
+                Collection::HashMap(m) => Array(
+                    m.iter()
+                        .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
+            },
+        })
+    }
+
+    pub fn convert<T: serde::de::DeserializeOwned>(&self) -> Result<T, ValueError> {
+        serde_json::from_value(self.json_value()?)
+            .map_err(|e| ValueError::NotConvertible(e.to_string()))
+    }
+}
+
 // #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 // pub enum ValueErrorKind {
 //     Empty,
@@ -147,8 +210,9 @@ impl Value {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueError {
-    Char,   //(ValueErrorKind),
-    BigInt, //(ValueErrorKind),
-    Float,  //(ValueErrorKind),
+    Char,
+    BigInt,
+    Float,
     NotAValue,
+    NotConvertible(String),
 }

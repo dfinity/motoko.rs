@@ -346,18 +346,13 @@ mod collection {
                 &pattern::vars(core, vector!["seed", "size"]),
                 &v,
             ) {
-                let seed = env.get("seed").unwrap();
-                let size = env.get("size").unwrap();
-                // todo -- conversion into Rust Option<u32>
-                if let (Value::Nat(seed), Value::Nat(size)) = (seed, size) {
-                    // todo targs -- determine the type of values we are randomly producing.
-                    core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
-                        FastRandIter::new(seed, size),
-                    )));
-                    Ok(Step {})
-                } else {
-                    Err(Interruption::TypeMismatch)
-                }
+                let seed: BigUint = env.get("seed").unwrap().convert()?; // or else TypeMismatch
+                let size: Option<BigUint> = env.get("size").unwrap().convert()?; // or else TypeMismatch
+                // todo targs -- determine the type of values we are randomly producing.
+                core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
+                    FastRandIter::new(seed, size),
+                )));
+                Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }

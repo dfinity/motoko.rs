@@ -1363,11 +1363,10 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
 }
 
 /// Used for tests in check module.
-pub fn eval(prog: &str) -> Result<Value, ()> {
-    eval_limit(prog, &Limits::none()).map_err(|_| ())
+pub fn eval(prog: &str) -> Result<Value, Interruption> {
+    eval_limit(prog, &Limits::none())
 }
 
-/// Used for tests in check module.
-pub fn eval_(prog: &str) -> Result<Value, Interruption> {
-    eval_limit(prog, &Limits::none())
+pub fn eval_into<T: serde::de::DeserializeOwned>(prog: &str) -> Result<T, Interruption> {
+    eval(prog)?.convert().map_err(Interruption::ValueError)
 }

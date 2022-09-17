@@ -119,7 +119,7 @@ pub fn assert_vm_interruption(input_prog: &str, expected_interruption: &Interrup
         input_prog,
         expected_interruption
     );
-    match crate::vm::eval_(input_prog) {
+    match crate::vm::eval(input_prog) {
         Err(ref i) => assert_eq!(i, expected_interruption),
         Ok(ref v) => {
             unreachable!("expected Err({:?}), not Ok({:?})", expected_interruption, v)

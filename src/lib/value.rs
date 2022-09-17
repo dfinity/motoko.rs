@@ -7,6 +7,7 @@ use im_rc::Vector;
 use num_bigint::{BigInt, BigUint};
 use num_traits::ToPrimitive;
 use ordered_float::OrderedFloat;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
@@ -37,6 +38,7 @@ pub struct ClosedFunction(pub Closed<Function>);
 pub type Float = OrderedFloat<f64>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
@@ -147,6 +149,7 @@ impl Value {
 }
 
 impl Value {
+    /// Create a JSON-style representation of the Motoko value.
     pub fn json_value(&self) -> Result<serde_json::Value, ValueError> {
         use serde_json::json;
         use serde_json::Value::*;
@@ -196,7 +199,16 @@ impl Value {
         })
     }
 
-    pub fn convert<T: serde::de::DeserializeOwned>(&self) -> Result<T, ValueError> {
+    /// Convert to any deserializable Rust type.
+    pub fn convert<T: DeserializeOwned>(&self) -> Result<T, ValueError> {
+        serde_json::from_value(self.json_value()?)
+            .map_err(|e| ValueError::NotConvertible(e.to_string()))
+    }
+}
+
+// TODO: implement `TryInto` rather than `Into` if possible
+impl<'a, T: DeserializeOwned> Into<Result<T, ValueError>> for &'a Value {
+    fn into(self) -> Result<T, ValueError> {
         serde_json::from_value(self.json_value()?)
             .map_err(|e| ValueError::NotConvertible(e.to_string()))
     }

@@ -1366,3 +1366,7 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
 pub fn eval(prog: &str) -> Result<Value, Interruption> {
     eval_limit(prog, &Limits::none())
 }
+
+pub fn eval_into<T: serde::de::DeserializeOwned>(prog: &str) -> Result<T, Interruption> {
+    eval(prog)?.convert().map_err(Interruption::ValueError)
+}

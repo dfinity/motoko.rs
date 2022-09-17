@@ -4,7 +4,8 @@ use crate::ast::{
 };
 use crate::ast_traversal::ToNode;
 use crate::value::{
-    Closed, ClosedFunction, CollectionFunction, HashMapFunction, PrimFunction, Value,
+    Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
+    HashMapFunction, PrimFunction, Value,
 };
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
@@ -233,6 +234,20 @@ fn call_collection_function(
     use CollectionFunction::*;
     match cf {
         HashMap(hmf) => call_hashmap_function(core, hmf, targs, args),
+        FastRandIter(frif) => call_fastranditer_function(core, frif, targs, args),
+    }
+}
+
+fn call_fastranditer_function(
+    core: &mut Core,
+    frif: FastRandIterFunction,
+    targs: Option<Inst>,
+    args: Value,
+) -> Result<Step, Interruption> {
+    use FastRandIterFunction::*;
+    match frif {
+        New => collection::fastranditer::new(core, targs, args),
+        Next => collection::fastranditer::next(core, args),
     }
 }
 
@@ -320,6 +335,39 @@ mod pattern {
 }
 
 mod collection {
+    pub mod fastranditer {
+        use super::super::*;
+        use crate::value::Collection;
+        use im_rc::vector;
+
+        pub fn new(core: &mut Core, targs: Option<Inst>, v: Value) -> Result<Step, Interruption> {
+            if let Some(env) = pattern_matches(
+                &HashMap::new(),
+                &pattern::vars(core, vector!["seed", "size"]),
+                &v,
+            ) {
+                let seed = env.get("seed").unwrap();
+                let size = env.get("size").unwrap();
+                // todo -- conversion into Rust Option<u32>
+                if let (Value::Nat(seed), Value::Nat(size)) = (seed, size) {
+                    // todo targs -- determine the type of values we are randomly producing.
+                    core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
+                        FastRandIter::new(seed, size),
+                    )));
+                    Ok(Step {})
+                } else {
+                    Err(Interruption::TypeMismatch)
+                }
+            } else {
+                Err(Interruption::TypeMismatch)
+            }
+        }
+
+        pub fn next(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+            todo!()
+        }
+    }
+
     pub mod hashmap {
         use super::super::*;
         use crate::value::Collection;
@@ -396,6 +444,8 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapNew\"" => Some(Collection(HashMap(HashMapFunction::New))),
         "\"hashMapPut\"" => Some(Collection(HashMap(HashMapFunction::Put))),
         "\"hashMapGet\"" => Some(Collection(HashMap(HashMapFunction::Get))),
+        "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
+        "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
         _ => None,
     } {
         Ok(Value::PrimFunction(pf))

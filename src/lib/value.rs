@@ -64,6 +64,39 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Collection {
     HashMap(#[serde(with = "crate::serde::im_rc_hashmap")] HashMap<Value, Value>),
+    FastRandIter(FastRandIter),
+}
+
+/// Fast randomness, for data used in performance tests.
+/// Not appropriate for security-critical randomness.
+///
+/// See also https://github.com/dfinity/canister-profiling/tree/main/collections
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct FastRandIter {
+    state: u32,
+    size: Option<u32>,
+    ind: u32,
+}
+
+impl FastRandIter {
+    type Item = Value;
+    pub fn new(size: Option<u32>, seed: u32) -> FastRandIter {
+        FastRandIter {
+            size,
+            state: seed,
+            ind: 0,
+        }
+    }
+    pub fn next(&mut self) -> Option<Value> {
+        if let Some(size) = self.size {
+            self.ind += 1;
+            if self.ind > size {
+                return None;
+            }
+        }
+        self.state = self.state * 48271 % 0x7fffffff;
+        Some(Value::Nat(BigUint::from(self.state)))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -75,6 +108,7 @@ pub enum PrimFunction {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum CollectionFunction {
     HashMap(HashMapFunction),
+    FastRandIter(FastRandIterFunction),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -82,6 +116,12 @@ pub enum HashMapFunction {
     New,
     Put,
     Get,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum FastRandIterFunction {
+    New,
+    Next,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -195,6 +235,7 @@ impl Value {
                         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
+                FastRandIter => Err(ValueError::NotConvertible("FastRandIter".to_string()))?,
             },
         })
     }

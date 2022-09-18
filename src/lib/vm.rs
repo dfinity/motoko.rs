@@ -340,15 +340,23 @@ mod collection {
         use crate::value::Collection;
         use im_rc::vector;
 
-        pub fn new(core: &mut Core, targs: Option<Inst>, v: Value) -> Result<Step, Interruption> {
+        pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
                 &HashMap::new(),
                 &pattern::vars(core, vector!["seed", "size"]),
                 &v,
             ) {
-                let seed: u32 = env.get("seed").unwrap().convert().map_err(Interruption::ValueError)?; // or else TypeMismatch
-                let size: Option<u32> = env.get("size").unwrap().convert().map_err(Interruption::ValueError)?; // or else TypeMismatch
-                // todo targs -- determine the type of values we are randomly producing.
+                let seed: u32 = env
+                    .get("seed")
+                    .unwrap()
+                    .convert()
+                    .map_err(Interruption::ValueError)?; // or else TypeMismatch
+                let size: Option<u32> = env
+                    .get("size")
+                    .unwrap()
+                    .convert()
+                    .map_err(Interruption::ValueError)?; // or else TypeMismatch
+                                                         // todo targs -- determine the type of values we are randomly producing.
                 core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
                     FastRandIter::new(size, seed),
                 )));
@@ -359,7 +367,25 @@ mod collection {
         }
 
         pub fn next(core: &mut Core, v: Value) -> Result<Step, Interruption> {
-            todo!()
+            match v {
+                Value::Pointer(p) => {
+                    match store::deref(core, &p) {
+                        None => Err(Interruption::Dangling(p)),
+                        Some(Value::Collection(Collection::FastRandIter(mut fri))) => {
+                            let i = fri.clone();
+                            store::mutate(core, p, Value::Collection(Collection::FastRandIter(i)))?;
+                            core.cont = Cont::Value(match fri.next() {
+                                // to do -- systematic Option<_> ~> ?<_> conversion.
+                                Some(n) => Value::Option(Box::new(n)),
+                                None => Value::Null,
+                            });
+                            Ok(Step {})
+                        }
+                        Some(_) => Err(Interruption::TypeMismatch),
+                    }
+                }
+                _ => Err(Interruption::TypeMismatch),
+            }
         }
     }
 

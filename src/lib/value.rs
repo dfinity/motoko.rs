@@ -79,7 +79,6 @@ pub struct FastRandIter {
 }
 
 impl FastRandIter {
-    type Item = Value;
     pub fn new(size: Option<u32>, seed: u32) -> FastRandIter {
         FastRandIter {
             size,
@@ -235,7 +234,9 @@ impl Value {
                         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
-                FastRandIter => Err(ValueError::NotConvertible("FastRandIter".to_string()))?,
+                Collection::FastRandIter(..) => {
+                    Err(ValueError::NotConvertible("FastRandIter".to_string()))?
+                }
             },
         })
     }

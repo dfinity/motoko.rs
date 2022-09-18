@@ -1,4 +1,3 @@
-#![feature(inherent_associated_types)]
 pub mod ast;
 pub mod ast_traversal;
 pub mod check;

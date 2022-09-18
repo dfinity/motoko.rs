@@ -40,7 +40,7 @@ thread_local! {
 }
 
 #[bench]
-fn match_nat(b: &mut Bencher) {
+fn match_u32(b: &mut Bencher) {
     b.iter(|| {
         RAND.with(|rand| {
             let mut rand = rand.borrow_mut();
@@ -60,7 +60,7 @@ fn match_nat(b: &mut Bencher) {
 }
 
 #[bench]
-fn match_nat_clone(b: &mut Bencher) {
+fn match_u32_clone(b: &mut Bencher) {
     b.iter(|| {
         RAND.with(|rand| {
             let mut rand = rand.borrow_mut();
@@ -80,7 +80,7 @@ fn match_nat_clone(b: &mut Bencher) {
 }
 
 #[bench]
-fn convert_nat(b: &mut Bencher) {
+fn convert_u32(b: &mut Bencher) {
     b.iter(|| {
         RAND.with(|rand| {
             let mut rand = rand.borrow_mut();

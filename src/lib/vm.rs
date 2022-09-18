@@ -337,8 +337,9 @@ mod pattern {
 mod collection {
     pub mod fastranditer {
         use super::super::*;
-        use crate::value::Collection;
+        use crate::value::{Collection, ValueError};
         use im_rc::vector;
+        use num_traits::ToPrimitive;
 
         pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
@@ -346,17 +347,23 @@ mod collection {
                 &pattern::vars(core, vector!["seed", "size"]),
                 &v,
             ) {
+                // TODO: helper functions
                 let seed: u32 = env
                     .get("seed")
-                    .unwrap()
-                    .convert()
-                    .map_err(Interruption::ValueError)?; // or else TypeMismatch
-                let size: Option<u32> = env
-                    .get("size")
-                    .unwrap()
-                    .convert()
-                    .map_err(Interruption::ValueError)?; // or else TypeMismatch
-                                                         // todo targs -- determine the type of values we are randomly producing.
+                    .ok_or_else(|| Interruption::UnboundIdentifer("seed".to_string()))?
+                    .clone()
+                    .to_nat()
+                    .ok_or(Interruption::TypeMismatch)?
+                    .to_u32()
+                    .ok_or_else(|| Interruption::ValueError(ValueError::BigInt))?; // or else TypeMismatch
+                let size: Option<u32> = match env.get("size").and_then(|v| v.clone().to_nat()) {
+                    Some(n) => Some(
+                        n.to_u32()
+                            .ok_or_else(|| Interruption::ValueError(ValueError::BigInt))?,
+                    ),
+                    None => None,
+                };
+                // todo targs -- determine the type of values we are randomly producing.
                 core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
                     FastRandIter::new(size, seed),
                 )));

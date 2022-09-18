@@ -4,7 +4,7 @@ use crate::vm_types::Env;
 use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::ToPrimitive;
 use ordered_float::OrderedFloat;
 use serde::de::DeserializeOwned;
@@ -194,12 +194,14 @@ impl Value {
     }
     pub fn to_nat(self) -> Option<BigUint> {
         match self {
+            Value::Int(x) => x.to_biguint(),
             Value::Nat(x) => Some(x),
             _ => None,
         }
     }
     pub fn to_int(self) -> Option<BigInt> {
         match self {
+            Value::Nat(x) => x.to_bigint(),
             Value::Int(x) => Some(x),
             _ => None,
         }
@@ -213,18 +215,16 @@ impl Value {
     pub fn to_char(self) -> Option<char> {
         match self {
             Value::Char(x) => Some(x),
-            // Value::Text(x)=>Some(x.0.),
+            // Value::Text(x) => x.0.get(0)?.chars().next(),
             _ => None,
         }
     }
     pub fn to_text(self) -> Option<Text> {
         match self {
+            // Value::Char(x) => Some(x),
             Value::Text(x) => Some(x),
             _ => None,
         }
-    }
-    pub fn to_string(self) -> Option<String> {
-        Some(self.to_text()?.to_string())
     }
     pub fn to_blob(self) -> Option<Vec<u8>> {
         match self {
@@ -244,7 +244,7 @@ impl Value {
             _ => None,
         }
     }
-    pub fn to_object(self) -> Option<HashMap<Id, Value>> {
+    pub fn to_object(self) -> Option<HashMap<Id, FieldValue>> {
         match self {
             Value::Object(x) => Some(x),
             _ => None,
@@ -259,7 +259,7 @@ impl Value {
     }
     pub fn to_variant(self) -> Option<(String, Option<Value>)> {
         match self {
-            Value::Variant(x, y) => Some((*x.0, y.map(Box::unbo))),
+            Value::Variant(x, y) => Some((*x.0, y.map(|y| *y))),
             _ => None,
         }
     }

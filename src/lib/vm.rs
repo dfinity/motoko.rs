@@ -368,21 +368,15 @@ mod collection {
 
         pub fn next(core: &mut Core, v: Value) -> Result<Step, Interruption> {
             match v {
-                Value::Pointer(p) => {
-                    match store::deref(core, &p) {
-                        None => Err(Interruption::Dangling(p)),
-                        Some(Value::Collection(Collection::FastRandIter(mut fri))) => {
-                            let i = fri.clone();
-                            store::mutate(core, p, Value::Collection(Collection::FastRandIter(i)))?;
-                            core.cont = Cont::Value(match fri.next() {
-                                // to do -- systematic Option<_> ~> ?<_> conversion.
-                                Some(n) => Value::Option(Box::new(n)),
-                                None => Value::Null,
-                            });
-                            Ok(Step {})
-                        }
-                        Some(_) => Err(Interruption::TypeMismatch),
-                    }
+                Value::Collection(Collection::FastRandIter(mut fri)) => {
+                    let n = match fri.next() {
+                        // to do -- systematic Option<_> ~> ?<_> conversion.
+                        Some(n) => Value::Option(Box::new(n)),
+                        None => Value::Null,
+                    };
+                    let i = Value::Collection(Collection::FastRandIter(fri));
+                    core.cont = Cont::Value(Value::Tuple(vector![n, i]));
+                    Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
             }

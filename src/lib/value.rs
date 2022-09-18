@@ -185,9 +185,7 @@ impl Value {
             Literal::Blob(v) => Blob(v),
         })
     }
-}
-
-impl Value {
+ 
     pub fn as_bool(self) -> Option<bool> {
         match self {
             Value::Bool(x) => Some(x),

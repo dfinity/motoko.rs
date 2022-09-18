@@ -21,6 +21,10 @@ impl<X> Loc<X> {
 }
 
 impl<X> Node<X> {
+    pub fn without_source(value: X) -> Self {
+        Loc(Box::new(value), Source::Unknown)
+    }
+
     pub fn map_node<F: Fn(X) -> T, T>(self, map_fn: F) -> Node<T> {
         Loc(Box::new(map_fn(*self.0)), self.1)
     }

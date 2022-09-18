@@ -349,12 +349,12 @@ mod collection {
                 let seed: u32 = env
                     .get("seed")
                     .unwrap()
-                    .convert()
+                    .to_rust()
                     .map_err(Interruption::ValueError)?; // or else TypeMismatch
                 let size: Option<u32> = env
                     .get("size")
                     .unwrap()
-                    .convert()
+                    .to_rust()
                     .map_err(Interruption::ValueError)?; // or else TypeMismatch
                                                          // todo targs -- determine the type of values we are randomly producing.
                 core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
@@ -498,7 +498,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Un(un, e) => exp_conts(core, FrameCont::UnOp(un), e),
         Paren(e) => exp_conts(core, FrameCont::Paren, e),
         Variant(id, None) => {
-            core.cont = Cont::Value(Value::Variant(id, None));
+            core.cont = Cont::Value(Value::Variant(*id.0, None));
             Ok(Step {})
         }
         Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id), e),
@@ -596,13 +596,13 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if **id1.0 != **id2.0 {
+            if **id1.0 != *id2 {
                 return None;
             };
             Some(env.clone())
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if **id1.0 != **id2.0 {
+            if **id1.0 != *id2 {
                 return None;
             };
             pattern_matches(env, &*pat_.0, &*v_)
@@ -939,7 +939,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Ok(Step {})
             }
             Variant(i) => {
-                core.cont = Cont::Value(Value::Variant(i, Some(Box::new(v))));
+                core.cont = Cont::Value(Value::Variant(*i.0, Some(Box::new(v))));
                 Ok(Step {})
             }
             Switch(cases) => switch(core, v, cases),
@@ -1023,7 +1023,6 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                                 id.clone(),
                                 crate::value::FieldValue {
                                     mut_: f.mut_,
-                                    id: id,
                                     val: val,
                                 },
                             );
@@ -1433,5 +1432,5 @@ pub fn eval(prog: &str) -> Result<Value, Interruption> {
 }
 
 pub fn eval_into<T: serde::de::DeserializeOwned>(prog: &str) -> Result<T, Interruption> {
-    eval(prog)?.convert().map_err(Interruption::ValueError)
+    eval(prog)?.to_rust().map_err(Interruption::ValueError)
 }

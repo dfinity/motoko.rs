@@ -185,109 +185,109 @@ impl Value {
             Literal::Blob(v) => Blob(v),
         })
     }
- 
-    pub fn as_bool(self) -> Option<bool> {
+
+    pub fn to_bool(self) -> Option<bool> {
         match self {
             Value::Bool(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_nat(self) -> Option<BigUint> {
+    pub fn to_nat(self) -> Option<BigUint> {
         match self {
             Value::Nat(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_int(self) -> Option<BigInt> {
+    pub fn to_int(self) -> Option<BigInt> {
         match self {
             Value::Int(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_float(self) -> Option<f64> {
+    pub fn to_float(self) -> Option<f64> {
         match self {
             Value::Float(x) => Some(x.0),
             _ => None,
         }
     }
-    pub fn as_char(self) -> Option<char> {
+    pub fn to_char(self) -> Option<char> {
         match self {
             Value::Char(x) => Some(x),
             // Value::Text(x)=>Some(x.0.),
             _ => None,
         }
     }
-    pub fn as_text(self) -> Option<Text> {
+    pub fn to_text(self) -> Option<Text> {
         match self {
             Value::Text(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_string(self) -> Option<String> {
-        Some(self.as_text()?.to_string())
+    pub fn to_string(self) -> Option<String> {
+        Some(self.to_text()?.to_string())
     }
-    pub fn as_blob(self) -> Option<Vec<u8>> {
+    pub fn to_blob(self) -> Option<Vec<u8>> {
         match self {
             Value::Blob(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_array(self) -> Option<Vector<Value>> {
+    pub fn to_array(self) -> Option<Vector<Value>> {
         match self {
             Value::Array(_, x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_tuple(self) -> Option<Vector<Value>> {
+    pub fn to_tuple(self) -> Option<Vector<Value>> {
         match self {
             Value::Tuple(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_object(self) -> Option<HashMap<Id, Value>> {
+    pub fn to_object(self) -> Option<HashMap<Id, Value>> {
         match self {
             Value::Object(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_option(self) -> Option<Value> {
+    pub fn to_option(self) -> Option<Value> {
         match self {
             Value::Null => Some(Value::Null),
             Value::Option(x) => Some(*x),
             _ => None,
         }
     }
-    pub fn as_variant(self) -> Option<(String, Option<Value>)> {
+    pub fn to_variant(self) -> Option<(String, Option<Value>)> {
         match self {
-            Value::Variant(x, y) => Some((*x.0, *y)),
+            Value::Variant(x, y) => Some((*x.0, y.map(Box::unbo))),
             _ => None,
         }
     }
-    pub fn as_pointer(self) -> Option<Pointer> {
+    pub fn to_pointer(self) -> Option<Pointer> {
         match self {
             Value::Pointer(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_array_offset(self) -> Option<(Pointer, usize)> {
+    pub fn to_array_offset(self) -> Option<(Pointer, usize)> {
         match self {
             Value::ArrayOffset(x, y) => Some((x, y)),
             _ => None,
         }
     }
-    pub fn as_function(self) -> Option<ClosedFunction> {
+    pub fn to_function(self) -> Option<ClosedFunction> {
         match self {
             Value::Function(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_prim_function(self) -> Option<PrimFunction> {
+    pub fn to_prim_function(self) -> Option<PrimFunction> {
         match self {
             Value::PrimFunction(x) => Some(x),
             _ => None,
         }
     }
-    pub fn as_collection(self) -> Option<Collection> {
+    pub fn to_collection(self) -> Option<Collection> {
         match self {
             Value::Collection(x) => Some(x),
             _ => None,

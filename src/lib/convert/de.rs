@@ -1,3 +1,4 @@
+use crate::ast::Mut;
 use crate::value::Collection;
 use crate::value::FieldValue;
 use crate::value::Text;
@@ -77,8 +78,8 @@ impl<'de> Deserialize<'de> for Value {
             where
                 D: serde::Deserializer<'de>,
             {
-                // Deserialize::deserialize(deserializer)
-                Value::Option(Some(Deserialize::deserialize(deserializer)))
+                Deserialize::deserialize(deserializer)
+                // Ok(Value::Option(Some(Deserialize::deserialize(deserializer))))
             }
 
             #[inline]
@@ -95,7 +96,7 @@ impl<'de> Deserialize<'de> for Value {
                 while let Some(elem) = visitor.next_element()? {
                     vec.push_back(elem);
                 }
-                Ok(Value::Array(vec))
+                Ok(Value::Array(Mut::Var, vec))
             }
 
             fn visit_map<V>(self, mut visitor: V) -> Result<Value, V::Error>
@@ -122,12 +123,13 @@ impl<'de> Deserialize<'de> for Value {
                 Ok(Value::Blob(v.to_vec()))
             }
 
-            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
-            where
-                A: EnumAccess<'de>,
-            {
-                // data.variant()?.1 ////TODO
-            }
+            // fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+            // where
+            //     A: EnumAccess<'de>,
+            // {
+            //     Ok(Value::Variant(data.))
+            //     // data.variant()?.1 ////TODO
+            // }
         }
 
         deserializer.deserialize_any(ValueVisitor)
@@ -160,7 +162,9 @@ macro_rules! deserialize_number {
             V: Visitor<'de>,
         {
             match self {
-                Value::Number(n) => n.$method(visitor),
+                Value::Int(n) => n.$method(visitor),
+                Value::Nat(n) => n.$method(visitor),
+                Value::Float(n) => n.$method(visitor),
                 _ => self.deserialize_any(visitor),
             }
         }

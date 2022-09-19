@@ -232,6 +232,14 @@ pub enum Interruption {
     NotYetImplemented(NYI),
     Unknown,
     Impossible,
+    EvalInitError(EvalInitError),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "evaliniterror_type", content = "value")]
+pub enum EvalInitError {
+    NonEmptyStack,
+    NonValueCont,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, Deserialize)]

@@ -1374,9 +1374,56 @@ impl Core {
         core_init(prog)
     }
 
+    /// New VM core without any program.
+    pub fn empty() -> Self {
+        let mut core = core_init(crate::ast::Delim::new());
+        core.eval_(None, &Limits::none()).expect("empty");
+        core
+    }
+
+    /// New VM core from a given program string, to be parsed during Core construction.
+    pub fn from_str(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
+        Ok(core_init(crate::check::parse(s)?))
+    }
+
     /// Step VM core, under some limits.
     pub fn step(&mut self, limits: &Limits) -> Result<Step, Interruption> {
         core_step(self, limits)
+    }
+
+    /// Evaluate a new program fragment, assuming `Core` is in a
+    /// well-defined "done" state.
+    pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value, Interruption> {
+        self.eval_(Some(new_prog_frag), &Limits::none())
+    }
+
+    /// Evaluate current continuation, or optionally a new program
+    /// fragment, assuming `Core` is in a well-defined "done" state.
+    pub fn eval_(
+        &mut self,
+        new_prog_frag: Option<&str>,
+        limits: &Limits,
+    ) -> Result<Value, Interruption> {
+        if let Some(new_prog_frag) = new_prog_frag {
+            use crate::vm_types::EvalInitError;
+            if self.stack.len() > 0 {
+                return Err(Interruption::EvalInitError(EvalInitError::NonEmptyStack));
+            }
+            match self.cont {
+                Cont::Value(_) => {}
+                _ => return Err(Interruption::EvalInitError(EvalInitError::NonValueCont)),
+            };
+            let p = crate::check::parse(&new_prog_frag).map_err(Interruption::SyntaxError)?;
+            self.cont = Cont::Decs(Vector::from(p.vec));
+        } else {
+        };
+        loop {
+            match self.step(limits) {
+                Ok(_step) => {}
+                Err(Interruption::Done(v)) => return Ok(v),
+                Err(other_interruption) => return Err(other_interruption),
+            }
+        }
     }
 }
 

@@ -316,7 +316,7 @@ impl Value {
     }
 
     pub fn from_rust<T: Serialize>(value: T) -> Result<Value, ValueError> {
-        value.serialize(crate::convert::Serializer)
+        value.serialize(crate::convert::ser::Serializer)
     }
 }
 

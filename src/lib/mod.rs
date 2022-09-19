@@ -1,7 +1,7 @@
 pub mod ast;
 pub mod ast_traversal;
 pub mod check;
-mod convert;
+pub mod convert;
 pub mod format;
 mod format_utils;
 pub mod lexer;

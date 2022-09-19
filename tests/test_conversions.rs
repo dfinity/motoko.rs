@@ -40,11 +40,9 @@ fn roundtrip() {
     ) {
         println!("Evaluating: {}", input);
 
-        // let result: T = motoko::vm::eval_into(input).unwrap();
+        let result: T = motoko::vm::eval_into(input).unwrap();
 
-        // assert_eq!(result, value);
-
-        let result = value; // temp!
+        assert_eq!(result, value);
 
         assert_eq!(format!("{:?}", Value::from_rust(result).unwrap()), debug_str);
     }

@@ -46,8 +46,8 @@ pub struct ClosedFunction(pub Closed<Function>);
 
 pub type Float = OrderedFloat<f64>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-#[serde(tag = "value_type", content = "value")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)] //, Serialize, Deserialize
+                                             // #[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
@@ -351,6 +351,15 @@ impl Display for ValueError {
 impl std::error::Error for ValueError {}
 
 impl serde::ser::Error for ValueError {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        ValueError::NotConvertible(msg.to_string())
+    }
+}
+
+impl serde::de::Error for ValueError {
     fn custom<T>(msg: T) -> Self
     where
         T: std::fmt::Display,

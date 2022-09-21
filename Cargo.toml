@@ -11,7 +11,7 @@ documentation = "https://docs.rs/motoko"
 repository = "https://github.com/dfinity/motoko.rs"
 categories = ["wasm"]
 keywords = ["internet-computer", "motoko", "wasm"]
-include = ["src", "Cargo.toml", "LICENSE", "README.md"]
+include = ["src", "build.rs", "Cargo.toml", "LICENSE", "README.md"]
 
 [build-dependencies]
 lalrpop = "0.19.7"

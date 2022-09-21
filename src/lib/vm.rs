@@ -4,7 +4,8 @@ use crate::ast::{
 };
 use crate::ast_traversal::ToNode;
 use crate::value::{
-    Closed, ClosedFunction, CollectionFunction, HashMapFunction, PrimFunction, Value,
+    Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
+    HashMapFunction, PrimFunction, Value,
 };
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
@@ -233,6 +234,20 @@ fn call_collection_function(
     use CollectionFunction::*;
     match cf {
         HashMap(hmf) => call_hashmap_function(core, hmf, targs, args),
+        FastRandIter(frif) => call_fastranditer_function(core, frif, targs, args),
+    }
+}
+
+fn call_fastranditer_function(
+    core: &mut Core,
+    frif: FastRandIterFunction,
+    targs: Option<Inst>,
+    args: Value,
+) -> Result<Step, Interruption> {
+    use FastRandIterFunction::*;
+    match frif {
+        New => collection::fastranditer::new(core, targs, args),
+        Next => collection::fastranditer::next(core, args),
     }
 }
 
@@ -320,6 +335,54 @@ mod pattern {
 }
 
 mod collection {
+    pub mod fastranditer {
+        use super::super::*;
+        use crate::value::Collection;
+        use im_rc::vector;
+
+        pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value) -> Result<Step, Interruption> {
+            if let Some(env) = pattern_matches(
+                &HashMap::new(),
+                &pattern::vars(core, vector!["seed", "size"]),
+                &v,
+            ) {
+                let seed: u32 = env
+                    .get("seed")
+                    .unwrap()
+                    .convert()
+                    .map_err(Interruption::ValueError)?; // or else TypeMismatch
+                let size: Option<u32> = env
+                    .get("size")
+                    .unwrap()
+                    .convert()
+                    .map_err(Interruption::ValueError)?; // or else TypeMismatch
+                                                         // todo targs -- determine the type of values we are randomly producing.
+                core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
+                    FastRandIter::new(size, seed),
+                )));
+                Ok(Step {})
+            } else {
+                Err(Interruption::TypeMismatch)
+            }
+        }
+
+        pub fn next(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+            match v {
+                Value::Collection(Collection::FastRandIter(mut fri)) => {
+                    let n = match fri.next() {
+                        // to do -- systematic Option<_> ~> ?<_> conversion.
+                        Some(n) => Value::Option(Box::new(n)),
+                        None => Value::Null,
+                    };
+                    let i = Value::Collection(Collection::FastRandIter(fri));
+                    core.cont = Cont::Value(Value::Tuple(vector![n, i]));
+                    Ok(Step {})
+                }
+                _ => Err(Interruption::TypeMismatch),
+            }
+        }
+    }
+
     pub mod hashmap {
         use super::super::*;
         use crate::value::Collection;
@@ -396,6 +459,8 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapNew\"" => Some(Collection(HashMap(HashMapFunction::New))),
         "\"hashMapPut\"" => Some(Collection(HashMap(HashMapFunction::Put))),
         "\"hashMapGet\"" => Some(Collection(HashMap(HashMapFunction::Get))),
+        "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
+        "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
         _ => None,
     } {
         Ok(Value::PrimFunction(pf))
@@ -1310,9 +1375,56 @@ impl Core {
         core_init(prog)
     }
 
+    /// New VM core without any program.
+    pub fn empty() -> Self {
+        let mut core = core_init(crate::ast::Delim::new());
+        core.eval_(None, &Limits::none()).expect("empty");
+        core
+    }
+
+    /// New VM core from a given program string, to be parsed during Core construction.
+    pub fn from_str(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
+        Ok(core_init(crate::check::parse(s)?))
+    }
+
     /// Step VM core, under some limits.
     pub fn step(&mut self, limits: &Limits) -> Result<Step, Interruption> {
         core_step(self, limits)
+    }
+
+    /// Evaluate a new program fragment, assuming `Core` is in a
+    /// well-defined "done" state.
+    pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value, Interruption> {
+        self.eval_(Some(new_prog_frag), &Limits::none())
+    }
+
+    /// Evaluate current continuation, or optionally a new program
+    /// fragment, assuming `Core` is in a well-defined "done" state.
+    pub fn eval_(
+        &mut self,
+        new_prog_frag: Option<&str>,
+        limits: &Limits,
+    ) -> Result<Value, Interruption> {
+        if let Some(new_prog_frag) = new_prog_frag {
+            use crate::vm_types::EvalInitError;
+            if self.stack.len() > 0 {
+                return Err(Interruption::EvalInitError(EvalInitError::NonEmptyStack));
+            }
+            match self.cont {
+                Cont::Value(_) => {}
+                _ => return Err(Interruption::EvalInitError(EvalInitError::NonValueCont)),
+            };
+            let p = crate::check::parse(&new_prog_frag).map_err(Interruption::SyntaxError)?;
+            self.cont = Cont::Decs(Vector::from(p.vec));
+        } else {
+        };
+        loop {
+            match self.step(limits) {
+                Ok(_step) => {}
+                Err(Interruption::Done(v)) => return Ok(v),
+                Err(other_interruption) => return Err(other_interruption),
+            }
+        }
     }
 }
 
@@ -1363,11 +1475,10 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
 }
 
 /// Used for tests in check module.
-pub fn eval(prog: &str) -> Result<Value, ()> {
-    eval_limit(prog, &Limits::none()).map_err(|_| ())
+pub fn eval(prog: &str) -> Result<Value, Interruption> {
+    eval_limit(prog, &Limits::none())
 }
 
-/// Used for tests in check module.
-pub fn eval_(prog: &str) -> Result<Value, Interruption> {
-    eval_limit(prog, &Limits::none())
+pub fn eval_into<T: serde::de::DeserializeOwned>(prog: &str) -> Result<T, Interruption> {
+    eval(prog)?.convert().map_err(Interruption::ValueError)
 }

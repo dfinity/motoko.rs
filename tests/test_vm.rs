@@ -274,6 +274,14 @@ fn prim_collection_hashmap() {
 }
 
 #[test]
+fn fastranditer() {
+    assert_(
+        "var i = prim \"fastRandIterNew\" (33, null); (prim \"fastRandIterNext\" i).0",
+        "?1592943",
+    );
+}
+
+#[test]
 fn function_call_return_restores_env() {
     assert_("func f() { }; let x = 0; x", "0");
     assert_("func f() { }; let x = 0; f(); x", "0");
@@ -365,4 +373,16 @@ func f() {
 f()
 "#;
     assert_(prog, "666");
+}
+
+#[test]
+fn test_core_eval() {
+    let mut core = motoko::vm_types::Core::empty();
+    core.eval("var x = 1").expect("oops");
+    core.eval("var y = x + 1").expect("oops");
+    let y = core.eval("y").expect("oops");
+    assert_eq!(
+        y,
+        motoko::value::Value::Nat(num_bigint::BigUint::from(2 as u32))
+    )
 }

@@ -1,11 +1,17 @@
 [package]
 name = "motoko"
-version = "0.0.8"
+version = "0.0.13"
 authors = ["Matthew Hammer", "Ryan Vandersmith"]
 edition = "2018"
 build = "build.rs"
-description = "Motoko VM"
 license = "Apache-2.0"
+description = "A library for parsing and running Motoko in Rust"
+readme = "README.md"
+documentation = "https://docs.rs/motoko"
+repository = "https://github.com/dfinity/motoko.rs"
+categories = ["wasm"]
+keywords = ["internet-computer", "motoko", "wasm"]
+include = ["src", "Cargo.toml", "LICENSE", "README.md"]
 
 [build-dependencies]
 lalrpop = "0.19.7"
@@ -15,10 +21,10 @@ lalrpop-util = "0.19.8"
 regex = "1.6.0"
 env_logger = "0.9.0"
 log = "0.4.17"
-structopt = "0.3.26"
+structopt = { version = "0.3.26", optional = true }
 num-bigint = { version = "0.4.3", features = ["serde"] }
 num-traits = "0.2.15"
-float-cmp = "0.9.0"
+ordered-float = { version = "3.0.0", features = ["serde"] }
 pretty = "0.11.3"
 logos = "0.12.1"
 line-col = "0.2.1"
@@ -44,3 +50,8 @@ required-features = [] # Features required to build this target (N/A for lib).
 [[bin]]
 name = "mo-rs"
 path = "src/bin/mo.rs"
+required-features = ["exe"]
+
+[features]
+default = ["exe"]
+exe = ["structopt"]

@@ -296,17 +296,6 @@ fn function_call_return_restores_env() {
 }
 
 #[test]
-fn module() {
-    if false {
-        // to do
-        assert_(
-            "module X { public let x = 5; let y = (1, 2); func f () { } }",
-            "module X { public let x = 5; let y = (1, 2); func f () { } }",
-        )
-    }
-}
-
-#[test]
 fn demo_redex_stepping() {
     let prog = r#"
 let a = 1;

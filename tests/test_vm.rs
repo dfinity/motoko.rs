@@ -246,6 +246,14 @@ fn for_() {
 }
 
 #[test]
+fn module() {
+    assert_(
+        "module X { public let x = 5; let y = (1, 2); func f () { } }",
+        "module X { public let x = 5; let y = (1, 2); func f () { } }",
+    );
+}
+
+#[test]
 fn prim_debug_print() {
     assert_("prim \"debugPrint\" \"hello, world\"", "()");
     assert_(

@@ -2,5 +2,5 @@
 
 members = [
         "motoko",
-        "motoko_ppx"
+        "motoko_static"
 ]

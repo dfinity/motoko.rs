@@ -18,3 +18,4 @@ proc-macro = true
 
 [dependencies]
 motoko = { path = "../motoko" }
+syn = "^1.0"

@@ -1,19 +1,19 @@
 [package]
-name = "motoko_ppx"
+name = "motoko_proc_macro"
 version = "0.0.14"
 authors = ["Matthew Hammer", "Ryan Vandersmith"]
 edition = "2018"
 license = "Apache-2.0"
-description = "Motoko Pre-Processor-eXtensions for Rust."
+description = "Procedural macros for compile-time Motoko expressions in Rust."
 readme = "README.md"
-documentation = "https://docs.rs/motoko_ppx"
+documentation = "https://docs.rs/motoko_proc_macro"
 repository = "https://github.com/dfinity/motoko.rs"
 categories = ["wasm"]
 keywords = ["internet-computer", "motoko", "wasm"]
 include = ["src", "Cargo.toml", "LICENSE", "README.md"]
 
 [lib]
-name = "motoko_ppx"
+name = "motoko_proc_macro"
 proc-macro = true
 
 [dependencies]

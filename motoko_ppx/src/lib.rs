@@ -1,7 +1,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 
-use crate::check::parse as parse_;
+use motoko::check::parse as parse_;
 
 // https://doc.rust-lang.org/reference/procedural-macros.html
 

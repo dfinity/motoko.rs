@@ -1,0 +1,56 @@
+[package]
+name = "motoko"
+version = "0.0.14"
+authors = ["Matthew Hammer", "Ryan Vandersmith"]
+edition = "2018"
+build = "build.rs"
+license = "Apache-2.0"
+description = "A library for parsing and running Motoko in Rust"
+readme = "README.md"
+documentation = "https://docs.rs/motoko"
+repository = "https://github.com/dfinity/motoko.rs"
+categories = ["wasm"]
+keywords = ["internet-computer", "motoko", "wasm"]
+include = ["src", "build.rs", "Cargo.toml", "LICENSE", "README.md"]
+
+[build-dependencies]
+lalrpop = "0.19.7"
+
+[dependencies]
+lalrpop-util = "0.19.8"
+regex = "1.6.0"
+env_logger = "0.9.0"
+log = "0.4.17"
+structopt = { version = "0.3.26", optional = true }
+num-bigint = { version = "0.4.3", features = ["serde"] }
+num-traits = "0.2.15"
+ordered-float = { version = "3.0.0", features = ["serde"] }
+pretty = "0.11.3"
+logos = "0.12.1"
+line-col = "0.2.1"
+im-rc = { version = "15.1.0", features = ["serde"] }
+serde = { version = "1.0.143", features = ["derive"] }
+serde_json = "1.0.85"
+test-log = "0.2.11"
+
+[lib]
+name = "motoko"
+path = "src/lib/mod.rs"
+test = true            # Is tested by default.
+doctest = true         # Documentation examples are tested by default.
+bench = true           # Is benchmarked by default.
+doc = true             # Is documented by default.
+plugin = false         # Used as a compiler plugin (deprecated).
+harness = true         # Use libtest harness.
+edition = "2018"       # The edition of the target.
+crate-type = ["lib"]   # The crate types to generate.
+required-features = [] # Features required to build this target (N/A for lib).
+
+[[bin]]
+name = "mo-rs"
+path = "src/bin/mo.rs"
+required-features = ["exe"]
+
+[features]
+default = ["exe"]
+exe = ["structopt"]

@@ -1,0 +1,20 @@
+[package]
+name = "motoko_ppx"
+version = "0.0.14"
+authors = ["Matthew Hammer", "Ryan Vandersmith"]
+edition = "2018"
+license = "Apache-2.0"
+description = "Motoko Pre-Processor-eXtensions for Rust."
+readme = "README.md"
+documentation = "https://docs.rs/motoko_ppx"
+repository = "https://github.com/dfinity/motoko.rs"
+categories = ["wasm"]
+keywords = ["internet-computer", "motoko", "wasm"]
+include = ["src", "Cargo.toml", "LICENSE", "README.md"]
+
+[lib]
+name = "motoko_ppx"
+proc-macro = true
+
+[dependencies]
+motoko = { path = "../motoko" }

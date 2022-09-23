@@ -46,7 +46,7 @@ pub struct ClosedFunction(pub Closed<Function>);
 
 pub type Float = OrderedFloat<f64>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)] //, Serialize, Deserialize
+#[derive(Debug, Clone, PartialEq, Eq, Hash)] // , Serialize, Deserialize
                                              // #[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,

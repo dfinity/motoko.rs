@@ -105,7 +105,7 @@ impl<'de> Deserialize<'de> for Value {
             {
                 match visitor.next_key_seed(KeyClassifier)? {
                     Some(first_key) => {
-                        let mut values = HashMap::new();
+                        let mut values: HashMap<String, V> = HashMap::new();
                         values.insert(first_key, visitor.next_value()?);
                         while let Some((key, value)) = visitor.next_entry()? {
                             values.insert(key, value);
@@ -190,7 +190,7 @@ where
     }
 }
 
-fn visit_array<'de, V>(array: Vec<Value>, visitor: V) -> Result<V::Value, Error>
+fn visit_array<'de, V>(array: Vector<Value>, visitor: V) -> Result<V::Value, Error>
 where
     V: Visitor<'de>,
 {
@@ -256,27 +256,29 @@ impl<'de> serde::Deserializer<'de> for Value {
             Value::Unit => visitor.visit_unit(),
             Value::Null => visitor.visit_none(),
             Value::Bool(v) => visitor.visit_bool(v),
-            Value::Int(n) => n.deserialize_any(visitor),
-            Value::Nat(n) => n.deserialize_any(visitor),
-            Value::Float(n) => n.0.deserialize_any(visitor),
-            Value::Char(c) => visitor.visit_char(c),
-            Value::Text(t) => visitor.visit_string(t.to_string()),
-            Value::Array(v) => visit_array(v, visitor),
+            Value::Int(v) => v.deserialize_any(visitor),
+            Value::Nat(v) => v.deserialize_any(visitor),
+            Value::Float(v) => visitor.visit_f64(v.0),
+            Value::Char(v) => visitor.visit_char(v),
+            Value::Text(v) => visitor.visit_string(v.to_string()),
+            Value::Array(_, v) => visit_array(v, visitor),
             Value::Object(v) => visit_object(v, visitor),
             Value::Blob(v) => visitor.visit_byte_buf(v),
-            Value::Tuple(t) => visit_tuple(t, visitor),
-            Value::Option(o) => visitor.visit_some(o),
+            Value::Tuple(v) => visit_tuple(v, visitor),
+            Value::Option(v) => visitor.visit_some(v),
             Value::Variant(variant, value) => {
                 visitor.visit_enum(EnumDeserializer { variant, value })
             }
             Value::Collection(Collection::HashMap(m)) => visit_map(m, visitor),
-            Value::Collection(Collection::FastRandIter(_)) => {
-                ValueError::NotConvertible("fast random iterator".to_string())?
+            Value::Collection(Collection::FastRandIter(_)) => Err(ValueError::NotConvertible(
+                "fast random iterator".to_string(),
+            ))?,
+            Value::Pointer(_) => Err(ValueError::NotConvertible("pointer".to_string()))?,
+            Value::ArrayOffset(_, _) => {
+                Err(ValueError::NotConvertible("array offset".to_string()))?
             }
-            Value::Pointer(_) => ValueError::NotConvertible("pointer".to_string())?,
-            Value::ArrayOffset(_, _) => ValueError::NotConvertible("array offset".to_string())?,
-            Value::Function(_) => ValueError::NotConvertible("function".to_string())?,
-            Value::PrimFunction(_) => ValueError::NotConvertible("prim function".to_string())?,
+            Value::Function(_) => Err(ValueError::NotConvertible("function".to_string()))?,
+            Value::PrimFunction(_) => Err(ValueError::NotConvertible("prim function".to_string()))?,
         }
     }
 

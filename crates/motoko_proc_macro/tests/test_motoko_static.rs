@@ -1,12 +1,26 @@
-use motoko::{value::Value};
-use motoko_proc_macro::eval;
+use motoko::value::Value;
+use motoko_proc_macro::parse_static;
 
 #[test]
-fn example() {
-    let value: Value = eval!(
+fn primitive() {
+    let x = 567;
+    let exp: Value = parse_static!(
         "
             123
         "
     );
-    assert_eq!(value, Value::Nat(123.into()));
+    println!("{:?}", exp);
+    // assert_eq!(value, Value::Nat(123.into()));
 }
+
+// #[test]
+// fn function() {
+//     let value: Value = eval!(
+//         "
+//             func() {
+//                 123
+//             }
+//         "
+//     );
+//     assert_eq!(value, );
+// }

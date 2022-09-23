@@ -171,7 +171,7 @@ macro_rules! deserialize_number {
     };
 }
 
-fn visit_tuple<'de, V>(array: Vec<Value>, visitor: V) -> Result<V::Value, Error>
+fn visit_tuple<'de, V>(array: Vector<Value>, visitor: V) -> Result<V::Value, Error>
 where
     V: Visitor<'de>,
 {
@@ -393,8 +393,8 @@ impl<'de> serde::Deserializer<'de> for Value {
         V: Visitor<'de>,
     {
         match self {
-            #[cfg(any(feature = "std", feature = "alloc"))]
-            Value::String(v) => visitor.visit_string(v),
+            Value::Char(v) => visitor.visit_char(v),
+            Value::Text(v) => visitor.visit_string(v.to_string()),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -412,8 +412,8 @@ impl<'de> serde::Deserializer<'de> for Value {
     {
         match self {
             Value::Blob(v) => visitor.visit_byte_buf(v),
-            Value::String(v) => visitor.visit_string(v),
-            Value::Array(v) => visit_array(v, visitor),
+            Value::Text(v) => visitor.visit_string(v.to_string()),
+            Value::Array(_, v) => visit_array(v, visitor),
             Value::Tuple(v) => visit_tuple(v, visitor),
             _ => Err(self.invalid_type(&visitor)),
         }

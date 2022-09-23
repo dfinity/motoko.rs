@@ -22,6 +22,9 @@ impl<S: Into<String>> From<S> for Text {
     fn from(value: S) -> Self {
         Text(vector![value.into()])
     }
+
+    // fn to_char() -> Option<char> {
+    // }
 }
 
 impl ToString for Text {
@@ -46,8 +49,8 @@ pub struct ClosedFunction(pub Closed<Function>);
 
 pub type Float = OrderedFloat<f64>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)] // , Serialize, Deserialize
-                                             // #[serde(tag = "value_type", content = "value")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
@@ -229,13 +232,14 @@ impl Value {
                 Object(map)
             }
             Value::Option(v) => v.as_ref().json_value()?,
-            Value::Variant(s, v) => {
-                let tag = String(s.to_string());
-                match v {
-                    Some(v) => Array(vec![tag, v.as_ref().json_value()?]),
-                    None => tag,
+            Value::Variant(tag, v) => match v {
+                Some(v) => {
+                    let mut map = serde_json::Map::new();
+                    map.insert(tag.to_string(), v.json_value()?);
+                    Object(map)
                 }
-            }
+                None => String(tag.to_string()),
+            },
             Value::Pointer(_) => Err(ValueError::NotConvertible("Pointer".to_string()))?,
             Value::ArrayOffset(_, _) => Err(ValueError::NotConvertible("ArrayOffset".to_string()))?,
             Value::Function(_) => Err(ValueError::NotConvertible("Function".to_string()))?,

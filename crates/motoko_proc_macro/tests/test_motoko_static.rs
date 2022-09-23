@@ -3,7 +3,7 @@ use motoko_proc_macro::parse_static;
 
 #[test]
 fn literal_123() {
-    let prog: &Prog = parse_static!(
+    let prog = parse_static!(
         "
             123
         "
@@ -17,7 +17,7 @@ fn literal_123() {
 
 #[test]
 fn forever_while_loop() {
-    let prog: &Prog = parse_static!(
+    let prog = parse_static!(
         "
             while true { }
         "

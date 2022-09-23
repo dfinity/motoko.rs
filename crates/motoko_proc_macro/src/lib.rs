@@ -37,10 +37,8 @@ fn expand_static<'de, T: Sized + serde::Serialize + serde::Deserialize<'de>>(
             fn deref(&self) -> &#typ {
                 struct _AssertSync where #typ: std::marker::Sync;
                 struct _AssertSized where #typ: std::marker::Sized;
-
                 static ONCE: std::sync::Once = std::sync::Once::new();
                 static mut VALUE: *mut #typ = 0 as *mut #typ;
-
                 unsafe {
                     ONCE.call_once(|| VALUE = Box::into_raw(Box::new(
                         ::motoko::proc_macro::deserialize::<#typ>(#serialized_ast).expect("Deserialization error")

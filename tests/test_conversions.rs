@@ -76,8 +76,7 @@ fn roundtrip() {
     );
     assert(
         "#Nat 123",
-        // 123.to_motoko().unwrap(),
-        ().to_motoko().unwrap(),
+        123.to_motoko().unwrap(),
         r#"Variant("Nat", Some(Nat(123)))"#,
     );
 }

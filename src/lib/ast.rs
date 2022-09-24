@@ -321,6 +321,28 @@ pub enum PrimType {
     Principal,
 }
 
+impl PrimType {
+    pub fn from_ident(name: &str) -> Option<PrimType> {
+        use PrimType::*;
+        Some(match name {
+            "Bool" => Bool,
+            "Nat" => Nat,
+            "Nat8" => Nat8,
+            "Nat16" => Nat16,
+            "Nat32" => Nat32,
+            "Nat64" => Nat64,
+            "Int" => Int,
+            "Int8" => Int8,
+            "Int16" => Int16,
+            "Int32" => Int32,
+            "Int64" => Int64,
+            "Principal" => Principal,
+            "Text" => Text,
+            _ => None?,
+        })
+    }
+}
+
 pub type Type_ = Node<Type>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -337,7 +359,8 @@ pub enum Type {
     And(Type_, Type_),
     Or(Type_, Type_),
     Paren(Type_),
-    Named(Id_, Type_),
+    Unknown(Id_),
+    Known(Id_, Type_),
 }
 
 pub type Inst = Delim<Type_>;

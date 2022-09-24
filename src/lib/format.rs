@@ -343,7 +343,8 @@ impl ToDoc for Type {
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),
-            Named(id, t) => id.doc().append(" : ").append(t.doc()),
+            Unknown(id) => id.doc(),
+            Known(id, t) => id.doc().append(" : ").append(t.doc()),
         }
     }
 }

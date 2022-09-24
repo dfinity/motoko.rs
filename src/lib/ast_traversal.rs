@@ -384,7 +384,8 @@ impl<'a> Traverse for Loc<&'a Type> {
                 f(&t2.tree());
             }
             Type::Paren(t) => f(&t.tree()),
-            Type::Named(_, t) => f(&t.tree()),
+            Type::Unknown(_) => {}
+            Type::Known(_, t) => f(&t.tree()),
         }
     }
 }

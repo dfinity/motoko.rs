@@ -266,6 +266,7 @@ fn prim_open_value() {
 #[test]
 fn prim_close_value() {
     assert_("prim \"closeValue\" (#Text \"hello\")", "\"hello\"");
+    assert_("prim \"closeValue\" (#Function { env = {}; content = { input = (#Wild, { source_type = \"Known\"; span = { start = 5; end = 6 }; line = 1; col = 6 }); exp = (#Literal(#Unit), { source_type = \"Known\"; span = { start = 9; end = 11 }; line = 1; col = 10 }); sugar = true } })", "func _ = ()");
 }
 
 #[test]

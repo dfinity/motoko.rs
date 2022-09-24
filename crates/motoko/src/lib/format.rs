@@ -323,7 +323,7 @@ impl ToDoc for Dec {
                 .append(bind(b))
                 .append(" = ")
                 .append(t.doc()),
-            Class(_, _, _, _, _, _, _, _) => todo!(),
+            Class(_) => todo!(),
         }
     }
 }

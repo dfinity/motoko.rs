@@ -148,14 +148,6 @@ pub enum ObjSort {
     Module,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum Shared<T /*: std::fmt::Debug + Clone + PartialEq + Eq*/> {
-    Local,
-    Shared(T),
-}
-
-pub type FuncSort = Shared<SharedSort>;
-
 pub type TypId = Id;
 pub type TypId_ = Node<TypId>;
 
@@ -174,24 +166,26 @@ pub enum Dec {
     Func(Function),
     Var(Pat_, Exp_),
     Type(TypId_, TypeBinds, Type_),
-    Class(
-        SortPat_,
-        TypId_,
-        TypeBinds,
-        Pat_,
-        Option<Type_>,
-        ObjSort,
-        Id_,
-        DecFields,
-    ),
+    Class(Class),
 }
 
-pub type SortPat_ = Node<SortPat>;
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct Class {
+    pub shared: Option<SortPat>,
+    pub typ_id: TypId_,
+    pub binds: Option<TypeBinds>,
+    pub input: Pat_,
+    pub typ: Option<Type_>,
+    pub sort: ObjSort,
+    pub name: Option<Id_>,
+    pub fields: DecFields,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum SortPat {
-    Local,
-    Shared(SharedSort, Pat_),
+pub struct SortPat {
+    pub shared_keyword: bool, // explicit 'shared' keyword
+    pub sort: SharedSort,
+    pub pat: Pat_,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -300,6 +294,12 @@ pub enum ResolvedImport {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Sugar(pub bool);
 
+impl Default for Sugar {
+    fn default() -> Self {
+        Sugar(false)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum PrimType {
     Null,
@@ -354,7 +354,7 @@ pub enum Type {
     Optional(Type_),
     // Variant(Vec<>),
     Tuple(Delim<Type_>),
-    Function(FuncSort, TypeBinds, Delim<Type_>, Type_),
+    Function(Option<SortPat>, TypeBinds, Delim<Type_>, Type_),
     Async(Type_, Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
@@ -373,10 +373,11 @@ pub type Exp_ = Node<Exp>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Function {
     pub name: Option<Id_>,
-    pub sort: SortPat_,
-    pub binds: TypeBinds,
+    pub shared: Option<SortPat>,
+    pub binds: Option<TypeBinds>,
     pub input: Pat_,
     pub output: Option<Type_>,
+    #[serde(default = "Default::default")]
     pub sugar: Sugar,
     pub exp: Exp_,
 }

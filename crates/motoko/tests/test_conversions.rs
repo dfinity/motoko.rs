@@ -148,17 +148,31 @@ fn roundtrip_value() {
     );
     // assert(
     //     "#Pointer(123)",
-    //     motoko::vm_types::Pointer(123).to_motoko().unwrap(),
+    //     motoko::value::Value::Pointer(motoko::vm_types::Pointer(123)),
     //     "Variant(\"Pointer\", Some(Pointer(Pointer(123))))",
     // );
+    assert(
+        "#ArrayOffset(123, 1)",
+        // (123_usize, 1_usize).to_motoko().unwrap(),
+        motoko::value::Value::ArrayOffset(motoko::vm_types::Pointer(123), 1),
+        "Variant(\"ArrayOffset\", Some(Tuple([Nat(123), Nat(1)])))",
+    );
     // assert(
-    //     "#ArrayOffset(123, 1)",
-    //     (123_usize, 1_usize).to_motoko().unwrap(),
+    //     "#Function { env = {}; content = { input = (#Wild, { source_type = \"Unknown\" }); exp = (#Literal(#Unit), { source_type = \"Unknown\" }) } }",
+    //     (motoko::value::Closed {
+    //         env: im_rc::HashMap::new(),
+    //         content: motoko::ast::Function {
+    //             name: None,
+    //             shared: None,
+    //             binds: None,
+    //             input: motoko::ast::Node::without_source(motoko::ast::Pat::Wild),
+    //             output:None,
+    //             sugar: Default::default(),
+    //             exp: motoko::ast::Node::without_source(motoko::ast::Exp::Literal(motoko::ast::Literal::Unit)),
+    //         },
+    //     })
+    //     .to_motoko()
+    //     .unwrap(),
     //     "",
     // );
-    assert(
-        "#Function { env: {}, content: {  } }",
-        (123_usize, 1_usize).to_motoko().unwrap(),
-        "",
-    );
 }

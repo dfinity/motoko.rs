@@ -11,6 +11,7 @@ pub mod package;
 pub mod parser;
 pub mod parser_types;
 mod parser_utils;
+#[doc(hidden)]
 pub mod proc_macro;
 mod serde_utils;
 pub mod value;

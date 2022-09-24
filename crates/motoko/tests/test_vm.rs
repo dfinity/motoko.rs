@@ -255,6 +255,17 @@ fn prim_debug_print() {
 }
 
 #[test]
+fn prim_open_value() {
+    assert_(r#" prim "openValue" (#abc) "#, r#" #Variant("abc", null) "#);
+    assert_(r#" prim "openValue" (#abc 123) "#, r#" #Variant("abc", ?(#Nat 123)) "#);
+}
+
+#[test]
+fn prim_close_value() {
+    assert_(r#" prim "closeValue" (#Text "hello") "#, r#" "hello" "#);
+}
+
+#[test]
 fn prim_collection_hashmap() {
     let p = "let hm = prim \"hashMapNew\" (); let hm2 = prim \"hashMapPut\" (hm, 1, 2); let hm3 = prim \"hashMapPut\" (hm2.0, 2, 3); (hm, hm2, hm3)";
     assert_(p, p);

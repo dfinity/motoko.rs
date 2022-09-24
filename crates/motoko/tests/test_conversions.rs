@@ -30,12 +30,6 @@ fn convert_struct() {
         motoko::vm::eval_into(r#"{ a = 5; b = ("abc", null); c = { x = 0 }; d = [var 1, 2, 3] }"#)
             .unwrap();
     assert_eq!(expected, item);
-
-    // use motoko::value::Value;
-    // assert_eq!(
-    //     motoko::vm::eval_into::<Value>("[0]").unwrap(),
-    //     Value::Tuple(im_rc::Vector::from(vec![Value::Nat(0_usize.into())])),
-    // );
 }
 
 #[test]
@@ -77,11 +71,11 @@ fn roundtrip_value() {
     assert(
         "#Text \"abc\"",
         "abc".to_motoko().unwrap(),
-        "Variant(\"Text\", Some(Text(String([\"abc\"]))))",
+        "Variant(\"Text\", Some(Text(String(\"abc\"))))",
     );
     assert(
         "#Tuple([#Nat([123]), #Text \"abc\"])",
         (123_usize, "abc").to_motoko().unwrap(),
-        "Variant(\"Tuple\", Some(Array(Var, [Variant(\"Nat\", Some(Array(Var, [Nat(123)]))), Variant(\"Text\", Some(Text(String([\"abc\"]))))])))",
+        "Variant(\"Tuple\", Some(Array(Var, [Variant(\"Nat\", Some(Array(Var, [Nat(123)]))), Variant(\"Text\", Some(Text(String(\"abc\"))))])))",
     );
 }

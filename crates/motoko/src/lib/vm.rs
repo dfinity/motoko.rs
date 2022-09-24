@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::ast_traversal::ToNode;
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
-    HashMapFunction, PrimFunction, Value,
+    HashMapFunction, PrimFunction, ToMotoko, Value,
 };
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
@@ -219,6 +219,14 @@ fn call_prim_function(
                 Ok(Step {})
             }
         },
+        OpenValue => {
+            core.cont = Cont::Value(args.to_motoko().map_err(Interruption::ValueError)?);
+            Ok(Step {})
+        }
+        CloseValue => {
+            core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
+            Ok(Step {})
+        }
         Collection(cf) => call_collection_function(core, cf, targs, args),
     }
 }
@@ -459,6 +467,8 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapGet\"" => Some(Collection(HashMap(HashMapFunction::Get))),
         "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
         "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
+        "\"openValue\"" => Some(OpenValue),
+        "\"closeValue\"" => Some(CloseValue),
         _ => None,
     } {
         Ok(Value::PrimFunction(pf))

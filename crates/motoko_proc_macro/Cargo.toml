@@ -1,6 +1,6 @@
 [package]
 name = "motoko_proc_macro"
-version = "0.0.14"
+version = "0.0.15"
 authors = ["Matthew Hammer", "Ryan Vandersmith"]
 edition = "2018"
 license = "Apache-2.0"
@@ -17,7 +17,7 @@ name = "motoko_proc_macro"
 proc-macro = true
 
 [dependencies]
-motoko = { path = "../motoko" }
+motoko = { path = "../motoko", version = "0.0.15" }
 syn = "1.0"
 quote = "1.0"
 proc-macro2 = "1.0"

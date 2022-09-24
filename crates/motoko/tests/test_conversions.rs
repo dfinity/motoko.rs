@@ -79,4 +79,9 @@ fn roundtrip() {
         "abc".to_motoko().unwrap(),
         "Variant(\"Text\", Some(Text(Text([\"abc\"]))))",
     );
+    assert(
+        "#Text \"abc\"",
+        "abc".to_motoko().unwrap(),
+        "Variant(\"Text\", Some(Text(Text([\"abc\"]))))",
+    );
 }

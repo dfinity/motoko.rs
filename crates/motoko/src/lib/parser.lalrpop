@@ -140,7 +140,7 @@ Type_: Type_ = Node<Type>;
 
 pub Type: Type = {
     "(" ")" => Type::Prim(PrimType::Unit),
-    <id:Id_> => PrimType::from_ident(id.0).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
+    <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
     // TODO
 }
 

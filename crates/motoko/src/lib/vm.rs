@@ -7,6 +7,7 @@ use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
     HashMapFunction, PrimFunction, Value,
 };
+use crate::vm_types::EvalInitError;
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
@@ -1394,8 +1395,61 @@ impl Core {
 
     /// Evaluate a new program fragment, assuming `Core` is in a
     /// well-defined "done" state.
+    pub fn eval_prog(&mut self, prog: Prog) -> Result<Value, Interruption> {
+        self.assert_idle().map_err(Interruption::EvalInitError)?;
+        self.cont = Cont::Decs(Vector::from(prog.vec));
+        self.continue_(&Limits::none())
+    }
+
+    /// Evaluate a new program fragment, assuming `Core` is in a
+    /// well-defined "done" state.  The block may refer to variables
+    /// bound as arguments, and then forgotten after evaluation.
+    pub fn eval_open_block(
+        &mut self,
+        value_bindings: Vec<(&str, Value)>,
+        prog: Prog,
+    ) -> Result<Value, Interruption> {
+        let source = self.cont_source.clone(); // to do -- use prog source
+        self.assert_idle().map_err(Interruption::EvalInitError)?;
+        exp_conts_(
+            self,
+            source.clone(),
+            FrameCont::Block,
+            Cont::Decs(prog.vec.into()),
+            source.clone(),
+        )?;
+        for (x, v) in value_bindings.into_iter() {
+            let _ = self.env.insert(x.to_string(), v);
+        }
+        self.continue_(&Limits::none())
+    }
+
+    /// Evaluate a new program fragment, assuming `Core` is in a
+    /// well-defined "done" state.
     pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value, Interruption> {
         self.eval_(Some(new_prog_frag), &Limits::none())
+    }
+
+    pub fn assert_idle(&self) -> Result<(), EvalInitError> {
+        if self.stack.len() > 0 {
+            return Err(EvalInitError::NonEmptyStack);
+        }
+        match self.cont {
+            Cont::Value(_) => {}
+            _ => return Err(EvalInitError::NonValueCont),
+        };
+        Ok(())
+    }
+
+    /// Continue evaluation, with given limits.
+    pub fn continue_(&mut self, limits: &Limits) -> Result<Value, Interruption> {
+        loop {
+            match self.step(limits) {
+                Ok(_step) => {}
+                Err(Interruption::Done(v)) => return Ok(v),
+                Err(other_interruption) => return Err(other_interruption),
+            }
+        }
     }
 
     /// Evaluate current continuation, or optionally a new program
@@ -1406,25 +1460,11 @@ impl Core {
         limits: &Limits,
     ) -> Result<Value, Interruption> {
         if let Some(new_prog_frag) = new_prog_frag {
-            use crate::vm_types::EvalInitError;
-            if self.stack.len() > 0 {
-                return Err(Interruption::EvalInitError(EvalInitError::NonEmptyStack));
-            }
-            match self.cont {
-                Cont::Value(_) => {}
-                _ => return Err(Interruption::EvalInitError(EvalInitError::NonValueCont)),
-            };
+            self.assert_idle().map_err(Interruption::EvalInitError)?;
             let p = crate::check::parse(&new_prog_frag).map_err(Interruption::SyntaxError)?;
             self.cont = Cont::Decs(Vector::from(p.vec));
-        } else {
         };
-        loop {
-            match self.step(limits) {
-                Ok(_step) => {}
-                Err(Interruption::Done(v)) => return Ok(v),
-                Err(other_interruption) => return Err(other_interruption),
-            }
-        }
+        self.continue_(limits)
     }
 }
 

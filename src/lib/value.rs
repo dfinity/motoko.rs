@@ -13,6 +13,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
+pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
+
 // TODO: `enum Text { String(String), Concat(Vector<String>) }`
 /// Permit sharing, and fast concats.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -50,7 +52,7 @@ pub struct ClosedFunction(pub Closed<Function>);
 pub type Float = OrderedFloat<f64>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(tag = "value_type", content = "value")]
+// #[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
@@ -142,14 +144,14 @@ pub struct Closed<X> {
 }
 
 impl Value {
-    pub fn from_dec(dec: Dec) -> Result<Value, ValueError> {
+    pub fn from_dec(dec: Dec) -> Result {
         match dec {
             Dec::Exp(e) => Value::from_exp(e),
             _ => Err(ValueError::NotAValue),
         }
     }
 
-    pub fn from_decs(decs: Decs) -> Result<Value, ValueError> {
+    pub fn from_decs(decs: Decs) -> Result {
         if decs.vec.len() > 1 {
             Err(ValueError::NotAValue)
         } else {
@@ -157,7 +159,7 @@ impl Value {
         }
     }
 
-    pub fn from_exp(e: Exp) -> Result<Value, ValueError> {
+    pub fn from_exp(e: Exp) -> Result {
         use Exp::*;
         match e {
             Literal(l) => Value::from_literal(l),
@@ -173,7 +175,7 @@ impl Value {
         }
     }
 
-    pub fn from_literal(l: Literal) -> Result<Value, ValueError> {
+    pub fn from_literal(l: Literal) -> Result {
         use Value::*;
         Ok(match l {
             Literal::Null => Null,
@@ -201,7 +203,7 @@ impl Value {
 
 impl Value {
     /// Create a JSON-style representation of the Motoko value.
-    pub fn json_value(&self) -> Result<serde_json::Value, ValueError> {
+    fn json_value(&self) -> Result<serde_json::Value> {
         use serde_json::json;
         use serde_json::Value::*;
         Ok(match self {
@@ -232,14 +234,22 @@ impl Value {
                 Object(map)
             }
             Value::Option(v) => v.as_ref().json_value()?,
-            Value::Variant(tag, v) => match v {
-                Some(v) => {
-                    let mut map = serde_json::Map::new();
-                    map.insert(tag.to_string(), v.json_value()?);
-                    Object(map)
-                }
-                None => String(tag.to_string()),
-            },
+            Value::Variant(tag, v) => {
+                let mut map = serde_json::Map::new();
+                map.insert(
+                    tag.to_string(),
+                    v.as_ref().map(|v| v.json_value()).unwrap_or(Ok(Null))?,
+                );
+                Object(map)
+                // match v {
+                //     Some(v) => {
+                //         let mut map = serde_json::Map::new();
+                //         map.insert(tag.to_string(), v.json_value()?);
+                //         Object(map)
+                //     }
+                //     None => String(tag.to_string()),
+                // }
+            }
             Value::Pointer(_) => Err(ValueError::NotConvertible("Pointer".to_string()))?,
             Value::ArrayOffset(_, _) => Err(ValueError::NotConvertible("ArrayOffset".to_string()))?,
             Value::Function(_) => Err(ValueError::NotConvertible("Function".to_string()))?,
@@ -258,7 +268,7 @@ impl Value {
     }
 
     /// Create a RON-style representation of the Motoko value.
-    // pub fn ron_value(&self) -> Result<ron::Value, ValueError> {
+    // fn ron_value(&self) -> Result<ron::Value> {
     //     use ron::Number::*;
     //     use ron::Value::*;
     //     Ok(match self {
@@ -314,28 +324,27 @@ impl Value {
     // }
 
     /// Convert to any deserializable Rust type.
-    pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T, ValueError> {
+    pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T> {
         serde_json::from_value(self.json_value()?)
             .map_err(|e| ValueError::NotConvertible(e.to_string()))
     }
 
-    pub fn from_rust<T: Serialize>(value: T) -> Result<Value, ValueError> {
-        value.serialize(crate::convert::ser::Serializer)
+    pub fn from_rust<T: ToMotoko>(value: T) -> Result {
+        value.to_motoko()
     }
 }
-
-// TODO: implement `TryInto` rather than `Into` if possible
-impl<'a, T: DeserializeOwned> Into<Result<T, ValueError>> for &'a Value {
-    fn into(self) -> Result<T, ValueError> {
-        self.to_rust()
-    }
+pub trait ToMotoko {
+    fn to_motoko(self) -> Result;
 }
 
-// #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-// pub enum ValueErrorKind {
-//     Empty,
-//     Invalid,
-// }
+impl<T> ToMotoko for T
+where
+    T: Serialize,
+{
+    fn to_motoko(self) -> Result {
+        self.serialize(crate::convert::ser::Serializer)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueError {

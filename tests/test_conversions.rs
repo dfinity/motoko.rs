@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use motoko::value::Value;
+use motoko::value::ToMotoko;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[test]
@@ -39,12 +39,9 @@ fn roundtrip() {
         debug_str: &str,
     ) {
         println!("Evaluating: {}", input);
-
         let result: T = motoko::vm::eval_into(input).unwrap();
-
         assert_eq!(result, value);
-
-        assert_eq!(format!("{:?}", Value::from_rust(result).unwrap()), debug_str);
+        assert_eq!(format!("{:?}", result.to_motoko().unwrap()), debug_str);
     }
 
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -54,11 +51,16 @@ fn roundtrip() {
         C { c: Box<Enum> },
     }
 
-    assert("#A", Enum::A, r#"Variant("A", None)"#);
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    struct Struct {
+        e: Enum,
+    }
+
+    assert("?#A", Enum::A, r#"Variant("A", None)"#);
     assert(
         "#B (5, -5)",
-        Enum::B(5, -5),
-        r#"Variant("B", Some(Tuple([Nat(5), Int(-5)])))"#,
+        Some(Enum::B(5, -5)),
+        r#"Option(Variant("B", Some(Tuple([Nat(5), Int(-5)]))))"#,
     );
     assert(
         "#C { c = #A }",
@@ -66,5 +68,16 @@ fn roundtrip() {
             c: Box::new(Enum::A),
         },
         r#"Variant("C", Some(Object({"c": FieldValue { mut_: Var, val: Variant("A", None) }})))"#,
+    );
+    assert(
+        "{ e = #A }",
+        Struct { e: Enum::A },
+        r#"Object({"e": FieldValue { mut_: Var, val: Variant("A", None) }})"#,
+    );
+    assert(
+        "#Nat 123",
+        // 123.to_motoko().unwrap(),
+        ().to_motoko().unwrap(),
+        r#"Variant("Nat", Some(Nat(123)))"#,
     );
 }

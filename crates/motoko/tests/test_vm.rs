@@ -256,13 +256,13 @@ fn prim_debug_print() {
 
 #[test]
 fn prim_open_value() {
-    assert_(r#" prim "openValue" (#abc) "#, r#" #Variant("abc", null) "#);
-    assert_(r#" prim "openValue" (#abc 123) "#, r#" #Variant("abc", ?(#Nat 123)) "#);
+    assert_("prim \"openValue\" (#abc)", "#Variant(\"abc\", null) ");
+    assert_("prim \"openValue\" (#abc 123)", "#Variant(\"abc\", ?(#Nat 123)) ");
 }
 
 #[test]
 fn prim_close_value() {
-    assert_(r#" prim "closeValue" (#Text "hello") "#, r#" "hello" "#);
+    assert_("prim \"closeValue\" (#Text \"hello\")", "\"hello\"");
 }
 
 #[test]

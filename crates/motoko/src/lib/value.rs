@@ -22,6 +22,7 @@ pub enum Text {
 }
 
 impl Text {
+    #[allow(dead_code)]
     fn into_string(self) -> String {
         match self {
             Text::String(s) => *s,

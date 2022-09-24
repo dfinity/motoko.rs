@@ -60,23 +60,23 @@ fn roundtrip() {
     assert(
         "#B (5, -5)",
         Some(Enum::B(5, -5)),
-        r#"Option(Variant("B", Some(Tuple([Nat(5), Int(-5)]))))"#,
+        "Option(Variant(\"B\", Some(Tuple([Nat(5), Int(-5)]))))",
     );
     assert(
         "#C { c = #A }",
         Enum::C {
             c: Box::new(Enum::A),
         },
-        r#"Variant("C", Some(Object({"c": FieldValue { mut_: Var, val: Variant("A", None) }})))"#,
+        "Variant(\"C\", Some(Object({\"c\": FieldValue { mut_: Var, val: Variant(\"A\", None) }})))",
     );
     assert(
         "{ e = #A }",
         Struct { e: Enum::A },
-        r#"Object({"e": FieldValue { mut_: Var, val: Variant("A", None) }})"#,
+        "Object({\"e\": FieldValue { mut_: Var, val: Variant(\"A\", None) }})",
     );
     assert(
-        "#Nat 123",
-        123.to_motoko().unwrap(),
-        r#"Variant("Nat", Some(Nat(123)))"#,
+        "#Text \"abc\"",
+        "abc".to_motoko().unwrap(),
+        "Variant(\"Text\", Some(Text(Text([\"abc\"]))))",
     );
 }

@@ -17,8 +17,27 @@ pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
 
 // TODO: `enum Text { String(String), Concat(Vector<String>) }`
 /// Permit sharing, and fast concats.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Text(pub Vector<String>);
+
+impl Serialize for Text {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Text {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        Ok(Text::from(s))
+    }
+}
 
 impl<S: Into<String>> From<S> for Text {
     fn from(value: S) -> Self {
@@ -207,9 +226,9 @@ impl Value {
         use serde_json::json;
         use serde_json::Value::*;
         Ok(match self {
+            Value::Unit => Null,
             Value::Null => Null,
             Value::Bool(b) => Bool(*b),
-            Value::Unit => Array(vec![]),
             Value::Nat(n) => Number(n.to_u64().ok_or(ValueError::BigInt)?.into()),
             Value::Int(n) => Number(n.to_i64().ok_or(ValueError::BigInt)?.into()),
             Value::Float(f) => json!(f.0),
@@ -241,19 +260,11 @@ impl Value {
                     v.as_ref().map(|v| v.json_value()).unwrap_or(Ok(Null))?,
                 );
                 Object(map)
-                // match v {
-                //     Some(v) => {
-                //         let mut map = serde_json::Map::new();
-                //         map.insert(tag.to_string(), v.json_value()?);
-                //         Object(map)
-                //     }
-                //     None => String(tag.to_string()),
-                // }
             }
-            Value::Pointer(_) => Err(ValueError::NotConvertible("Pointer".to_string()))?,
-            Value::ArrayOffset(_, _) => Err(ValueError::NotConvertible("ArrayOffset".to_string()))?,
-            Value::Function(_) => Err(ValueError::NotConvertible("Function".to_string()))?,
-            Value::PrimFunction(_) => Err(ValueError::NotConvertible("PrimFunction".to_string()))?,
+            Value::Pointer(_) => Err(ValueError::ToMotoko("Pointer".to_string()))?,
+            Value::ArrayOffset(_, _) => Err(ValueError::ToMotoko("ArrayOffset".to_string()))?,
+            Value::Function(_) => Err(ValueError::ToMotoko("Function".to_string()))?,
+            Value::PrimFunction(_) => Err(ValueError::ToMotoko("PrimFunction".to_string()))?,
             Value::Collection(c) => match c {
                 Collection::HashMap(m) => Array(
                     m.iter()
@@ -261,7 +272,7 @@ impl Value {
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
                 Collection::FastRandIter(..) => {
-                    Err(ValueError::NotConvertible("FastRandIter".to_string()))?
+                    Err(ValueError::ToMotoko("FastRandIter".to_string()))?
                 }
             },
         })
@@ -325,8 +336,7 @@ impl Value {
 
     /// Convert to any deserializable Rust type.
     pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T> {
-        serde_json::from_value(self.json_value()?)
-            .map_err(|e| ValueError::NotConvertible(e.to_string()))
+        serde_json::from_value(self.json_value()?).map_err(|e| ValueError::ToRust(e.to_string()))
     }
 
     pub fn from_rust<T: ToMotoko>(value: T) -> Result {
@@ -351,8 +361,9 @@ pub enum ValueError {
     Char,
     BigInt,
     Float,
+    ToRust(String),
+    ToMotoko(String),
     NotAValue,
-    NotConvertible(String),
 }
 
 impl Display for ValueError {
@@ -368,7 +379,7 @@ impl serde::ser::Error for ValueError {
     where
         T: std::fmt::Display,
     {
-        ValueError::NotConvertible(msg.to_string())
+        ValueError::ToMotoko(msg.to_string())
     }
 }
 
@@ -377,6 +388,6 @@ impl serde::de::Error for ValueError {
     where
         T: std::fmt::Display,
     {
-        ValueError::NotConvertible(msg.to_string())
+        ValueError::ToRust(msg.to_string())
     }
 }

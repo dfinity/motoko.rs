@@ -4,6 +4,13 @@ use std::fmt::Debug;
 use motoko::value::ToMotoko;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+fn assert<T: Debug + Eq + Serialize + DeserializeOwned>(input: &str, value: T, debug_str: &str) {
+    println!("Evaluating: {}", input);
+    let result: T = motoko::vm::eval_into(input).unwrap();
+    assert_eq!(result, value);
+    assert_eq!(format!("{:?}", result.to_motoko().unwrap()), debug_str);
+}
+
 #[test]
 fn convert_struct() {
     #[derive(Debug, PartialEq, Deserialize)]
@@ -32,18 +39,7 @@ fn convert_struct() {
 }
 
 #[test]
-fn roundtrip() {
-    fn assert<T: Debug + Eq + Serialize + DeserializeOwned>(
-        input: &str,
-        value: T,
-        debug_str: &str,
-    ) {
-        println!("Evaluating: {}", input);
-        let result: T = motoko::vm::eval_into(input).unwrap();
-        assert_eq!(result, value);
-        assert_eq!(format!("{:?}", result.to_motoko().unwrap()), debug_str);
-    }
-
+fn roundtrip_struct_enum() {
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
     enum Enum {
         A,
@@ -74,14 +70,18 @@ fn roundtrip() {
         Struct { e: Enum::A },
         "Object({\"e\": FieldValue { mut_: Var, val: Variant(\"A\", None) }})",
     );
+}
+
+#[test]
+fn roundtrip_value() {
     assert(
         "#Text \"abc\"",
         "abc".to_motoko().unwrap(),
-        "Variant(\"Text\", Some(Text(Text([\"abc\"]))))",
+        "Variant(\"Text\", Some(Text(String([\"abc\"]))))",
     );
     assert(
-        "#Text \"abc\"",
-        "abc".to_motoko().unwrap(),
-        "Variant(\"Text\", Some(Text(Text([\"abc\"]))))",
+        "#Tuple([#Nat([123]), #Text \"abc\"])",
+        (123_usize, "abc").to_motoko().unwrap(),
+        "Variant(\"Tuple\", Some(Array(Var, [Variant(\"Nat\", Some(Array(Var, [Nat(123)]))), Variant(\"Text\", Some(Text(String([\"abc\"]))))])))",
     );
 }

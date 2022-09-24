@@ -3,7 +3,6 @@ use std::fmt::Display;
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
 use crate::vm_types::Env;
 
-use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
 use num_bigint::{BigInt, BigUint};
@@ -15,10 +14,36 @@ use serde::{Deserialize, Serialize};
 
 pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
 
-// TODO: `enum Text { String(String), Concat(Vector<String>) }`
-/// Permit sharing, and fast concats.
+/// Permit sharing and fast concats.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Text(pub Vector<String>);
+pub enum Text {
+    String(Box<String>),
+    Concat(Vector<String>),
+}
+
+impl Text {
+    fn into_string(self) -> String {
+        match self {
+            Text::String(s) => *s,
+            Text::Concat(v) => v.into_iter().collect(),
+        }
+    }
+}
+
+impl ToString for Text {
+    fn to_string(&self) -> String {
+        match self {
+            Text::String(s) => s.to_string(),
+            Text::Concat(v) => v.iter().cloned().collect(),
+        }
+    }
+}
+
+impl<S: Into<String>> From<S> for Text {
+    fn from(value: S) -> Self {
+        Text::String(Box::new(value.into()))
+    }
+}
 
 impl Serialize for Text {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -36,21 +61,6 @@ impl<'de> Deserialize<'de> for Text {
     {
         let s: String = serde::Deserialize::deserialize(deserializer)?;
         Ok(Text::from(s))
-    }
-}
-
-impl<S: Into<String>> From<S> for Text {
-    fn from(value: S) -> Self {
-        Text(vector![value.into()])
-    }
-
-    // fn to_char() -> Option<char> {
-    // }
-}
-
-impl ToString for Text {
-    fn to_string(&self) -> String {
-        self.0.iter().cloned().collect()
     }
 }
 

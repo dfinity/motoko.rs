@@ -212,11 +212,9 @@ fn call_prim_function(
                 Ok(Step {})
             }
             v => {
-                let mut txt = Vector::new();
-                txt.push_front(string_from_value(&v)?);
-                let txt = crate::value::Text(txt);
+                let txt = string_from_value(&v)?;
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
-                core.debug_print_out.push_back(txt);
+                core.debug_print_out.push_back(txt.into());
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }

@@ -74,8 +74,8 @@ fn roundtrip_value() {
         "Variant(\"Text\", Some(Text(String(\"abc\"))))",
     );
     assert(
-        "#Tuple([#Nat([123]), #Text \"abc\"])",
+        "#Tuple([#Nat 123, #Text \"abc\"])",
         (123_usize, "abc").to_motoko().unwrap(),
-        "Variant(\"Tuple\", Some(Array(Var, [Variant(\"Nat\", Some(Array(Var, [Nat(123)]))), Variant(\"Text\", Some(Text(String(\"abc\"))))])))",
+        "Variant(\"Tuple\", Some(Array(Var, [Variant(\"Nat\", Some(Nat(123))), Variant(\"Text\", Some(Text(String(\"abc\"))))])))",
     );
 }

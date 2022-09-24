@@ -68,14 +68,64 @@ fn roundtrip_struct_enum() {
 
 #[test]
 fn roundtrip_value() {
+    assert("#Unit", ().to_motoko().unwrap(), "Variant(\"Unit\", None)");
     assert(
-        "#Text \"abc\"",
+        "#Null",
+        None::<()>.to_motoko().unwrap(),
+        "Variant(\"Null\", None)",
+    );
+    assert(
+        "#Bool(true)",
+        true.to_motoko().unwrap(),
+        "Variant(\"Bool\", Some(Bool(true)))",
+    );
+    assert(
+        "#Nat(5)",
+        5_usize.to_motoko().unwrap(),
+        "Variant(\"Nat\", Some(Nat(5)))",
+    );
+    assert(
+        "#Int(-5)",
+        (-5).to_motoko().unwrap(),
+        "Variant(\"Int\", Some(Int(-5)))",
+    );
+    assert(
+        "#Float(0.1)",
+        0.1.to_motoko().unwrap(),
+        "Variant(\"Float\", Some(Float(OrderedFloat(0.1))))",
+    );
+    assert(
+        "#Char('a')",
+        'a'.to_motoko().unwrap(),
+        "Variant(\"Char\", Some(Char('a')))",
+    );
+    assert(
+        "#Text(\"abc\")",
         "abc".to_motoko().unwrap(),
         "Variant(\"Text\", Some(Text(String(\"abc\"))))",
+    );
+    // TODO: Blob
+    assert(
+        "#Array(#Var, [])",
+        Vec::<()>::new().to_motoko().unwrap(),
+        "Variant(\"Array\", Some(Tuple([Variant(\"Var\", None), Array(Var, [])])))",
     );
     assert(
         "#Tuple([#Nat 123, #Text \"abc\"])",
         (123_usize, "abc").to_motoko().unwrap(),
         "Variant(\"Tuple\", Some(Array(Var, [Variant(\"Nat\", Some(Nat(123))), Variant(\"Text\", Some(Text(String(\"abc\"))))])))",
+    );
+    assert(
+        "#Object { x = { mut = #Var; val = #Int(0) } }",
+        {
+            #[derive(Serialize, Deserialize)]
+            struct Obj {
+                x:isize,
+            }
+            Obj {
+                x:0,
+            }
+        }.to_motoko().unwrap(),
+        "Variant(\"Object\", Some(Collection(HashMap({Text(String(\"x\")): Object({\"mut\": FieldValue { mut_: Var, val: Variant(\"Var\", None) }, \"val\": FieldValue { mut_: Var, val: Variant(\"Int\", Some(Int(0))) }})}))))",
     );
 }

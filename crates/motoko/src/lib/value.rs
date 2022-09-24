@@ -67,6 +67,7 @@ impl<'de> Deserialize<'de> for Text {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct FieldValue {
+    #[serde(rename = "mut")]
     pub mut_: Mut,
     // pub id: Id,
     pub val: Value,

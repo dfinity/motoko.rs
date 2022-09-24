@@ -105,7 +105,8 @@ fn binop(
         Add => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 + n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 + i2)),
-            _ => nyi!(line!()),
+            // _ => nyi!(line!()),
+            (v1, v2) => unimplemented!("{:?} + {:?}", v1, v2),
         },
         Sub => match (v1, v2) {
             (Nat(n1), Nat(n2)) => {
@@ -117,12 +118,15 @@ fn binop(
             }
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
             (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
-            _ => nyi!(line!()),
+            (Nat(n1), Int(i2)) => Ok(Int(BigInt::from(n1) - i2)),
+            // _ => nyi!(line!()),
+            (v1, v2) => unimplemented!("{:?} - {:?}", v1, v2),
         },
         Mul => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
-            _ => nyi!(line!()),
+            // _ => nyi!(line!()),
+            (v1, v2) => unimplemented!("{:?} * {:?}", v1, v2),
         },
         WAdd => match (cont_prim_type, v1, v2) {
             (None, _, _) => Err(Interruption::AmbiguousOperation),

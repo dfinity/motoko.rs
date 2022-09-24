@@ -281,15 +281,15 @@ fn call_function(
     _targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
-    if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.3 .0, &args) {
+    if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.input.0, &args) {
         let source = core.cont_source.clone();
         let env_saved = core.env.clone();
         core.env = env_;
         cf.0.content
-            .0
+            .name
             .clone()
             .map(|f| core.env.insert(*f.0, Value::Function(cf.clone())));
-        core.cont = Cont::Exp_(cf.0.content.6.clone(), Vector::new());
+        core.cont = Cont::Exp_(cf.0.content.exp.clone(), Vector::new());
         core.stack.push_front(Frame {
             source,
             env: env_saved,
@@ -1357,7 +1357,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                         _ => nyi!(line!()),
                     },
                     Dec::Func(f) => {
-                        let id = f.0.clone();
+                        let id = f.name.clone();
                         let v = Value::Function(ClosedFunction(Closed {
                             env: core.env.clone(),
                             content: f,

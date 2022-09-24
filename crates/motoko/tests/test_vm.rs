@@ -257,7 +257,10 @@ fn prim_debug_print() {
 #[test]
 fn prim_open_value() {
     assert_("prim \"openValue\" (#abc)", "#Variant(\"abc\", null) ");
-    assert_("prim \"openValue\" (#abc 123)", "#Variant(\"abc\", ?(#Nat 123)) ");
+    assert_(
+        "prim \"openValue\" (#abc 123)",
+        "#Variant(\"abc\", ?(#Nat 123)) ",
+    );
 }
 
 #[test]

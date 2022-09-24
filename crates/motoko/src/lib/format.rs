@@ -222,7 +222,7 @@ impl ToDoc for Exp {
             Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),
             Array(m, es) => array(m, es),
             Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
-            Function((_, _, _, _, _, _, _)) => todo!(),
+            Function(_) => todo!(),
             Call(e, b, a) => e
                 .doc()
                 .append(b.as_ref().map(bind).unwrap_or(RcDoc::nil()))

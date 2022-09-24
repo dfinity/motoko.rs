@@ -1,7 +1,8 @@
 use logos::Span;
 
 use crate::ast::{
-    Case, Dec, DecField, Exp, ExpField, Loc, Node, Pat, PatField, Source, Type, TypeBind, TypeField,
+    Case, Dec, DecField, Exp, ExpField, Function, Loc, Node, Pat, PatField, Source, Type, TypeBind,
+    TypeField,
 };
 
 // TODO: move to another file
@@ -208,13 +209,19 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 f(&e1.tree());
                 f(&e2.tree());
             }
-            Exp::Function((_, _, ts, p, t, _, e)) => {
-                ts.vec.iter().for_each(|e| f(&e.tree()));
-                f(&p.tree());
-                if let Some(t) = t {
-                    f(&t.tree());
+            Exp::Function(Function {
+                binds,
+                input,
+                output,
+                exp,
+                ..
+            }) => {
+                binds.vec.iter().for_each(|e| f(&e.tree()));
+                f(&input.tree());
+                if let Some(output) = output {
+                    f(&output.tree());
                 };
-                f(&e.tree())
+                f(&exp.tree())
             }
             Exp::Call(e1, ts, e2) => {
                 f(&e1.tree());

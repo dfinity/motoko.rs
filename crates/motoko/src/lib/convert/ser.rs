@@ -356,8 +356,7 @@ impl serde::ser::SerializeMap for SerializeMap {
             .next_key
             .take()
             .expect("serialize_value called before serialize_key");
-        self.map
-            .insert(key, value.serialize(Serializer)?);
+        self.map.insert(key, value.serialize(Serializer)?);
         Ok(())
     }
 

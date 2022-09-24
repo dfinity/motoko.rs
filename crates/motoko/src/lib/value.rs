@@ -275,10 +275,10 @@ impl Value {
                 );
                 Object(map)
             }
-            Value::Pointer(_) => Err(ValueError::ToMotoko("Pointer".to_string()))?,
-            Value::ArrayOffset(_, _) => Err(ValueError::ToMotoko("ArrayOffset".to_string()))?,
-            Value::Function(_) => Err(ValueError::ToMotoko("Function".to_string()))?,
-            Value::PrimFunction(_) => Err(ValueError::ToMotoko("PrimFunction".to_string()))?,
+            Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+            Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+            Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
+            Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
             Value::Collection(c) => match c {
                 Collection::HashMap(m) => Array(
                     m.iter()
@@ -286,7 +286,7 @@ impl Value {
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
                 Collection::FastRandIter(..) => {
-                    Err(ValueError::ToMotoko("FastRandIter".to_string()))?
+                    Err(ValueError::ToRust("FastRandIter".to_string()))?
                 }
             },
         })

@@ -370,15 +370,16 @@ pub type Inst = Delim<Type_>;
 
 pub type Exp_ = Node<Exp>;
 
-pub type Function = (
-    Option<Id_>,
-    SortPat_,
-    TypeBinds,
-    Pat_,
-    Option<Type_>,
-    Sugar,
-    Exp_,
-);
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct Function {
+    pub name: Option<Id_>,
+    pub sort: SortPat_,
+    pub binds: TypeBinds,
+    pub input: Pat_,
+    pub output: Option<Type_>,
+    pub sugar: Sugar,
+    pub exp: Exp_,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {

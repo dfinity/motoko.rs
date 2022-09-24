@@ -119,13 +119,46 @@ fn roundtrip_value() {
         "#Object { x = { mut = #Var; val = #Int(0) } }",
         {
             #[derive(Serialize, Deserialize)]
-            struct Obj {
+            struct Struct  {
                 x:isize,
             }
-            Obj {
+            Struct {
                 x:0,
             }
         }.to_motoko().unwrap(),
         "Variant(\"Object\", Some(Collection(HashMap({Text(String(\"x\")): Object({\"mut\": FieldValue { mut_: Var, val: Variant(\"Var\", None) }, \"val\": FieldValue { mut_: Var, val: Variant(\"Int\", Some(Int(0))) }})}))))",
+    );
+    assert(
+        "#Option(#Null)",
+        Some(None::<()>).to_motoko().unwrap(),
+        "Variant(\"Option\", Some(Variant(\"Null\", None)))",
+    );
+    assert(
+        "#Variant(\"Abc\", null)",
+        {
+            #[derive(Serialize, Deserialize)]
+            enum Enum {
+                Abc,
+            }
+            Enum::Abc
+        }
+        .to_motoko()
+        .unwrap(),
+        "Variant(\"Variant\", Some(Tuple([Text(String(\"Abc\")), Null])))",
+    );
+    // assert(
+    //     "#Pointer(123)",
+    //     motoko::vm_types::Pointer(123).to_motoko().unwrap(),
+    //     "Variant(\"Pointer\", Some(Pointer(Pointer(123))))",
+    // );
+    // assert(
+    //     "#ArrayOffset(123, 1)",
+    //     (123_usize, 1_usize).to_motoko().unwrap(),
+    //     "",
+    // );
+    assert(
+        "#Function { env: {}, content: {  } }",
+        (123_usize, 1_usize).to_motoko().unwrap(),
+        "",
     );
 }

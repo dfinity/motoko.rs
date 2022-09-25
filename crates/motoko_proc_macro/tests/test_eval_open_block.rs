@@ -34,7 +34,7 @@ fn test_hashmap_performance_steps() {
     );
     core.continue_(&Limits::none()).unwrap();
 
-    // generate initial data.
+    // generate initial data / batch random put.
     let size = 10;
     core.eval_open_block(
         vec![("size", Value::Nat(BigUint::from(size as u32)))],
@@ -58,9 +58,31 @@ fn test_hashmap_performance_steps() {
     )
     .unwrap();
 
+    // batch get.
+    let size = 10;
+    core.eval_open_block(
+        vec![("size", Value::Nat(BigUint::from(size as u32)))],
+        parse_static!(
+            "
+      var i = prim \"fastRandIterNew\" (?size, 1);
+      var j = {
+        next = func () {
+          let (n, i_) = prim \"fastRandIterNext\" i;
+          i := i_;
+          n
+        }
+      };
+      for (x in j) {
+        prim \"hashMapGet\" (map, x);
+      }
+    "
+        )
+        .clone(),
+    )
+    .unwrap();
+
+
     /* to do:
-    -- batch put
-    -- batch get
     -- batch remove
 
     */

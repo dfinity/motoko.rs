@@ -1,4 +1,3 @@
-use motoko::ast::Prog;
 use motoko_proc_macro::parse_static;
 
 #[test]

@@ -101,6 +101,7 @@ impl FastRandIter {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum PrimFunction {
     DebugPrint,
+    NatToText,
     Collection(CollectionFunction),
 }
 

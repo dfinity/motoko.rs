@@ -13,6 +13,7 @@ use crate::vm_types::{
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
     Signal, Step, NYI,
 };
+use im_rc::vector;
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
 use std::vec::Vec;
@@ -203,6 +204,7 @@ fn call_prim_function(
     targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
+    use crate::value::Text;
     use PrimFunction::*;
     match pf {
         DebugPrint => match args {
@@ -215,10 +217,19 @@ fn call_prim_function(
             v => {
                 let mut txt = Vector::new();
                 txt.push_front(string_from_value(&v)?);
-                let txt = crate::value::Text(txt);
-                log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
-                core.debug_print_out.push_back(txt);
+                log::info!("DebugPrint: {}: {:?}", core.cont_source, Text(txt.clone()));
+                core.debug_print_out.push_back(Text(txt));
                 core.cont = Cont::Value(Value::Unit);
+                Ok(Step {})
+            }
+        },
+        NatToText => match args {
+            Value::Nat(n) => {
+                core.cont = Cont::Value(Value::Text(Text(vector![format!("{}", n)])));
+                Ok(Step {})
+            }
+            v => {
+                core.cont = Cont::Value(Value::Text(Text(vector![format!("{:?}", v)])));
                 Ok(Step {})
             }
         },
@@ -457,6 +468,7 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
     use PrimFunction::*;
     if let Some(pf) = match name {
         "\"debugPrint\"" => Some(DebugPrint),
+        "\"natToText\"" => Some(NatToText),
         "\"hashMapNew\"" => Some(Collection(HashMap(HashMapFunction::New))),
         "\"hashMapPut\"" => Some(Collection(HashMap(HashMapFunction::Put))),
         "\"hashMapGet\"" => Some(Collection(HashMap(HashMapFunction::Get))),

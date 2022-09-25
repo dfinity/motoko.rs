@@ -255,29 +255,29 @@ fn prim_debug_print() {
 }
 
 #[test]
-fn prim_open_value() {
-    assert_("prim \"openValue\" (#abc)", "#Variant(\"abc\", null)");
+fn prim_reify_value() {
+    assert_("prim \"reifyValue\" (#abc)", "#Variant(\"abc\", null)");
     assert_(
-        "prim \"openValue\" (#abc 123)",
+        "prim \"reifyValue\" (#abc 123)",
         "#Variant(\"abc\", ?(#Nat 123))",
     );
 }
 
 #[test]
-fn prim_close_value() {
-    assert_("prim \"closeValue\" (#Text \"hello\")", "\"hello\"");
-    assert_("prim \"closeValue\" (#Function { env = {}; content = { input = (#Wild, { source_type = \"Known\"; span = { start = 5; end = 6 }; line = 1; col = 6 }); exp = (#Literal(#Unit), { source_type = \"Known\"; span = { start = 9; end = 11 }; line = 1; col = 10 }); sugar = true } })", "func _ = ()");
+fn prim_reflect_value() {
+    assert_("prim \"reflectValue\" (#Text \"hello\")", "\"hello\"");
+    assert_("prim \"reflectValue\" (#Function { env = {}; content = { input = (#Wild, { source_type = \"Known\"; span = { start = 5; end = 6 }; line = 1; col = 6 }); exp = (#Literal(#Unit), { source_type = \"Known\"; span = { start = 9; end = 11 }; line = 1; col = 10 }); sugar = true } })", "func _ = ()");
 }
 
 #[test]
-fn prim_open_core() {
-    assert_("(prim \"openCore\" ()).cont.cont_type", "\"Taken\"");
+fn prim_reify_core() {
+    assert_("(prim \"reifyCore\" ()).cont.cont_type", "\"Taken\"");
 }
 
 #[test]
-fn prim_apply_core() {
+fn prim_reflect_core() {
     // TODO
-    // assert_("prim \"applyCore\" (#Text \"hello\")", "\"hello\"");
+    // assert_("prim \"reflectCore\" (#Text \"hello\")", "\"hello\"");
 }
 
 #[test]

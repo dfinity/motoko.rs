@@ -223,19 +223,19 @@ fn call_prim_function(
                 Ok(Step {})
             }
         },
-        OpenValue => {
+        ReifyValue => {
             core.cont = Cont::Value(args.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
-        CloseValue => {
+        ReflectValue => {
             core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
-        OpenCore => {
+        ReifyCore => {
             core.cont = Cont::Value(core.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
-        ApplyCore => {
+        ReflectCore => {
             *core = args.to_rust::<Core>().map_err(Interruption::ValueError)?;
             Ok(Step {})
         }
@@ -479,10 +479,10 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapGet\"" => Some(Collection(HashMap(HashMapFunction::Get))),
         "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
         "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
-        "\"openValue\"" => Some(OpenValue),
-        "\"closeValue\"" => Some(CloseValue),
-        "\"openCore\"" => Some(OpenCore),
-        "\"applyCore\"" => Some(ApplyCore),
+        "\"reifyValue\"" => Some(ReifyValue),
+        "\"reflectValue\"" => Some(ReflectValue),
+        "\"reifyCore\"" => Some(ReifyCore),
+        "\"reflectCore\"" => Some(ReflectCore),
         _ => None,
     } {
         Ok(Value::PrimFunction(pf))

@@ -231,6 +231,14 @@ fn call_prim_function(
             core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
+        OpenCore => {
+            core.cont = Cont::Value(core.to_motoko().map_err(Interruption::ValueError)?);
+            Ok(Step {})
+        }
+        ApplyCore => {
+            *core = args.to_rust::<Core>().map_err(Interruption::ValueError)?;
+            Ok(Step {})
+        }
         Collection(cf) => call_collection_function(core, cf, targs, args),
     }
 }
@@ -473,6 +481,8 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
         "\"openValue\"" => Some(OpenValue),
         "\"closeValue\"" => Some(CloseValue),
+        "\"openCore\"" => Some(OpenCore),
+        "\"applyCore\"" => Some(ApplyCore),
         _ => None,
     } {
         Ok(Value::PrimFunction(pf))

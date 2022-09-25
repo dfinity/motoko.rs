@@ -148,6 +148,8 @@ pub enum PrimFunction {
     DebugPrint,
     OpenValue,
     CloseValue,
+    OpenCore,
+    ApplyCore,
     Collection(CollectionFunction),
 }
 

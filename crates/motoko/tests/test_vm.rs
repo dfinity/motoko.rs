@@ -256,10 +256,10 @@ fn prim_debug_print() {
 
 #[test]
 fn prim_open_value() {
-    assert_("prim \"openValue\" (#abc)", "#Variant(\"abc\", null) ");
+    assert_("prim \"openValue\" (#abc)", "#Variant(\"abc\", null)");
     assert_(
         "prim \"openValue\" (#abc 123)",
-        "#Variant(\"abc\", ?(#Nat 123)) ",
+        "#Variant(\"abc\", ?(#Nat 123))",
     );
 }
 
@@ -267,6 +267,17 @@ fn prim_open_value() {
 fn prim_close_value() {
     assert_("prim \"closeValue\" (#Text \"hello\")", "\"hello\"");
     assert_("prim \"closeValue\" (#Function { env = {}; content = { input = (#Wild, { source_type = \"Known\"; span = { start = 5; end = 6 }; line = 1; col = 6 }); exp = (#Literal(#Unit), { source_type = \"Known\"; span = { start = 9; end = 11 }; line = 1; col = 10 }); sugar = true } })", "func _ = ()");
+}
+
+#[test]
+fn prim_open_core() {
+    assert_("(prim \"openCore\" ()).cont.cont_type", "\"Taken\"");
+}
+
+#[test]
+fn prim_apply_core() {
+    // TODO
+    // assert_("prim \"applyCore\" (#Text \"hello\")", "\"hello\"");
 }
 
 #[test]

@@ -237,6 +237,72 @@ impl Value {
 }
 
 impl Value {
+    // /// Create a `serde-reflection` representation of the Motoko value.
+    // fn reflection_value(&self) -> Result<serde_reflection::Value> {
+    //     use serde_reflection::Value::*;
+    //     Ok(match self {
+    //         Value::Unit => Unit,
+    //         Value::Null => Option(None),
+    //         Value::Bool(b) => Bool(*b),
+    //         Value::Nat(n) => U64(n.to_u64().ok_or(ValueError::BigInt)?.into()),
+    //         Value::Int(n) => I64(n.to_i64().ok_or(ValueError::BigInt)?.into()),
+    //         Value::Float(f) => F64(f.0),
+    //         Value::Char(c) => Char(*c),
+    //         Value::Text(s) => Str(s.to_string()),
+    //         Value::Blob(b) => Bytes(b.clone()),
+    //         Value::Array(_, vs) => Seq(vs
+    //             .into_iter()
+    //             .map(|v| v.reflection_value())
+    //             .collect::<Result<Vec<_>, _>>()?),
+    //         Value::Tuple(vs) => Seq(vs
+    //             .into_iter()
+    //             .map(|v| v.reflection_value())
+    //             .collect::<Result<Vec<_>, _>>()?),
+    //         Value::Object(m) => {
+    //             // let mut map = serde_json::Map::new();
+    //             // for (k, v) in m {
+    //             //     map.insert(k.to_string(), v.val.json_value()?);
+    //             // }
+    //             // (map)
+    //             Seq(m
+    //                 .iter()
+    //                 .map(|(k, v)| Seq(vec![Str(k.to_string()), v.reflection_value()]))
+    //                 .collect())
+    //         }
+    //         Value::Option(v) => Option(Some(Box::new(v.as_ref().reflection_value()?))),
+    //         Value::Variant(tag, v) => {
+    //             // let mut map = serde_json::Map::new();
+    //             // map.insert(
+    //             //     tag.to_string(),
+    //             //     v.as_ref()
+    //             //         .map(|v| v.reflection_value())
+    //             //         .unwrap_or(Ok(None))?,
+    //             // );
+    //             // Object(map)
+    //             Variant((), ())
+    //         }
+    //         Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+    //         Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+    //         Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
+    //         Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
+    //         Value::Collection(c) => match c {
+    //             // Collection::HashMap(m) => Array(
+    //             //     m.iter()
+    //             //         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
+    //             //         .collect::<Result<Vec<_>, _>>()?,
+    //             // ),
+    //             Collection::HashMap(m) => Array(
+    //                 m.iter()
+    //                     .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
+    //                     .collect::<Result<Vec<_>, _>>()?,
+    //             ),
+    //             Collection::FastRandIter(..) => {
+    //                 Err(ValueError::ToRust("FastRandIter".to_string()))?
+    //             }
+    //         },
+    //     })
+    // }
+
     /// Create a JSON-style representation of the Motoko value.
     fn json_value(&self) -> Result<serde_json::Value> {
         use serde_json::json;
@@ -282,6 +348,11 @@ impl Value {
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
             Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
             Value::Collection(c) => match c {
+                // Collection::HashMap(m) => Array(
+                //     m.iter()
+                //         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
+                //         .collect::<Result<Vec<_>, _>>()?,
+                // ),
                 Collection::HashMap(m) => Array(
                     m.iter()
                         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
@@ -294,14 +365,14 @@ impl Value {
         })
     }
 
-    /// Create a RON-style representation of the Motoko value.
+    // /// Create a RON-style representation of the Motoko value.
     // fn ron_value(&self) -> Result<ron::Value> {
     //     use ron::Number::*;
     //     use ron::Value::*;
     //     Ok(match self {
+    //         Value::Unit => Unit,
     //         Value::Null => Option(None),
     //         Value::Bool(b) => Bool(*b),
-    //         Value::Unit => Unit,
     //         Value::Nat(n) => Number(Integer(n.to_i64().ok_or(ValueError::BigInt)?.into())),
     //         Value::Int(n) => Number(Integer(n.to_i64().ok_or(ValueError::BigInt)?.into())),
     //         Value::Float(f) => Number(Float(ron::value::Float::new(f.0))),
@@ -325,16 +396,28 @@ impl Value {
     //         }
     //         Value::Option(v) => Option(Some(Box::new(v.as_ref().ron_value()?))),
     //         Value::Variant(s, v) => {
-    //             let tag = String(*s.0.clone());
+    //             // let mut map = ron::Map::new();
+    //             // map.insert(
+    //             //     String(s.to_string()),
+    //             //     Option(match v {
+    //             //         Some(v) => Some(Box::new(v.as_ref().ron_value()?)),
+    //             //         None => None,
+    //             //     }),
+    //             // );
+    //             // Map(map)
+    //             println!("{:?}",ron::Value::from_str("Unit()").unwrap().into_rust::<Value>());
+    //             let tag = String(s.to_string());
     //             match v {
-    //                 Some(v) => Seq(vec![tag, v.as_ref().ron_value()?]),
-    //                 None => tag,
+    //                 Some(v) => Seq(vec![v.as_ref().ron_value()?]),
+    //                 // None => Seq(vec![tag]),
+    //                 // None => tag,
+    //                 None => Seq(vec![]),
     //             }
     //         }
-    //         Value::Pointer(_) => Err(ValueError::NotConvertible("Pointer".to_string()))?,
-    //         Value::ArrayOffset(_, _) => Err(ValueError::NotConvertible("ArrayOffset".to_string()))?,
-    //         Value::Function(_) => Err(ValueError::NotConvertible("Function".to_string()))?,
-    //         Value::PrimFunction(_) => Err(ValueError::NotConvertible("PrimFunction".to_string()))?,
+    //         Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+    //         Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+    //         Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
+    //         Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
     //         Value::Collection(c) => match c {
     //             Collection::HashMap(m) => {
     //                 let mut map = ron::Map::new();
@@ -344,7 +427,7 @@ impl Value {
     //                 Map(map)
     //             }
     //             Collection::FastRandIter(..) => {
-    //                 Err(ValueError::NotConvertible("FastRandIter".to_string()))?
+    //                 Err(ValueError::ToRust("FastRandIter".to_string()))?
     //             }
     //         },
     //     })
@@ -352,7 +435,17 @@ impl Value {
 
     /// Convert to any deserializable Rust type.
     pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T> {
+        // self.ron_value()?
+        //     .into_rust()
+        //     .map_err(|e| ValueError::ToRust(e.to_string()))
+
         serde_json::from_value(self.json_value()?).map_err(|e| ValueError::ToRust(e.to_string()))
+
+        // let s: String = serde_json::to_string(&self.json_value()?).unwrap();
+        // let des = &mut serde_json::Deserializer::from_str(&s);
+        // Ok(serde_path_to_error::deserialize(des)
+        //     .map_err(|err| err.path().to_string())
+        //     .unwrap())
     }
 
     pub fn from_rust<T: ToMotoko>(value: T) -> Result {
@@ -368,6 +461,7 @@ where
     T: Serialize,
 {
     fn to_motoko(self) -> Result {
+        // println!("{}",ron::to_string(&self).unwrap());//////
         self.serialize(crate::convert::ser::Serializer)
     }
 }

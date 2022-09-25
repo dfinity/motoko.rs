@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-/// Temporary: get base library from static file
-pub fn get_base_library() -> Package {
-    let package: Package = serde_json::from_str(include_str!("../utils/mo_base.json")).unwrap();
-    package
-}
+// /// Temporary: get base library from static file
+// pub fn get_base_library() -> Package {
+//     let package: Package = serde_json::from_str(include_str!("../utils/mo_base.json")).unwrap();
+//     package
+// }
 
 type PackageFiles = HashMap<String, PackageFile>;
 

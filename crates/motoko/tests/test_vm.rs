@@ -270,6 +270,7 @@ fn test_nat_to_text() {
 }
 
 #[test]
+#[cfg(feature = "value-reflection")]
 fn prim_reify_value() {
     assert_("prim \"reifyValue\" (#abc)", "#Variant(\"abc\", null)");
     assert_(
@@ -279,12 +280,14 @@ fn prim_reify_value() {
 }
 
 #[test]
+#[cfg(feature = "value-reflection")]
 fn prim_reflect_value() {
     assert_("prim \"reflectValue\" (#Text \"hello\")", "\"hello\"");
     assert_("prim \"reflectValue\" (#Function { env = {}; content = { input = (#Wild, { source_type = \"Known\"; span = { start = 5; end = 6 }; line = 1; col = 6 }); exp = (#Literal(#Unit), { source_type = \"Known\"; span = { start = 9; end = 11 }; line = 1; col = 10 }); sugar = true } })", "func _ = ()");
 }
 
 #[test]
+#[cfg(feature = "core-reflection")]
 fn prim_reify_core() {
     // assert_("let x = 0; prim \"hashMapGet\" ((prim \"reifyCore\" ()).env, \"x\")", "?#Nat(0)");
     assert_(
@@ -294,6 +297,7 @@ fn prim_reify_core() {
 }
 
 #[test]
+#[cfg(feature = "core-reflection")]
 fn prim_reflect_core() {
     // assert_("var x = 0; let core = prim \"reifyCore\" (); x := 1; prim \"reflectCore\" (core); x", "0");
     assert_(

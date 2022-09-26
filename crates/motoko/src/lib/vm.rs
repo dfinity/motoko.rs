@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::ast_traversal::ToNode;
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
-    HashMapFunction, PrimFunction, ToMotoko, Value,
+    HashMapFunction, PrimFunction, Value,
 };
 use crate::vm_types::EvalInitError;
 use crate::vm_types::{
@@ -234,18 +234,24 @@ fn call_prim_function(
                 Ok(Step {})
             }
         },
+        #[cfg(feature = "value-reflection")]
         ReifyValue => {
+            use crate::value::ToMotoko;
             core.cont = Cont::Value(args.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
+        #[cfg(feature = "value-reflection")]
         ReflectValue => {
             core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
+        #[cfg(feature = "core-reflection")]
         ReifyCore => {
+            use crate::value::ToMotoko;
             core.cont = Cont::Value(core.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
+        #[cfg(feature = "core-reflection")]
         ReflectCore => {
             *core = args.to_rust::<Core>().map_err(Interruption::ValueError)?;
             Ok(Step {})
@@ -519,9 +525,13 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapRemove\"" => Some(Collection(HashMap(HashMapFunction::Remove))),
         "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
         "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
+        #[cfg(feature = "value-reflection")]
         "\"reifyValue\"" => Some(ReifyValue),
+        #[cfg(feature = "value-reflection")]
         "\"reflectValue\"" => Some(ReflectValue),
+        #[cfg(feature = "core-reflection")]
         "\"reifyCore\"" => Some(ReifyCore),
+        #[cfg(feature = "core-reflection")]
         "\"reflectCore\"" => Some(ReflectCore),
         _ => None,
     } {

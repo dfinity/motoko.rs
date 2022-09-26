@@ -147,9 +147,13 @@ impl FastRandIter {
 pub enum PrimFunction {
     DebugPrint,
     NatToText,
+    #[cfg(feature = "value-reflection")]
     ReifyValue,
+    #[cfg(feature = "value-reflection")]
     ReflectValue,
+    #[cfg(feature = "core-reflection")]
     ReifyCore,
+    #[cfg(feature = "core-reflection")]
     ReflectCore,
     Collection(CollectionFunction),
 }
@@ -176,6 +180,7 @@ pub enum FastRandIterFunction {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Closed<X> {
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub env: Env,
     pub content: X,
 }

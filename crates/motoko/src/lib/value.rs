@@ -116,6 +116,7 @@ pub enum HashMapFunction {
     New,
     Put,
     Get,
+    Remove,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

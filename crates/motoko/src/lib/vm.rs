@@ -274,6 +274,7 @@ fn call_hashmap_function(
         New => collection::hashmap::new(core, args),
         Put => collection::hashmap::put(core, args),
         Get => collection::hashmap::get(core, args),
+        Remove => collection::hashmap::remove(core, args),
     }
 }
 
@@ -459,6 +460,32 @@ mod collection {
                 Err(Interruption::TypeMismatch)
             }
         }
+        pub fn remove(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+            if let Some(env) = pattern_matches(
+                &HashMap::new(),
+                &pattern::vars(core, vector!["hm", "k"]),
+                &v,
+            ) {
+                let hm = env.get("hm").unwrap();
+                let k = env.get("k").unwrap();
+                let (hm, old) = {
+                    if let Value::Collection(Collection::HashMap(mut hm)) = hm.clone() {
+                        match hm.remove(k) {
+                            None => (hm, Value::Null),
+                            Some(v) => (hm, Value::Option(Box::new(v.clone()))),
+                        }
+                    } else {
+                        return Err(Interruption::TypeMismatch);
+                    }
+                };
+                let hm = Value::Collection(Collection::HashMap(hm));
+                let ret = Value::Tuple(vector![hm, old]);
+                core.cont = Cont::Value(ret);
+                Ok(Step {})
+            } else {
+                Err(Interruption::TypeMismatch)
+            }
+        }
     }
 }
 
@@ -472,6 +499,7 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapNew\"" => Some(Collection(HashMap(HashMapFunction::New))),
         "\"hashMapPut\"" => Some(Collection(HashMap(HashMapFunction::Put))),
         "\"hashMapGet\"" => Some(Collection(HashMap(HashMapFunction::Get))),
+        "\"hashMapRemove\"" => Some(Collection(HashMap(HashMapFunction::Remove))),
         "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
         "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
         _ => None,

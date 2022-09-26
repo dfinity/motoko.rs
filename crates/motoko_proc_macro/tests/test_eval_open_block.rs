@@ -50,7 +50,8 @@ fn test_hashmap_performance_steps() {
       };
       for (x in j) {
         let s = prim \"natToText\" x;
-        map := prim \"hashMapPut\" (map, x, s);
+        let (m, _) = prim \"hashMapPut\" (map, x, s);
+        map := m;
       }
     "
         )
@@ -73,7 +74,7 @@ fn test_hashmap_performance_steps() {
         }
       };
       for (x in j) {
-        prim \"hashMapGet\" (map, x);
+        let _ = prim \"hashMapGet\" (map, x);
       }
     "
         )
@@ -81,9 +82,27 @@ fn test_hashmap_performance_steps() {
     )
     .unwrap();
 
-
-    /* to do:
-    -- batch remove
-
-    */
+    // batch remove.
+    let size = 10;
+    core.eval_open_block(
+        vec![("size", Value::Nat(BigUint::from(size as u32)))],
+        parse_static!(
+            "
+      var i = prim \"fastRandIterNew\" (?size, 1);
+      var j = {
+        next = func () {
+          let (n, i_) = prim \"fastRandIterNext\" i;
+          i := i_;
+          n
+        }
+      };
+      for (x in j) {
+        let (m, _) = prim \"hashMapRemove\" (map, x);
+        map := m;
+      }
+    "
+        )
+        .clone(),
+    )
+    .unwrap();
 }

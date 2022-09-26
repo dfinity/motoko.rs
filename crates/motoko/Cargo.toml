@@ -54,6 +54,8 @@ path = "src/bin/mo.rs"
 required-features = ["exe"]
 
 [features]
-default = ["exe"]
+default = ["exe", "value-reflection", "core-reflection"]
 exe = ["structopt"]
 serde-paths = ["serde_path_to_error"]
+value-reflection = []
+core-reflection = []

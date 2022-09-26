@@ -236,7 +236,6 @@ fn call_prim_function(
             Ok(Step {})
         }
         ReflectCore => {
-            println!("{:?}", args);
             *core = args.to_rust::<Core>().map_err(Interruption::ValueError)?;
             Ok(Step {})
         }

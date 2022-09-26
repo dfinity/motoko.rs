@@ -273,7 +273,7 @@ fn prim_reflect_value() {
 fn prim_reify_core() {
     // assert_("let x = 0; prim \"hashMapGet\" ((prim \"reifyCore\" ()).env, \"x\")", "?#Nat(0)");
     assert_(
-        "let x = 0; (prim \"reifyCore\" ()).env",
+        "let x = 0; let core = (prim \"reifyCore\" ()); core.env",
         "[var (\"x\", #Nat(0))]",
     );
 }
@@ -282,8 +282,21 @@ fn prim_reify_core() {
 fn prim_reflect_core() {
     // assert_("var x = 0; let core = prim \"reifyCore\" (); x := 1; prim \"reflectCore\" (core); x", "0");
     assert_(
-        "var x = 0; let core = prim \"reifyCore\" (); x := 1; prim \"reflectCore\" (core); x",
-        "0",
+        r#"
+            prim "reflectCore" ({
+                cont_source = { source_type = "Unknown" };
+                cont = { cont_type = "Value"; value = #Nat(123) };
+                env = [("x", #Nat(0))];
+                stack = [];
+                store = [];
+                debug_print_out = [];
+                counts = {
+                step = 0;
+                redex = 0;
+                };
+            });
+          "#,
+        "123",
     );
 }
 

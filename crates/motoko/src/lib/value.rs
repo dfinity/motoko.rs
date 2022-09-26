@@ -436,18 +436,18 @@ impl Value {
     // }
 
     /// Convert to any deserializable Rust type.
+    #[cfg(not(feature = "serde-paths"))]
     pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T> {
-        if cfg!(feature = "serde-paths") {
-            // Include paths in error messages
-            let s: String = serde_json::to_string(&self.json_value()?).unwrap();
-            let des = &mut serde_json::Deserializer::from_str(&s);
-            Ok(serde_path_to_error::deserialize(des)
-                .map_err(|err| err.path().to_string())
-                .unwrap())
-        } else {
-            serde_json::from_value(self.json_value()?)
-                .map_err(|e| ValueError::ToRust(e.to_string()))
-        }
+        serde_json::from_value(self.json_value()?).map_err(|e| ValueError::ToRust(e.to_string()))
+    }
+    #[cfg(feature = "serde-paths")]
+    pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T> {
+        // Include paths in error messages
+        let s: String = serde_json::to_string(&self.json_value()?).unwrap();
+        let des = &mut serde_json::Deserializer::from_str(&s);
+        Ok(serde_path_to_error::deserialize(des)
+            .map_err(|err| err.to_string())
+            .unwrap())
     }
 
     pub fn from_rust<T: ToMotoko>(value: T) -> Result {

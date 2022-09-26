@@ -90,6 +90,7 @@ pub mod stack {
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
+        #[serde(with = "crate::serde_utils::im_rc_hashmap")]
         pub env: Env,
         pub cont: FrameCont,
         pub cont_prim_type: Option<PrimType>,
@@ -146,10 +147,10 @@ pub struct Core {
     /// `Some(t)` when evaluating under an annotation of type `t`.
     /// (`e : Nat8`  makes `Nat8` the `cont_prim_type` for `e`)
     pub cont_prim_type: Option<PrimType>,
-    #[serde(with = "crate::serde_utils::im_rc_hashmap")] // temp
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub env: Env,
     pub stack: Stack,
-    #[serde(with = "crate::serde_utils::im_rc_hashmap")] // temp
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub store: Store,
     pub debug_print_out: Vector<crate::value::Text>,
 

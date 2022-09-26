@@ -234,6 +234,7 @@ fn call_prim_function(
                 Ok(Step {})
             }
         },
+        #[cfg(feature = "to-motoko")]
         #[cfg(feature = "value-reflection")]
         ReifyValue => {
             use crate::value::ToMotoko;
@@ -245,6 +246,7 @@ fn call_prim_function(
             core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
+        #[cfg(feature = "to-motoko")]
         #[cfg(feature = "core-reflection")]
         ReifyCore => {
             use crate::value::ToMotoko;
@@ -525,10 +527,12 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapRemove\"" => Some(Collection(HashMap(HashMapFunction::Remove))),
         "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
         "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
+        #[cfg(feature = "to-motoko")]
         #[cfg(feature = "value-reflection")]
         "\"reifyValue\"" => Some(ReifyValue),
         #[cfg(feature = "value-reflection")]
         "\"reflectValue\"" => Some(ReflectValue),
+        #[cfg(feature = "to-motoko")]
         #[cfg(feature = "core-reflection")]
         "\"reifyCore\"" => Some(ReifyCore),
         #[cfg(feature = "core-reflection")]
@@ -1450,7 +1454,7 @@ impl Core {
     pub fn empty() -> Self {
         let mut core = core_init(crate::ast::Delim::new());
         // core.eval_(None, &Limits::none()).expect("empty");
-        core.continue_(&Limits::none());
+        core.continue_(&Limits::none()).expect("empty");
         core
     }
 

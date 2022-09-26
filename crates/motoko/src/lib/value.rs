@@ -147,10 +147,12 @@ impl FastRandIter {
 pub enum PrimFunction {
     DebugPrint,
     NatToText,
+    #[cfg(feature = "to-motoko")]
     #[cfg(feature = "value-reflection")]
     ReifyValue,
     #[cfg(feature = "value-reflection")]
     ReflectValue,
+    #[cfg(feature = "to-motoko")]
     #[cfg(feature = "core-reflection")]
     ReifyCore,
     #[cfg(feature = "core-reflection")]
@@ -457,14 +459,18 @@ impl Value {
             .unwrap())
     }
 
+    #[cfg(feature = "to-motoko")]
     pub fn from_rust<T: ToMotoko>(value: T) -> Result {
         value.to_motoko()
     }
 }
+
+#[cfg(feature = "to-motoko")]
 pub trait ToMotoko {
     fn to_motoko(self) -> Result;
 }
 
+#[cfg(feature = "to-motoko")]
 impl<T> ToMotoko for T
 where
     T: Serialize,

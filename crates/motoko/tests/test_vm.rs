@@ -270,6 +270,7 @@ fn test_nat_to_text() {
 }
 
 #[test]
+#[cfg(feature = "to-motoko")]
 #[cfg(feature = "value-reflection")]
 fn prim_reify_value() {
     assert_("prim \"reifyValue\" (#abc)", "#Variant(\"abc\", null)");
@@ -287,6 +288,7 @@ fn prim_reflect_value() {
 }
 
 #[test]
+#[cfg(feature = "to-motoko")]
 #[cfg(feature = "core-reflection")]
 fn prim_reify_core() {
     // assert_("let x = 0; prim \"hashMapGet\" ((prim \"reifyCore\" ()).env, \"x\")", "?#Nat(0)");

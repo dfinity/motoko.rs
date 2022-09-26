@@ -283,7 +283,7 @@ fn prim_reify_value() {
 #[cfg(feature = "value-reflection")]
 fn prim_reflect_value() {
     assert_("prim \"reflectValue\" (#Text \"hello\")", "\"hello\"");
-    assert_("prim \"reflectValue\" (#Function { env = {}; content = { input = (#Wild, { source_type = \"Known\"; span = { start = 5; end = 6 }; line = 1; col = 6 }); exp = (#Literal(#Unit), { source_type = \"Known\"; span = { start = 9; end = 11 }; line = 1; col = 10 }); sugar = true } })", "func _ = ()");
+    assert_("prim \"reflectValue\" (#Function { env = (prim \"hashMapNew\" ()); content = { input = (#Wild, { source_type = \"Known\"; span = { start = 5; end = 6 }; line = 1; col = 6 }); exp = (#Literal(#Unit), { source_type = \"Known\"; span = { start = 9; end = 11 }; line = 1; col = 10 }); sugar = true } })", "func _ = ()");
 }
 
 #[test]

@@ -1,13 +1,10 @@
-use line_col::LineColLookup;
-use regex::Regex;
-use structopt::lazy_static::lazy_static;
-
 use crate::ast::{Loc, Prog, Source};
 use crate::format::{format_one_line, format_pretty};
 use crate::lexer::create_token_tree;
 use crate::lexer_types::{GroupType, Token, TokenTree};
 use crate::parser_types::SyntaxError;
-use crate::vm_types::Interruption;
+use regex::Regex;
+use structopt::lazy_static::lazy_static;
 
 // TODO: refactor lalrpop lexer details
 // impl crate::parser::__ToTriple for Loc<Token> {
@@ -66,7 +63,7 @@ pub fn parse(input: &str) -> Result<Prog, SyntaxError> {
 
     crate::parser::ProgParser::new()
         // .parse(tokens.into_iter())
-        .parse(&LineColLookup::new(&input), &input)
+        .parse(&line_col::LineColLookup::new(&input), &input)
         .map_err(SyntaxError::from_parse_error)
 }
 
@@ -116,7 +113,10 @@ pub fn assert_vm_eval(input_prog: &str, expected_result: &str) {
     assert_eq!(v1, v2)
 }
 
-pub fn assert_vm_interruption(input_prog: &str, expected_interruption: &Interruption) {
+pub fn assert_vm_interruption(
+    input_prog: &str,
+    expected_interruption: &crate::vm_types::Interruption,
+) {
     log::info!(
         "\nassert_vm_interruption(\"{:?}\", \"{:?}\")",
         input_prog,

@@ -2,6 +2,7 @@ use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
 use crate::ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span};
+#[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
 use crate::value::{Value, ValueError};
 
@@ -261,6 +262,7 @@ pub enum Interruption {
     Dangling(Pointer),
     TypeMismatch,
     NoMatchingCase,
+    #[cfg(feature = "parser")]
     SyntaxError(SyntaxError),
     ValueError(ValueError),
     UnboundIdentifer(Identifier),

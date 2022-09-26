@@ -234,6 +234,7 @@ fn call_prim_function(
                 Ok(Step {})
             }
         },
+        #[cfg(feature = "to-motoko")]
         #[cfg(feature = "value-reflection")]
         ReifyValue => {
             use crate::value::ToMotoko;
@@ -245,6 +246,7 @@ fn call_prim_function(
             core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
+        #[cfg(feature = "to-motoko")]
         #[cfg(feature = "core-reflection")]
         ReifyCore => {
             use crate::value::ToMotoko;
@@ -525,10 +527,12 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapRemove\"" => Some(Collection(HashMap(HashMapFunction::Remove))),
         "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
         "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
+        #[cfg(feature = "to-motoko")]
         #[cfg(feature = "value-reflection")]
         "\"reifyValue\"" => Some(ReifyValue),
         #[cfg(feature = "value-reflection")]
         "\"reflectValue\"" => Some(ReflectValue),
+        #[cfg(feature = "to-motoko")]
         #[cfg(feature = "core-reflection")]
         "\"reifyCore\"" => Some(ReifyCore),
         #[cfg(feature = "core-reflection")]
@@ -1449,11 +1453,13 @@ impl Core {
     /// New VM core without any program.
     pub fn empty() -> Self {
         let mut core = core_init(crate::ast::Delim::new());
-        core.eval_(None, &Limits::none()).expect("empty");
+        // core.eval_(None, &Limits::none()).expect("empty");
+        core.continue_(&Limits::none()).expect("empty");
         core
     }
 
     /// New VM core from a given program string, to be parsed during Core construction.
+    #[cfg(feature = "parser")]
     pub fn from_str(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
         Ok(core_init(crate::check::parse(s)?))
     }
@@ -1496,6 +1502,7 @@ impl Core {
 
     /// Evaluate a new program fragment, assuming `Core` is in a
     /// well-defined "done" state.
+    #[cfg(feature = "parser")]
     pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value, Interruption> {
         self.eval_(Some(new_prog_frag), &Limits::none())
     }
@@ -1524,6 +1531,7 @@ impl Core {
 
     /// Evaluate current continuation, or optionally a new program
     /// fragment, assuming `Core` is in a well-defined "done" state.
+    #[cfg(feature = "parser")]
     pub fn eval_(
         &mut self,
         new_prog_frag: Option<&str>,
@@ -1565,6 +1573,7 @@ impl Local {
     }
 }
 
+#[cfg(feature = "parser")]
 /// Used for tests in check module.
 pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
     info!("eval_limit:");
@@ -1585,10 +1594,12 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value, Interruption> {
 }
 
 /// Used for tests in check module.
+#[cfg(feature = "parser")]
 pub fn eval(prog: &str) -> Result<Value, Interruption> {
     eval_limit(prog, &Limits::none())
 }
 
+#[cfg(feature = "parser")]
 pub fn eval_into<T: serde::de::DeserializeOwned>(prog: &str) -> Result<T, Interruption> {
     eval(prog)?.to_rust().map_err(Interruption::ValueError)
 }

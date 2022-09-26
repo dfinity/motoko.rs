@@ -41,8 +41,8 @@ pub mod im_rc_hashmap {
         map: &im_rc::HashMap<K, V>,
         ser: S,
     ) -> Result<S::Ok, S::Error> {
-        let map: Vec<_> = map.iter().collect();
-        serde::Serialize::serialize(&map, ser)
+        let vec: Vec<(&K, &V)> = map.iter().collect();
+        serde::Serialize::serialize(&vec, ser)
     }
 
     pub fn deserialize<
@@ -53,7 +53,7 @@ pub mod im_rc_hashmap {
     >(
         des: D,
     ) -> Result<im_rc::HashMap<K, V>, D::Error> {
-        let attr: Vec<_> = serde::Deserialize::deserialize(des)?;
+        let attr: Vec<(K, V)> = serde::Deserialize::deserialize(des)?;
         Ok(attr.into_iter().collect())
     }
 }

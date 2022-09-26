@@ -146,8 +146,10 @@ pub struct Core {
     /// `Some(t)` when evaluating under an annotation of type `t`.
     /// (`e : Nat8`  makes `Nat8` the `cont_prim_type` for `e`)
     pub cont_prim_type: Option<PrimType>,
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")] // temp
     pub env: Env,
     pub stack: Stack,
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")] // temp
     pub store: Store,
     pub debug_print_out: Vector<crate::value::Text>,
 

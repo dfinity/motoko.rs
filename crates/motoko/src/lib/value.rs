@@ -348,16 +348,18 @@ impl Value {
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
             Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
             Value::Collection(c) => match c {
-                // Collection::HashMap(m) => Array(
-                //     m.iter()
-                //         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
-                //         .collect::<Result<Vec<_>, _>>()?,
-                // ),
                 Collection::HashMap(m) => Array(
                     m.iter()
                         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
+                // Collection::HashMap(m) => {
+                //     let mut map = serde_json::Map::new();
+                //     for (k, v) in m {
+                //         map.insert(k.to_rust()?, v.json_value()?);
+                //     }
+                //     Object(map)
+                // }
                 Collection::FastRandIter(..) => {
                     Err(ValueError::ToRust("FastRandIter".to_string()))?
                 }
@@ -435,17 +437,17 @@ impl Value {
 
     /// Convert to any deserializable Rust type.
     pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T> {
-        // self.ron_value()?
-        //     .into_rust()
-        //     .map_err(|e| ValueError::ToRust(e.to_string()))
-
-        serde_json::from_value(self.json_value()?).map_err(|e| ValueError::ToRust(e.to_string()))
-
-        // let s: String = serde_json::to_string(&self.json_value()?).unwrap();
-        // let des = &mut serde_json::Deserializer::from_str(&s);
-        // Ok(serde_path_to_error::deserialize(des)
-        //     .map_err(|err| err.path().to_string())
-        //     .unwrap())
+        if cfg!(feature = "serde-paths") {
+            // Include paths in error messages
+            let s: String = serde_json::to_string(&self.json_value()?).unwrap();
+            let des = &mut serde_json::Deserializer::from_str(&s);
+            Ok(serde_path_to_error::deserialize(des)
+                .map_err(|err| err.path().to_string())
+                .unwrap())
+        } else {
+            serde_json::from_value(self.json_value()?)
+                .map_err(|e| ValueError::ToRust(e.to_string()))
+        }
     }
 
     pub fn from_rust<T: ToMotoko>(value: T) -> Result {

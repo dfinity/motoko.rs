@@ -18,10 +18,10 @@ proc-macro = true
 
 [dependencies]
 motoko = { path = "../motoko", version = "0.0.15" }
-syn = "1.0"
-quote = "1.0"
-proc-macro2 = "1.0"
-serde = "1.0"
+syn = "1.0.100"
+quote = "1.0.21"
+proc-macro2 = "1.0.44"
+serde = "1.0.145"
 
 [dev-dependencies]
 num-bigint = { version = "0.4.3", features = ["serde"] }

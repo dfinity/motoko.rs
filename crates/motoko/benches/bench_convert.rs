@@ -87,7 +87,7 @@ fn convert_u32(b: &mut Bencher) {
 
             let value = &Value::Nat(rand.next().unwrap().to_biguint().unwrap());
 
-            value.convert::<u32>().unwrap()
+            value.to_rust::<u32>().unwrap()
         });
     })
 }

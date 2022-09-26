@@ -1,7 +1,8 @@
 use logos::Span;
 
 use crate::ast::{
-    Case, Dec, DecField, Exp, ExpField, Loc, Node, Pat, PatField, Source, Type, TypeBind, TypeField,
+    Case, Class, Dec, DecField, Exp, ExpField, Function, Loc, Node, Pat, PatField, Source, Type,
+    TypeBind, TypeField,
 };
 
 // TODO: move to another file
@@ -208,13 +209,21 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 f(&e1.tree());
                 f(&e2.tree());
             }
-            Exp::Function((_, _, ts, p, t, _, e)) => {
-                ts.vec.iter().for_each(|e| f(&e.tree()));
-                f(&p.tree());
-                if let Some(t) = t {
-                    f(&t.tree());
+            Exp::Function(Function {
+                binds,
+                input,
+                output,
+                exp,
+                ..
+            }) => {
+                if let Some(binds) = binds {
+                    binds.vec.iter().for_each(|e| f(&e.tree()));
+                }
+                f(&input.tree());
+                if let Some(output) = output {
+                    f(&output.tree());
                 };
-                f(&e.tree())
+                f(&exp.tree())
             }
             Exp::Call(e1, ts, e2) => {
                 f(&e1.tree());
@@ -317,17 +326,25 @@ impl<'a> Traverse for Loc<&'a Dec> {
                 ts.vec.iter().for_each(|ts| f(&ts.tree()));
                 f(&t.tree());
             }
-            Dec::Class(s, _, ts, p, t, _, _, ds) => {
-                match &*s.0 {
-                    crate::ast::SortPat::Local => {}
-                    crate::ast::SortPat::Shared(_, p) => f(&p.tree()),
+            Dec::Class(Class {
+                shared,
+                binds,
+                input,
+                typ,
+                fields,
+                ..
+            }) => {
+                if let Some(shared) = shared {
+                    f(&shared.pat.tree());
                 }
-                ts.vec.iter().for_each(|t| f(&t.tree()));
-                f(&p.tree());
-                if let Some(t) = t {
-                    f(&t.tree());
+                if let Some(binds) = binds {
+                    binds.vec.iter().for_each(|t| f(&t.tree()));
                 }
-                ds.vec.iter().for_each(|d| f(&d.tree()));
+                f(&input.tree());
+                if let Some(typ) = typ {
+                    f(&typ.tree());
+                }
+                fields.vec.iter().for_each(|d| f(&d.tree()));
             }
         }
     }
@@ -384,7 +401,8 @@ impl<'a> Traverse for Loc<&'a Type> {
                 f(&t2.tree());
             }
             Type::Paren(t) => f(&t.tree()),
-            Type::Named(_, t) => f(&t.tree()),
+            Type::Unknown(_) => {}
+            Type::Known(_, t) => f(&t.tree()),
         }
     }
 }

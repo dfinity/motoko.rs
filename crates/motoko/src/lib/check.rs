@@ -1,5 +1,6 @@
 use line_col::LineColLookup;
 use regex::Regex;
+use structopt::lazy_static::lazy_static;
 
 use crate::ast::{Loc, Prog, Source};
 use crate::format::{format_one_line, format_pretty};
@@ -22,10 +23,12 @@ use crate::vm_types::Interruption;
 
 // Replace a token tree with equivalent whitespace
 fn spacify_token_tree(tt: TokenTree) -> TokenTree {
+    lazy_static! {
+        static ref REPLACE_REGEX: Regex = Regex::new(r"\S").unwrap();
+    }
     TokenTree::Token(Loc(
         Token::Space(
-            Regex::new(r"\S")
-                .unwrap()
+            REPLACE_REGEX
                 .replace_all(&format!("{}", tt), " ")
                 .to_string(),
         ),

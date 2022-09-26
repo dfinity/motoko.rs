@@ -21,6 +21,10 @@ impl<X> Loc<X> {
 }
 
 impl<X> Node<X> {
+    pub fn without_source(value: X) -> Self {
+        Loc(Box::new(value), Source::Unknown)
+    }
+
     pub fn map_node<F: Fn(X) -> T, T>(self, map_fn: F) -> Node<T> {
         Loc(Box::new(map_fn(*self.0)), self.1)
     }
@@ -144,14 +148,6 @@ pub enum ObjSort {
     Module,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum Shared<T /*: std::fmt::Debug + Clone + PartialEq + Eq*/> {
-    Local,
-    Shared(T),
-}
-
-pub type FuncSort = Shared<SharedSort>;
-
 pub type TypId = Id;
 pub type TypId_ = Node<TypId>;
 
@@ -170,24 +166,26 @@ pub enum Dec {
     Func(Function),
     Var(Pat_, Exp_),
     Type(TypId_, TypeBinds, Type_),
-    Class(
-        SortPat_,
-        TypId_,
-        TypeBinds,
-        Pat_,
-        Option<Type_>,
-        ObjSort,
-        Id_,
-        DecFields,
-    ),
+    Class(Class),
 }
 
-pub type SortPat_ = Node<SortPat>;
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct Class {
+    pub shared: Option<SortPat>,
+    pub typ_id: TypId_,
+    pub binds: Option<TypeBinds>,
+    pub input: Pat_,
+    pub typ: Option<Type_>,
+    pub sort: ObjSort,
+    pub name: Option<Id_>,
+    pub fields: DecFields,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum SortPat {
-    Local,
-    Shared(SharedSort, Pat_),
+pub struct SortPat {
+    pub shared_keyword: bool, // explicit 'shared' keyword
+    pub sort: SharedSort,
+    pub pat: Pat_,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -296,6 +294,12 @@ pub enum ResolvedImport {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Sugar(pub bool);
 
+impl Default for Sugar {
+    fn default() -> Self {
+        Sugar(false)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum PrimType {
     Null,
@@ -317,6 +321,28 @@ pub enum PrimType {
     Principal,
 }
 
+impl PrimType {
+    pub fn from_ident(name: &str) -> Option<PrimType> {
+        use PrimType::*;
+        Some(match name {
+            "Bool" => Bool,
+            "Nat" => Nat,
+            "Nat8" => Nat8,
+            "Nat16" => Nat16,
+            "Nat32" => Nat32,
+            "Nat64" => Nat64,
+            "Int" => Int,
+            "Int8" => Int8,
+            "Int16" => Int16,
+            "Int32" => Int32,
+            "Int64" => Int64,
+            "Principal" => Principal,
+            "Text" => Text,
+            _ => None?,
+        })
+    }
+}
+
 pub type Type_ = Node<Type>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -328,12 +354,13 @@ pub enum Type {
     Optional(Type_),
     // Variant(Vec<>),
     Tuple(Delim<Type_>),
-    Function(FuncSort, TypeBinds, Delim<Type_>, Type_),
+    Function(Option<SortPat>, TypeBinds, Delim<Type_>, Type_),
     Async(Type_, Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
     Paren(Type_),
-    Named(Id_, Type_),
+    Unknown(Id_),
+    Known(Id_, Type_),
 }
 
 pub type Inst = Delim<Type_>;
@@ -343,15 +370,17 @@ pub type Inst = Delim<Type_>;
 
 pub type Exp_ = Node<Exp>;
 
-pub type Function = (
-    Option<Id_>,
-    SortPat_,
-    TypeBinds,
-    Pat_,
-    Option<Type_>,
-    Sugar,
-    Exp_,
-);
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct Function {
+    pub name: Option<Id_>,
+    pub shared: Option<SortPat>,
+    pub binds: Option<TypeBinds>,
+    pub input: Pat_,
+    pub output: Option<Type_>,
+    #[serde(default = "Default::default")]
+    pub sugar: Sugar,
+    pub exp: Exp_,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {

@@ -270,6 +270,52 @@ fn test_nat_to_text() {
 }
 
 #[test]
+fn prim_reify_value() {
+    assert_("prim \"reifyValue\" (#abc)", "#Variant(\"abc\", null)");
+    assert_(
+        "prim \"reifyValue\" (#abc 123)",
+        "#Variant(\"abc\", ?(#Nat 123))",
+    );
+}
+
+#[test]
+fn prim_reflect_value() {
+    assert_("prim \"reflectValue\" (#Text \"hello\")", "\"hello\"");
+    assert_("prim \"reflectValue\" (#Function { env = {}; content = { input = (#Wild, { source_type = \"Known\"; span = { start = 5; end = 6 }; line = 1; col = 6 }); exp = (#Literal(#Unit), { source_type = \"Known\"; span = { start = 9; end = 11 }; line = 1; col = 10 }); sugar = true } })", "func _ = ()");
+}
+
+#[test]
+fn prim_reify_core() {
+    // assert_("let x = 0; prim \"hashMapGet\" ((prim \"reifyCore\" ()).env, \"x\")", "?#Nat(0)");
+    assert_(
+        "let x = 0; let core = (prim \"reifyCore\" ()); core.env",
+        "[var (\"x\", #Nat(0))]",
+    );
+}
+
+#[test]
+fn prim_reflect_core() {
+    // assert_("var x = 0; let core = prim \"reifyCore\" (); x := 1; prim \"reflectCore\" (core); x", "0");
+    assert_(
+        r#"
+            prim "reflectCore" ({
+                cont_source = { source_type = "Unknown" };
+                cont = { cont_type = "Value"; value = #Nat(123) };
+                env = [("x", #Nat(0))];
+                stack = [];
+                store = (prim "hashMapNew" ());
+                debug_print_out = [];
+                counts = {
+                    step = 0;
+                    redex = 0;
+                };
+            });
+          "#,
+        "123",
+    );
+}
+
+#[test]
 fn prim_collection_hashmap() {
     let p = "let hm = prim \"hashMapNew\" (); let hm2 = prim \"hashMapPut\" (hm, 1, 2); let hm3 = prim \"hashMapPut\" (hm2.0, 2, 3); (hm, hm2, hm3)";
     assert_(p, p);

@@ -1,7 +1,8 @@
-use crate::ast::{Dec, Decs, Exp, Function, Id, Id_, Literal, Mut};
+use std::fmt::Display;
+
+use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
 use crate::vm_types::Env;
 
-use im_rc::vector;
 use im_rc::HashMap;
 use im_rc::Vector;
 use num_bigint::{BigInt, BigUint};
@@ -11,20 +12,64 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
-/// Permit sharing, and fast concats.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct Text(pub Vector<String>);
+pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
+
+/// Permit sharing and fast concats.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Text {
+    String(Box<String>),
+    Concat(Vector<String>),
+}
+
+impl Text {
+    #[allow(dead_code)]
+    fn into_string(self) -> String {
+        match self {
+            Text::String(s) => *s,
+            Text::Concat(v) => v.into_iter().collect(),
+        }
+    }
+}
 
 impl ToString for Text {
     fn to_string(&self) -> String {
-        self.0.iter().cloned().collect()
+        match self {
+            Text::String(s) => s.to_string(),
+            Text::Concat(v) => v.iter().cloned().collect(),
+        }
+    }
+}
+
+impl<S: Into<String>> From<S> for Text {
+    fn from(value: S) -> Self {
+        Text::String(Box::new(value.into()))
+    }
+}
+
+impl Serialize for Text {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Text {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        Ok(Text::from(s))
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct FieldValue {
+    #[serde(rename = "mut")]
     pub mut_: Mut,
-    pub id: Id,
+    // pub id: Id,
     pub val: Value,
 }
 
@@ -37,14 +82,14 @@ pub struct ClosedFunction(pub Closed<Function>);
 
 pub type Float = OrderedFloat<f64>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-#[serde(tag = "value_type", content = "value")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+// #[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
     Unit,
-    Nat(BigUint),
-    Int(BigInt),
+    Nat(#[serde(with = "crate::serde_utils::biguint")] BigUint),
+    Int(#[serde(with = "crate::serde_utils::bigint")] BigInt),
     Float(Float),
     Char(char),
     Text(Text),
@@ -53,7 +98,7 @@ pub enum Value {
     Tuple(Vector<Value>),
     Object(HashMap<Id, FieldValue>),
     Option(Value_),
-    Variant(Id_, Option<Value_>),
+    Variant(Id, Option<Value_>),
     Pointer(Pointer),
     ArrayOffset(Pointer, usize),
     Function(ClosedFunction),
@@ -63,7 +108,7 @@ pub enum Value {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Collection {
-    HashMap(#[serde(with = "crate::serde::im_rc_hashmap")] HashMap<Value, Value>),
+    HashMap(#[serde(with = "crate::serde_utils::im_rc_hashmap")] HashMap<Value, Value>),
     FastRandIter(FastRandIter),
 }
 
@@ -102,6 +147,10 @@ impl FastRandIter {
 pub enum PrimFunction {
     DebugPrint,
     NatToText,
+    ReifyValue,
+    ReflectValue,
+    ReifyCore,
+    ReflectCore,
     Collection(CollectionFunction),
 }
 
@@ -132,14 +181,14 @@ pub struct Closed<X> {
 }
 
 impl Value {
-    pub fn from_dec(dec: Dec) -> Result<Value, ValueError> {
+    pub fn from_dec(dec: Dec) -> Result {
         match dec {
             Dec::Exp(e) => Value::from_exp(e),
             _ => Err(ValueError::NotAValue),
         }
     }
 
-    pub fn from_decs(decs: Decs) -> Result<Value, ValueError> {
+    pub fn from_decs(decs: Decs) -> Result {
         if decs.vec.len() > 1 {
             Err(ValueError::NotAValue)
         } else {
@@ -147,7 +196,7 @@ impl Value {
         }
     }
 
-    pub fn from_exp(e: Exp) -> Result<Value, ValueError> {
+    pub fn from_exp(e: Exp) -> Result {
         use Exp::*;
         match e {
             Literal(l) => Value::from_literal(l),
@@ -163,7 +212,7 @@ impl Value {
         }
     }
 
-    pub fn from_literal(l: Literal) -> Result<Value, ValueError> {
+    pub fn from_literal(l: Literal) -> Result {
         use Value::*;
         Ok(match l {
             Literal::Null => Null,
@@ -183,21 +232,87 @@ impl Value {
                 Value::Float(n.replace('_', "").parse().map_err(|_| ValueError::Float)?)
             }
             Literal::Char(s) => Char(s[1..s.len() - 1].parse().map_err(|_| ValueError::Char)?),
-            Literal::Text(s) => Text(crate::value::Text(vector![s[1..s.len() - 1].to_string()])),
+            Literal::Text(s) => Text(crate::value::Text::from(s[1..s.len() - 1].to_string())),
             Literal::Blob(v) => Blob(v),
         })
     }
 }
 
 impl Value {
+    // /// Create a `serde-reflection` representation of the Motoko value.
+    // fn reflection_value(&self) -> Result<serde_reflection::Value> {
+    //     use serde_reflection::Value::*;
+    //     Ok(match self {
+    //         Value::Unit => Unit,
+    //         Value::Null => Option(None),
+    //         Value::Bool(b) => Bool(*b),
+    //         Value::Nat(n) => U64(n.to_u64().ok_or(ValueError::BigInt)?.into()),
+    //         Value::Int(n) => I64(n.to_i64().ok_or(ValueError::BigInt)?.into()),
+    //         Value::Float(f) => F64(f.0),
+    //         Value::Char(c) => Char(*c),
+    //         Value::Text(s) => Str(s.to_string()),
+    //         Value::Blob(b) => Bytes(b.clone()),
+    //         Value::Array(_, vs) => Seq(vs
+    //             .into_iter()
+    //             .map(|v| v.reflection_value())
+    //             .collect::<Result<Vec<_>, _>>()?),
+    //         Value::Tuple(vs) => Seq(vs
+    //             .into_iter()
+    //             .map(|v| v.reflection_value())
+    //             .collect::<Result<Vec<_>, _>>()?),
+    //         Value::Object(m) => {
+    //             // let mut map = serde_json::Map::new();
+    //             // for (k, v) in m {
+    //             //     map.insert(k.to_string(), v.val.json_value()?);
+    //             // }
+    //             // (map)
+    //             Seq(m
+    //                 .iter()
+    //                 .map(|(k, v)| Seq(vec![Str(k.to_string()), v.reflection_value()]))
+    //                 .collect())
+    //         }
+    //         Value::Option(v) => Option(Some(Box::new(v.as_ref().reflection_value()?))),
+    //         Value::Variant(tag, v) => {
+    //             // let mut map = serde_json::Map::new();
+    //             // map.insert(
+    //             //     tag.to_string(),
+    //             //     v.as_ref()
+    //             //         .map(|v| v.reflection_value())
+    //             //         .unwrap_or(Ok(None))?,
+    //             // );
+    //             // Object(map)
+    //             Variant((), ())
+    //         }
+    //         Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+    //         Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+    //         Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
+    //         Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
+    //         Value::Collection(c) => match c {
+    //             // Collection::HashMap(m) => Array(
+    //             //     m.iter()
+    //             //         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
+    //             //         .collect::<Result<Vec<_>, _>>()?,
+    //             // ),
+    //             Collection::HashMap(m) => Array(
+    //                 m.iter()
+    //                     .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
+    //                     .collect::<Result<Vec<_>, _>>()?,
+    //             ),
+    //             Collection::FastRandIter(..) => {
+    //                 Err(ValueError::ToRust("FastRandIter".to_string()))?
+    //             }
+    //         },
+    //     })
+    // }
+
     /// Create a JSON-style representation of the Motoko value.
-    pub fn json_value(&self) -> Result<serde_json::Value, ValueError> {
+    fn json_value(&self) -> Result<serde_json::Value> {
         use serde_json::json;
         use serde_json::Value::*;
         Ok(match self {
+            Value::Unit => Null,
             Value::Null => Null,
             Value::Bool(b) => Bool(*b),
-            Value::Unit => Array(vec![]),
             Value::Nat(n) => Number(n.to_u64().ok_or(ValueError::BigInt)?.into()),
             Value::Int(n) => Number(n.to_i64().ok_or(ValueError::BigInt)?.into()),
             Value::Float(f) => json!(f.0),
@@ -222,53 +337,171 @@ impl Value {
                 Object(map)
             }
             Value::Option(v) => v.as_ref().json_value()?,
-            Value::Variant(s, v) => match v {
-                Some(v) => Array(vec![String(*s.0.clone()), v.as_ref().json_value()?]),
-                None => Null,
-            },
-            Value::Pointer(_) => Err(ValueError::NotConvertible("Pointer".to_string()))?,
-            Value::ArrayOffset(_, _) => Err(ValueError::NotConvertible("ArrayOffset".to_string()))?,
-            Value::Function(_) => Err(ValueError::NotConvertible("Function".to_string()))?,
-            Value::PrimFunction(_) => Err(ValueError::NotConvertible("PrimFunction".to_string()))?,
+            Value::Variant(tag, v) => {
+                let mut map = serde_json::Map::new();
+                map.insert(
+                    tag.to_string(),
+                    v.as_ref().map(|v| v.json_value()).unwrap_or(Ok(Null))?,
+                );
+                Object(map)
+            }
+            Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+            Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+            Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
+            Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
             Value::Collection(c) => match c {
                 Collection::HashMap(m) => Array(
                     m.iter()
                         .map(|(k, v)| Ok(Array(vec![k.json_value()?, v.json_value()?])))
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
+                // Collection::HashMap(m) => {
+                //     let mut map = serde_json::Map::new();
+                //     for (k, v) in m {
+                //         map.insert(k.to_rust()?, v.json_value()?);
+                //     }
+                //     Object(map)
+                // }
                 Collection::FastRandIter(..) => {
-                    Err(ValueError::NotConvertible("FastRandIter".to_string()))?
+                    Err(ValueError::ToRust("FastRandIter".to_string()))?
                 }
             },
         })
     }
 
+    // /// Create a RON-style representation of the Motoko value.
+    // fn ron_value(&self) -> Result<ron::Value> {
+    //     use ron::Number::*;
+    //     use ron::Value::*;
+    //     Ok(match self {
+    //         Value::Unit => Unit,
+    //         Value::Null => Option(None),
+    //         Value::Bool(b) => Bool(*b),
+    //         Value::Nat(n) => Number(Integer(n.to_i64().ok_or(ValueError::BigInt)?.into())),
+    //         Value::Int(n) => Number(Integer(n.to_i64().ok_or(ValueError::BigInt)?.into())),
+    //         Value::Float(f) => Number(Float(ron::value::Float::new(f.0))),
+    //         Value::Char(c) => Char(*c),
+    //         Value::Text(s) => String(s.to_string()),
+    //         Value::Blob(b) => Seq(b.iter().map(|u| Number((*u as u64).into())).collect()),
+    //         Value::Array(_, vs) => Seq(vs
+    //             .into_iter()
+    //             .map(|v| v.ron_value())
+    //             .collect::<Result<Vec<_>, _>>()?),
+    //         Value::Tuple(vs) => Seq(vs
+    //             .into_iter()
+    //             .map(|v| v.ron_value())
+    //             .collect::<Result<Vec<_>, _>>()?),
+    //         Value::Object(m) => {
+    //             let mut map = ron::Map::new();
+    //             for (k, v) in m {
+    //                 map.insert(String(k.to_string()), v.val.ron_value()?);
+    //             }
+    //             Map(map)
+    //         }
+    //         Value::Option(v) => Option(Some(Box::new(v.as_ref().ron_value()?))),
+    //         Value::Variant(s, v) => {
+    //             // let mut map = ron::Map::new();
+    //             // map.insert(
+    //             //     String(s.to_string()),
+    //             //     Option(match v {
+    //             //         Some(v) => Some(Box::new(v.as_ref().ron_value()?)),
+    //             //         None => None,
+    //             //     }),
+    //             // );
+    //             // Map(map)
+    //             println!("{:?}",ron::Value::from_str("Unit()").unwrap().into_rust::<Value>());
+    //             let tag = String(s.to_string());
+    //             match v {
+    //                 Some(v) => Seq(vec![v.as_ref().ron_value()?]),
+    //                 // None => Seq(vec![tag]),
+    //                 // None => tag,
+    //                 None => Seq(vec![]),
+    //             }
+    //         }
+    //         Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+    //         Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+    //         Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
+    //         Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
+    //         Value::Collection(c) => match c {
+    //             Collection::HashMap(m) => {
+    //                 let mut map = ron::Map::new();
+    //                 for (k, v) in m {
+    //                     map.insert(k.ron_value()?, v.ron_value()?);
+    //                 }
+    //                 Map(map)
+    //             }
+    //             Collection::FastRandIter(..) => {
+    //                 Err(ValueError::ToRust("FastRandIter".to_string()))?
+    //             }
+    //         },
+    //     })
+    // }
+
     /// Convert to any deserializable Rust type.
-    pub fn convert<T: DeserializeOwned>(&self) -> Result<T, ValueError> {
-        serde_json::from_value(self.json_value()?)
-            .map_err(|e| ValueError::NotConvertible(e.to_string()))
+    #[cfg(not(feature = "serde-paths"))]
+    pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T> {
+        serde_json::from_value(self.json_value()?).map_err(|e| ValueError::ToRust(e.to_string()))
+    }
+    #[cfg(feature = "serde-paths")]
+    pub fn to_rust<T: DeserializeOwned>(&self) -> Result<T> {
+        // Include paths in error messages
+        let s: String = serde_json::to_string(&self.json_value()?).unwrap();
+        let des = &mut serde_json::Deserializer::from_str(&s);
+        Ok(serde_path_to_error::deserialize(des)
+            .map_err(|err| err.to_string())
+            .unwrap())
+    }
+
+    pub fn from_rust<T: ToMotoko>(value: T) -> Result {
+        value.to_motoko()
     }
 }
-
-// TODO: implement `TryInto` rather than `Into` if possible
-impl<'a, T: DeserializeOwned> Into<Result<T, ValueError>> for &'a Value {
-    fn into(self) -> Result<T, ValueError> {
-        serde_json::from_value(self.json_value()?)
-            .map_err(|e| ValueError::NotConvertible(e.to_string()))
-    }
+pub trait ToMotoko {
+    fn to_motoko(self) -> Result;
 }
 
-// #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-// pub enum ValueErrorKind {
-//     Empty,
-//     Invalid,
-// }
+impl<T> ToMotoko for T
+where
+    T: Serialize,
+{
+    fn to_motoko(self) -> Result {
+        // println!("{}",ron::to_string(&self).unwrap());//////
+        self.serialize(crate::convert::ser::Serializer)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueError {
     Char,
     BigInt,
     Float,
+    ToRust(String),
+    ToMotoko(String),
     NotAValue,
-    NotConvertible(String),
+}
+
+impl Display for ValueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for ValueError {}
+
+impl serde::ser::Error for ValueError {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        ValueError::ToMotoko(msg.to_string())
+    }
+}
+
+impl serde::de::Error for ValueError {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        ValueError::ToRust(msg.to_string())
+    }
 }

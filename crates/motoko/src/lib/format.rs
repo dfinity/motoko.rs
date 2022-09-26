@@ -222,7 +222,7 @@ impl ToDoc for Exp {
             Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),
             Array(m, es) => array(m, es),
             Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
-            Function((_, _, _, _, _, _, _)) => todo!(),
+            Function(_) => todo!(),
             Call(e, b, a) => e
                 .doc()
                 .append(b.as_ref().map(bind).unwrap_or(RcDoc::nil()))
@@ -323,7 +323,7 @@ impl ToDoc for Dec {
                 .append(bind(b))
                 .append(" = ")
                 .append(t.doc()),
-            Class(_, _, _, _, _, _, _, _) => todo!(),
+            Class(_) => todo!(),
         }
     }
 }
@@ -343,7 +343,8 @@ impl ToDoc for Type {
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),
-            Named(id, t) => id.doc().append(" : ").append(t.doc()),
+            Unknown(id) => id.doc(),
+            Known(id, t) => id.doc().append(" : ").append(t.doc()),
         }
     }
 }

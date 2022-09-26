@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::ast_traversal::ToNode;
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
-    HashMapFunction, PrimFunction, Value,
+    HashMapFunction, PrimFunction, ToMotoko, Value,
 };
 use crate::vm_types::EvalInitError;
 use crate::vm_types::{
@@ -13,7 +13,6 @@ use crate::vm_types::{
     Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
     Signal, Step, NYI,
 };
-use im_rc::vector;
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
 use std::vec::Vec;
@@ -107,7 +106,8 @@ fn binop(
         Add => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 + n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 + i2)),
-            _ => nyi!(line!()),
+            // _ => nyi!(line!()),
+            (v1, v2) => unimplemented!("{:?} + {:?}", v1, v2),
         },
         Sub => match (v1, v2) {
             (Nat(n1), Nat(n2)) => {
@@ -119,12 +119,15 @@ fn binop(
             }
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
             (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
-            _ => nyi!(line!()),
+            (Nat(n1), Int(i2)) => Ok(Int(BigInt::from(n1) - i2)),
+            // _ => nyi!(line!()),
+            (v1, v2) => unimplemented!("{:?} - {:?}", v1, v2),
         },
         Mul => match (v1, v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
-            _ => nyi!(line!()),
+            // _ => nyi!(line!()),
+            (v1, v2) => unimplemented!("{:?} * {:?}", v1, v2),
         },
         WAdd => match (cont_prim_type, v1, v2) {
             (None, _, _) => Err(Interruption::AmbiguousOperation),
@@ -204,7 +207,6 @@ fn call_prim_function(
     targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
-    use crate::value::Text;
     use PrimFunction::*;
     match pf {
         DebugPrint => match args {
@@ -215,24 +217,39 @@ fn call_prim_function(
                 Ok(Step {})
             }
             v => {
-                let mut txt = Vector::new();
-                txt.push_front(string_from_value(&v)?);
-                log::info!("DebugPrint: {}: {:?}", core.cont_source, Text(txt.clone()));
-                core.debug_print_out.push_back(Text(txt));
+                let txt = string_from_value(&v)?;
+                log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
+                core.debug_print_out.push_back(txt.into());
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
         },
         NatToText => match args {
             Value::Nat(n) => {
-                core.cont = Cont::Value(Value::Text(Text(vector![format!("{}", n)])));
+                core.cont = Cont::Value(Value::Text(format!("{}", n).into()));
                 Ok(Step {})
             }
             v => {
-                core.cont = Cont::Value(Value::Text(Text(vector![format!("{:?}", v)])));
+                core.cont = Cont::Value(Value::Text(format!("{:?}", v).into()));
                 Ok(Step {})
             }
         },
+        ReifyValue => {
+            core.cont = Cont::Value(args.to_motoko().map_err(Interruption::ValueError)?);
+            Ok(Step {})
+        }
+        ReflectValue => {
+            core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
+            Ok(Step {})
+        }
+        ReifyCore => {
+            core.cont = Cont::Value(core.to_motoko().map_err(Interruption::ValueError)?);
+            Ok(Step {})
+        }
+        ReflectCore => {
+            *core = args.to_rust::<Core>().map_err(Interruption::ValueError)?;
+            Ok(Step {})
+        }
         Collection(cf) => call_collection_function(core, cf, targs, args),
     }
 }
@@ -284,15 +301,15 @@ fn call_function(
     _targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
-    if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.3 .0, &args) {
+    if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.input.0, &args) {
         let source = core.cont_source.clone();
         let env_saved = core.env.clone();
         core.env = env_;
         cf.0.content
-            .0
+            .name
             .clone()
             .map(|f| core.env.insert(*f.0, Value::Function(cf.clone())));
-        core.cont = Cont::Exp_(cf.0.content.6.clone(), Vector::new());
+        core.cont = Cont::Exp_(cf.0.content.exp.clone(), Vector::new());
         core.stack.push_front(Frame {
             source,
             env: env_saved,
@@ -362,12 +379,12 @@ mod collection {
                 let seed: u32 = env
                     .get("seed")
                     .unwrap()
-                    .convert()
+                    .to_rust()
                     .map_err(Interruption::ValueError)?; // or else TypeMismatch
                 let size: Option<u32> = env
                     .get("size")
                     .unwrap()
-                    .convert()
+                    .to_rust()
                     .map_err(Interruption::ValueError)?; // or else TypeMismatch
                                                          // todo targs -- determine the type of values we are randomly producing.
                 core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
@@ -502,6 +519,10 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
         "\"hashMapRemove\"" => Some(Collection(HashMap(HashMapFunction::Remove))),
         "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
         "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
+        "\"reifyValue\"" => Some(ReifyValue),
+        "\"reflectValue\"" => Some(ReflectValue),
+        "\"reifyCore\"" => Some(ReifyCore),
+        "\"reflectCore\"" => Some(ReflectCore),
         _ => None,
     } {
         Ok(Value::PrimFunction(pf))
@@ -539,7 +560,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Un(un, e) => exp_conts(core, FrameCont::UnOp(un), e),
         Paren(e) => exp_conts(core, FrameCont::Paren, e),
         Variant(id, None) => {
-            core.cont = Cont::Value(Value::Variant(id, None));
+            core.cont = Cont::Value(Value::Variant(*id.0, None));
             Ok(Step {})
         }
         Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id), e),
@@ -637,13 +658,13 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if **id1.0 != **id2.0 {
+            if **id1.0 != *id2 {
                 return None;
             };
             Some(env.clone())
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if **id1.0 != **id2.0 {
+            if **id1.0 != *id2 {
                 return None;
             };
             pattern_matches(env, &*pat_.0, &*v_)
@@ -980,7 +1001,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Ok(Step {})
             }
             Variant(i) => {
-                core.cont = Cont::Value(Value::Variant(i, Some(Box::new(v))));
+                core.cont = Cont::Value(Value::Variant(*i.0, Some(Box::new(v))));
                 Ok(Step {})
             }
             Switch(cases) => switch(core, v, cases),
@@ -1064,7 +1085,6 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                                 id.clone(),
                                 crate::value::FieldValue {
                                     mut_: f.mut_,
-                                    id: id,
                                     val: val,
                                 },
                             );
@@ -1387,7 +1407,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                         _ => nyi!(line!()),
                     },
                     Dec::Func(f) => {
-                        let id = f.0.clone();
+                        let id = f.name.clone();
                         let v = Value::Function(ClosedFunction(Closed {
                             env: core.env.clone(),
                             content: f,
@@ -1560,5 +1580,5 @@ pub fn eval(prog: &str) -> Result<Value, Interruption> {
 }
 
 pub fn eval_into<T: serde::de::DeserializeOwned>(prog: &str) -> Result<T, Interruption> {
-    eval(prog)?.convert().map_err(Interruption::ValueError)
+    eval(prog)?.to_rust().map_err(Interruption::ValueError)
 }

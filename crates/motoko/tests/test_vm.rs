@@ -288,11 +288,11 @@ fn prim_reflect_core() {
                 cont = { cont_type = "Value"; value = #Nat(123) };
                 env = [("x", #Nat(0))];
                 stack = [];
-                store = [];
+                store = (prim "hashMapNew" ());
                 debug_print_out = [];
                 counts = {
-                step = 0;
-                redex = 0;
+                    step = 0;
+                    redex = 0;
                 };
             });
           "#,

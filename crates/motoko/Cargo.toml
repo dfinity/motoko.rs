@@ -54,7 +54,7 @@ path = "src/bin/mo.rs"
 required-features = ["exe"]
 
 [features]
-default = ["exe", "parser", "value-reflection", "core-reflection"]
+default = ["exe", "parser", "to-motoko", "value-reflection", "core-reflection"]
 exe = ["structopt"]
 serde-paths = ["serde_path_to_error"]
 parser = []

@@ -146,6 +146,7 @@ impl FastRandIter {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum PrimFunction {
     DebugPrint,
+    NatToText,
     ReifyValue,
     ReflectValue,
     ReifyCore,
@@ -164,6 +165,7 @@ pub enum HashMapFunction {
     New,
     Put,
     Get,
+    Remove,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

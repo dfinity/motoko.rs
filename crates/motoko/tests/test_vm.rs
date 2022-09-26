@@ -246,12 +246,27 @@ fn for_() {
 }
 
 #[test]
+fn module() {
+    if false {
+        assert_(
+            "module X { public let x = 5; let y = (1, 2); func f () { } }",
+            "module X { public let x = 5; let y = (1, 2); func f () { } }",
+        );
+    }
+}
+
+#[test]
 fn prim_debug_print() {
     assert_("prim \"debugPrint\" \"hello, world\"", "()");
     assert_(
         "let Debug = { print = prim \"debugPrint\" }; Debug.print \"hello, world\"",
         "()",
     );
+}
+
+#[test]
+fn test_nat_to_text() {
+    assert_("prim \"natToText\" 666", "\"666\"");
 }
 
 #[test]
@@ -331,17 +346,6 @@ fn fastranditer() {
 fn function_call_return_restores_env() {
     assert_("func f() { }; let x = 0; x", "0");
     assert_("func f() { }; let x = 0; f(); x", "0");
-}
-
-#[test]
-fn module() {
-    if false {
-        // to do
-        assert_(
-            "module X { public let x = 5; let y = (1, 2); func f () { } }",
-            "module X { public let x = 5; let y = (1, 2); func f () { } }",
-        )
-    }
 }
 
 #[test]

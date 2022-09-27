@@ -12,14 +12,16 @@ pub fn parse_static(input: TokenStream) -> TokenStream {
     )
 }
 
-#[proc_macro]
-pub fn eval_static(input: TokenStream) -> TokenStream {
-    let input = get_input_string(input);
-    expand_static(
-        &motoko::vm::eval(&input).expect("Evaluation error"),
-        "::motoko::value::Value",
-    )
-}
+// Temporarily removed due to possible confusion around the different set of feature flags
+
+// #[proc_macro]
+// pub fn eval_static(input: TokenStream) -> TokenStream {
+//     let input = get_input_string(input);
+//     expand_static(
+//         &motoko::vm::eval(&input).expect("Evaluation error"),
+//         "::motoko::value::Value",
+//     )
+// }
 
 fn expand_static<'de, T: Sized + serde::Serialize + serde::Deserialize<'de>>(
     value: &T,

@@ -243,7 +243,7 @@ fn call_prim_function(
         }
         #[cfg(feature = "value-reflection")]
         ReflectValue => {
-            core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
+            // core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         #[cfg(feature = "to-motoko")]

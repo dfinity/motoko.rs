@@ -17,7 +17,7 @@ name = "motoko_proc_macro"
 proc-macro = true
 
 [dependencies]
-motoko = { path = "../motoko", version = "0.0.15" }
+motoko = { path = "../motoko", version = "0.0.15", default-features = false, features = ["parser"] }
 syn = "1.0.100"
 quote = "1.0.21"
 proc-macro2 = "1.0.44"

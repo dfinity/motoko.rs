@@ -19,7 +19,7 @@ proc-macro = true
 [dependencies]
 # TODO: set this up as a "workspace dependency"? 
 # https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#inheriting-a-dependency-from-a-workspace
-motoko = { path = "../motoko", version = "0.0.15", default-features = false, features = ["parser"] }
+motoko = { path = "../motoko", version = "0.0.17", default-features = false, features = ["parser"] }
 syn = "1.0.100"
 quote = "1.0.21"
 proc-macro2 = "1.0.44"

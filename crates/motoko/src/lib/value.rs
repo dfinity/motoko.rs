@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::num::Wrapping;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
 use crate::vm_types::Env;
@@ -118,7 +119,7 @@ pub enum Collection {
 /// See also https://github.com/dfinity/canister-profiling/tree/main/collections
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct FastRandIter {
-    state: u32,
+    state: Wrapping<u32>,
     size: Option<u32>,
     ind: u32,
 }
@@ -127,7 +128,7 @@ impl FastRandIter {
     pub fn new(size: Option<u32>, seed: u32) -> FastRandIter {
         FastRandIter {
             size,
-            state: seed,
+            state: Wrapping(seed),
             ind: 0,
         }
     }
@@ -138,8 +139,8 @@ impl FastRandIter {
                 return None;
             }
         }
-        self.state = self.state * 48271 % 0x7fffffff;
-        Some(Value::Nat(BigUint::from(self.state)))
+        self.state = (self.state * Wrapping(48271)) % Wrapping(0x7fffffff);
+        Some(Value::Nat(BigUint::from(self.state.0)))
     }
 }
 

@@ -372,6 +372,25 @@ mod pattern {
     }
 }
 
+fn assert_value_is_optional(v: Value) -> Result<Option<Value>, Interruption> {
+    match v {
+        Value::Option(v) => Ok(Some(*v)),
+        Value::Null => Ok(None),
+        _ => Err(Interruption::TypeMismatch),
+    }
+}
+
+fn assert_value_is_u32(v: Value) -> Result<u32, Interruption> {
+    v.to_rust().map_err(Interruption::ValueError)
+}
+
+fn assert_value_is_option_u32(v: Value) -> Result<Option<u32>, Interruption> {
+    match assert_value_is_optional(v)? {
+        None => Ok(None),
+        Some(v) => Ok(Some(assert_value_is_u32(v)?)),
+    }
+}
+
 mod collection {
     pub mod fastranditer {
         use super::super::*;
@@ -381,20 +400,13 @@ mod collection {
         pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
                 &HashMap::new(),
-                &pattern::vars(core, vector!["seed", "size"]),
+                &pattern::vars(core, vector!["size", "seed"]),
                 &v,
             ) {
-                let seed: u32 = env
-                    .get("seed")
-                    .unwrap()
-                    .to_rust()
-                    .map_err(Interruption::ValueError)?; // or else TypeMismatch
-                let size: Option<u32> = env
-                    .get("size")
-                    .unwrap()
-                    .to_rust()
-                    .map_err(Interruption::ValueError)?; // or else TypeMismatch
-                                                         // todo targs -- determine the type of values we are randomly producing.
+                let seed: u32 = assert_value_is_u32(env.get("seed").unwrap().clone())?;
+                let size: Option<u32> =
+                    assert_value_is_option_u32(env.get("size").unwrap().clone())?;
+
                 core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
                     FastRandIter::new(size, seed),
                 )));

@@ -1329,8 +1329,8 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
     trace!("   - env = {:?}", core.env);
     trace!(" - stack = {:#?}", core.stack);
     trace!(" - store = {:#?}", core.store);
-    let cont = core.cont.clone(); // to do -- avoid clone here.
-    core.cont = Cont::Taken;
+    let mut cont = Cont::Taken;
+    std::mem::swap(&mut core.cont, &mut cont);
     match cont {
         Cont::Taken => unreachable!("The VM's logic currently has an internal issue."),
         Cont::Exp_(e, decs) => {

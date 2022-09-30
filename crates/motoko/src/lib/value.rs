@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::num::Wrapping;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
+use crate::dynamic::Dynamic;
 use crate::vm_types::Env;
 
 use im_rc::HashMap;
@@ -84,7 +85,6 @@ pub struct ClosedFunction(pub Closed<Function>);
 pub type Float = OrderedFloat<f64>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-// #[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
@@ -105,6 +105,29 @@ pub enum Value {
     Function(ClosedFunction),
     PrimFunction(PrimFunction),
     Collection(Collection),
+    Dynamic(DynamicValue),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DynamicValue(#[serde(with = "crate::serde_utils::box_dynamic")] pub Box<dyn Dynamic>);
+
+impl Clone for DynamicValue {
+    fn clone(&self) -> Self {
+        DynamicValue(dyn_clone::clone_box(&*self.0))
+    }
+}
+
+impl PartialEq for DynamicValue {
+    fn eq(&self, _other: &Self) -> bool {
+        todo!()
+    }
+}
+impl Eq for DynamicValue {}
+
+impl std::hash::Hash for DynamicValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.dyn_hash(state)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -374,6 +397,9 @@ impl Value {
                     Err(ValueError::ToRust("FastRandIter".to_string()))?
                 }
             },
+            Value::Dynamic(d) => {
+                serde_json::to_value(d).map_err(|e| ValueError::ToRust(e.to_string()))?
+            }
         })
     }
 

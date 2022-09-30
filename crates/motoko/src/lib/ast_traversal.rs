@@ -205,7 +205,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 f(&e2.tree());
             }
             Exp::Array(_, es) => es.vec.iter().for_each(|e| f(&e.tree())),
-            Exp::Idx(e1, e2) => {
+            Exp::Index(e1, e2) => {
                 f(&e1.tree());
                 f(&e2.tree());
             }

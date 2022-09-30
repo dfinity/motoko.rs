@@ -1,6 +1,6 @@
 [package]
 name = "motoko"
-version = "0.0.17"
+version = "0.0.18"
 authors = ["Matthew Hammer", "Ryan Vandersmith"]
 edition = "2018"
 build = "build.rs"
@@ -34,6 +34,7 @@ serde_json = "1.0.85"
 serde_path_to_error = { version = "0.1.8", optional = true }
 # serde_with = "2.0.1"
 test-log = "0.2.11"
+dyn-clone = "1.0.9"
 
 [lib]
 name = "motoko"

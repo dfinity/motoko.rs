@@ -152,19 +152,23 @@ fn relop(
 ) -> Result<Value, Interruption> {
     use RelOp::*;
     use Value::*;
-    match relop {
+    Ok(Bool(match relop {
         Eq => match (v1, v2) {
-            (Nat(n1), Nat(n2)) => Ok(Bool(n1 == n2)),
-            (Int(i1), Int(i2)) => Ok(Bool(i1 == i2)),
-            _ => nyi!(line!()),
+            (Bool(b1), Bool(b2)) => b1 == b2,
+            (Text(t1), Text(t2)) => t1.to_string() == t2.to_string(),
+            (Nat(n1), Nat(n2)) => n1 == n2,
+            (Int(i1), Int(i2)) => i1 == i2,
+            _ => nyi!(line!())?,
         },
         Neq => match (v1, v2) {
-            (Nat(n1), Nat(n2)) => Ok(Bool(n1 != n2)),
-            (Int(i1), Int(i2)) => Ok(Bool(i1 != i2)),
-            _ => nyi!(line!()),
+            (Bool(b1), Bool(b2)) => b1 != b2,
+            (Text(t1), Text(t2)) => t1.to_string() == t2.to_string(),
+            (Nat(n1), Nat(n2)) => n1 != n2,
+            (Int(i1), Int(i2)) => i1 != i2,
+            _ => nyi!(line!())?,
         },
-        _ => nyi!(line!()),
-    }
+        _ => nyi!(line!())?,
+    }))
 }
 
 fn exp_conts_(
@@ -638,7 +642,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
                 Some(e1) => exp_conts(core, FrameCont::Array(mut_, Vector::new(), es), e1),
             }
         }
-        Idx(e1, e2) => exp_conts(core, FrameCont::Idx1(e2), e1),
+        Index(e1, e2) => exp_conts(core, FrameCont::Idx1(e2), e1),
         Annot(e, t) => {
             match &*t.0 {
                 Type::Prim(pt) => core.cont_prim_type = Some(pt.clone()),
@@ -983,6 +987,10 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             core.cont = Cont::Value(Value::ArrayOffset(p, i));
                             Ok(Step {})
                         }
+                        (Value::Dynamic(_), v) => {
+                            core.cont = Cont::Value(v);
+                            Ok(Step {})
+                        }
                         _ => Err(Interruption::TypeMismatch),
                     }
                 } else {
@@ -1001,6 +1009,15 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             }
                             _ => Err(Interruption::TypeMismatch),
                         },
+                        (Value::Dynamic(d), v) => {
+                            core.cont = Cont::Value(
+                                (*d.0
+                                    .get_index(&v)
+                                    .ok_or_else(|| Interruption::IndexOutOfBounds)?)
+                                .clone(),
+                            );
+                            Ok(Step {})
+                        }
                         _ => Err(Interruption::TypeMismatch),
                     }
                 }
@@ -1153,6 +1170,14 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Value::Object(fs) => {
                     if let Some(f) = fs.get(&*f.0) {
                         core.cont = Cont::Value(f.val.clone());
+                        Ok(Step {})
+                    } else {
+                        Err(Interruption::TypeMismatch)
+                    }
+                }
+                Value::Dynamic(d) => {
+                    if let Some(f) = d.0.get_field(&*f.0) {
+                        core.cont = Cont::Value((*f).clone());
                         Ok(Step {})
                     } else {
                         Err(Interruption::TypeMismatch)

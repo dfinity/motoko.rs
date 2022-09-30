@@ -1,32 +1,26 @@
 use std::ops::Range;
-
 use serde::{Deserialize, Serialize};
 
-/// A "located `X`" has a source location of type `Source`.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct Loc<X>(pub X, pub Source);
+use crate::shared::Shared;
 
-impl<X: std::fmt::Debug> std::fmt::Debug for Loc<X> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<{:?}@{:?}>", self.0, self.1)
-    }
-}
+pub type Node<X> = Shared<Node_<X>>;
 
-pub type Node<X> = Loc<Box<X>>;
+pub struct Node_<X> (
+    pub X,
+    pub Source
+);
 
-impl<X> Loc<X> {
-    pub fn map<F: Fn(X) -> T, T>(self, map_fn: F) -> Loc<T> {
-        Loc(map_fn(self.0), self.1)
-    }
-}
+pub type Loc = (); // XXX
 
 impl<X> Node<X> {
     pub fn without_source(value: X) -> Self {
-        Loc(Box::new(value), Source::Unknown)
+        //Loc(Box::new(value), Source::Unknown)
+        todo!()
     }
 
     pub fn map_node<F: Fn(X) -> T, T>(self, map_fn: F) -> Node<T> {
-        Loc(Box::new(map_fn(*self.0)), self.1)
+        //Loc(Box::new(map_fn(*self.0)), self.1)
+        todo!()
     }
 }
 

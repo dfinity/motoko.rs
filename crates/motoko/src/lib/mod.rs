@@ -25,3 +25,4 @@ mod serde_utils;
 pub mod value;
 pub mod vm;
 pub mod vm_types;
+pub mod shared;

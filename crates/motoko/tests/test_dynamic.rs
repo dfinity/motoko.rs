@@ -1,14 +1,14 @@
 use num_bigint::ToBigUint;
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use motoko::value::Text;
 use motoko::value::{Dynamic, DynamicValue, Value};
 
 #[test]
 fn get_index() {
-    #[derive(Debug, Clone)]
+    #[derive(Clone, Debug, Hash, Default)]
     struct Struct {
-        pub map: HashMap<Value, Rc<Value>>,
+        pub map: im_rc::HashMap<Value, Rc<Value>>,
     }
 
     impl Dynamic for Struct {
@@ -21,7 +21,7 @@ fn get_index() {
     let expected = Rc::new(Value::Text(Text::from("expected")));
     let value = Value::Dynamic(DynamicValue(Box::new({
         let mut s = Struct {
-            map: HashMap::new(),
+            map: Default::default(),
         };
         s.map
             .insert(Value::Nat(5.to_biguint().unwrap()), expected.clone());

@@ -109,14 +109,8 @@ pub enum Value {
     Dynamic(DynamicValue),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DynamicValue(#[serde(with = "crate::serde_utils::box_dynamic")] pub Box<dyn Dynamic>);
-
-impl std::fmt::Debug for DynamicValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
 
 impl Clone for DynamicValue {
     fn clone(&self) -> Self {
@@ -134,13 +128,23 @@ impl Eq for DynamicValue {}
 
 impl std::hash::Hash for DynamicValue {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        todo!()
+        self.0.dyn_hash(state)
     }
 }
 
-pub trait Dynamic: dyn_clone::DynClone {
-    fn get_index(&self, index: &Value) -> Option<Rc<Value>> {
+pub trait Dynamic: std::fmt::Debug + dyn_clone::DynClone + DynHash {
+    fn get_index(&self, _index: &Value) -> Option<Rc<Value>> {
         None
+    }
+}
+
+pub trait DynHash {
+    fn dyn_hash(&self, state: &mut dyn std::hash::Hasher);
+}
+
+impl<H: std::hash::Hash + ?Sized> DynHash for H {
+    fn dyn_hash(&self, mut state: &mut dyn std::hash::Hasher) {
+        self.hash(&mut state);
     }
 }
 

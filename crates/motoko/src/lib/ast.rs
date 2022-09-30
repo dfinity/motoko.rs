@@ -291,14 +291,8 @@ pub enum ResolvedImport {
     Prim,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash, Default)]
 pub struct Sugar(pub bool);
-
-impl Default for Sugar {
-    fn default() -> Self {
-        Sugar(false)
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum PrimType {

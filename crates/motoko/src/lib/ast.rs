@@ -406,7 +406,7 @@ pub enum Exp {
     Dot(Exp_, Id_),
     Assign(Exp_, Exp_),
     Array(Mut, Delim<Exp_>),
-    Idx(Exp_, Exp_),
+    Index(Exp_, Exp_),
     Function(Function),
     Call(Exp_, Option<Inst>, Exp_),
     Block(Delim<Dec_>),

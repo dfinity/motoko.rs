@@ -638,7 +638,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
                 Some(e1) => exp_conts(core, FrameCont::Array(mut_, Vector::new(), es), e1),
             }
         }
-        Idx(e1, e2) => exp_conts(core, FrameCont::Idx1(e2), e1),
+        Index(e1, e2) => exp_conts(core, FrameCont::Idx1(e2), e1),
         Annot(e, t) => {
             match &*t.0 {
                 Type::Prim(pt) => core.cont_prim_type = Some(pt.clone()),
@@ -983,6 +983,10 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             core.cont = Cont::Value(Value::ArrayOffset(p, i));
                             Ok(Step {})
                         }
+                        (Value::Dynamic(d), v) => {
+                            core.cont = Cont::Value(v);
+                            Ok(Step {})
+                        }
                         _ => Err(Interruption::TypeMismatch),
                     }
                 } else {
@@ -1001,6 +1005,15 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             }
                             _ => Err(Interruption::TypeMismatch),
                         },
+                        (Value::Dynamic(d), v) => {
+                            core.cont = Cont::Value(
+                                (*d.0
+                                    .get_index(&v)
+                                    .ok_or_else(|| Interruption::IndexOutOfBounds)?)
+                                .clone(),
+                            );
+                            Ok(Step {})
+                        }
                         _ => Err(Interruption::TypeMismatch),
                     }
                 }

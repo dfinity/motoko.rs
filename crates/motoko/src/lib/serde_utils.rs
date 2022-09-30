@@ -57,3 +57,17 @@ pub mod im_rc_hashmap {
         Ok(attr.into_iter().collect())
     }
 }
+
+pub mod box_dynamic {
+    // use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use crate::value::Dynamic;
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(map: &Box<dyn Dynamic>, ser: S) -> Result<S::Ok, S::Error> {
+        todo!()
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(des: D) -> Result<Box<dyn Dynamic>, D::Error> {
+        todo!()
+    }
+}

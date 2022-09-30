@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::num::Wrapping;
+use std::rc::Rc;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
 use crate::vm_types::Env;
@@ -105,6 +106,42 @@ pub enum Value {
     Function(ClosedFunction),
     PrimFunction(PrimFunction),
     Collection(Collection),
+    Dynamic(DynamicValue),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DynamicValue(#[serde(with = "crate::serde_utils::box_dynamic")] pub Box<dyn Dynamic>);
+
+impl std::fmt::Debug for DynamicValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl Clone for DynamicValue {
+    fn clone(&self) -> Self {
+        DynamicValue(dyn_clone::clone_box(&*self.0))
+    }
+}
+
+impl PartialEq for DynamicValue {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl Eq for DynamicValue {}
+
+impl std::hash::Hash for DynamicValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        todo!()
+    }
+}
+
+pub trait Dynamic: dyn_clone::DynClone {
+    fn get_index(&self, index: &Value) -> Option<Rc<Value>> {
+        None
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -374,6 +411,9 @@ impl Value {
                     Err(ValueError::ToRust("FastRandIter".to_string()))?
                 }
             },
+            Value::Dynamic(d) => {
+                serde_json::to_value(d).map_err(|e| ValueError::ToRust(e.to_string()))?
+            }
         })
     }
 

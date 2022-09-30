@@ -60,14 +60,14 @@ pub mod im_rc_hashmap {
 
 pub mod box_dynamic {
     // use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use crate::value::Dynamic;
+    use crate::dynamic::Dynamic;
     use serde::{Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(map: &Box<dyn Dynamic>, ser: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(_map: &Box<dyn Dynamic>, _ser: S) -> Result<S::Ok, S::Error> {
         todo!()
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(des: D) -> Result<Box<dyn Dynamic>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(_des: D) -> Result<Box<dyn Dynamic>, D::Error> {
         todo!()
     }
 }

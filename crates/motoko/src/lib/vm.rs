@@ -152,19 +152,21 @@ fn relop(
 ) -> Result<Value, Interruption> {
     use RelOp::*;
     use Value::*;
-    match relop {
+    Ok(Bool(match relop {
         Eq => match (v1, v2) {
-            (Nat(n1), Nat(n2)) => Ok(Bool(n1 == n2)),
-            (Int(i1), Int(i2)) => Ok(Bool(i1 == i2)),
-            _ => nyi!(line!()),
+            (Bool(a), Bool(b)) => a == b,
+            (Nat(n1), Nat(n2)) => n1 == n2,
+            (Int(i1), Int(i2)) => i1 == i2,
+            _ => nyi!(line!())?,
         },
         Neq => match (v1, v2) {
-            (Nat(n1), Nat(n2)) => Ok(Bool(n1 != n2)),
-            (Int(i1), Int(i2)) => Ok(Bool(i1 != i2)),
-            _ => nyi!(line!()),
+            (Bool(a), Bool(b)) => a != b,
+            (Nat(n1), Nat(n2)) => n1 != n2,
+            (Int(i1), Int(i2)) => i1 != i2,
+            _ => nyi!(line!())?,
         },
-        _ => nyi!(line!()),
-    }
+        _ => nyi!(line!())?,
+    }))
 }
 
 fn exp_conts_(
@@ -1166,6 +1168,14 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Value::Object(fs) => {
                     if let Some(f) = fs.get(&*f.0) {
                         core.cont = Cont::Value(f.val.clone());
+                        Ok(Step {})
+                    } else {
+                        Err(Interruption::TypeMismatch)
+                    }
+                }
+                Value::Dynamic(d) => {
+                    if let Some(f) = d.0.get_field(&*f.0) {
+                        core.cont = Cont::Value((*f).clone());
                         Ok(Step {})
                     } else {
                         Err(Interruption::TypeMismatch)

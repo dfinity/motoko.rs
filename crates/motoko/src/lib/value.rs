@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::num::Wrapping;
-use std::rc::Rc;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
+use crate::dynamic::Dynamic;
 use crate::vm_types::Env;
 
 use im_rc::HashMap;
@@ -85,7 +85,6 @@ pub struct ClosedFunction(pub Closed<Function>);
 pub type Float = OrderedFloat<f64>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-// #[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
@@ -119,32 +118,15 @@ impl Clone for DynamicValue {
 }
 
 impl PartialEq for DynamicValue {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         todo!()
     }
 }
-
 impl Eq for DynamicValue {}
 
 impl std::hash::Hash for DynamicValue {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.dyn_hash(state)
-    }
-}
-
-pub trait Dynamic: std::fmt::Debug + dyn_clone::DynClone + DynHash {
-    fn get_index(&self, _index: &Value) -> Option<Rc<Value>> {
-        None
-    }
-}
-
-pub trait DynHash {
-    fn dyn_hash(&self, state: &mut dyn std::hash::Hasher);
-}
-
-impl<H: std::hash::Hash + ?Sized> DynHash for H {
-    fn dyn_hash(&self, mut state: &mut dyn std::hash::Hasher) {
-        self.hash(&mut state);
     }
 }
 

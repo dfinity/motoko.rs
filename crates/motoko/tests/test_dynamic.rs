@@ -1,11 +1,12 @@
+use motoko::dynamic::Dynamic;
 use num_bigint::ToBigUint;
 use std::rc::Rc;
 
 use motoko::value::Text;
-use motoko::value::{Dynamic, DynamicValue, Value};
+use motoko::value::{DynamicValue, Value};
 
 #[test]
-fn get_index() {
+fn dyn_struct() {
     #[derive(Clone, Debug, Hash, Default)]
     struct Struct {
         pub map: im_rc::HashMap<Value, Rc<Value>>,
@@ -15,6 +16,13 @@ fn get_index() {
         fn get_index(&self, index: &Value) -> Option<Rc<Value>> {
             println!("Index: {:?}", index);
             self.map.get(index).map(Clone::clone)
+        }
+
+        fn get_field(&self, name: &str) -> Option<Rc<Value>> {
+            match name {
+                "x" => Some(Rc::new(Value::Text(Text::from("expected")))),
+                _ => None,
+            }
         }
     }
 
@@ -32,7 +40,7 @@ fn get_index() {
     core.env.insert("value".to_string(), value);
 
     assert_eq!(
-        core.eval_prog(motoko::check::parse("value[5]").unwrap()),
-        Ok((*expected).clone())
+        core.eval_prog(motoko::check::parse("value[5] == value.x").unwrap()),
+        Ok((Value::Bool(true)).clone())
     );
 }

@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::ast_traversal::ToNode;
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
-    HashMapFunction, PrimFunction, Value,
+    HashMapFunction, PrimFunction, Value, ValueError,
 };
 use crate::vm_types::EvalInitError;
 use crate::vm_types::{
@@ -15,6 +15,8 @@ use crate::vm_types::{
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
+use num_traits::ToPrimitive;
+use std::rc::Rc;
 use std::vec::Vec;
 
 impl From<()> for Interruption {
@@ -378,7 +380,7 @@ mod pattern {
 
 fn assert_value_is_optional(v: Value) -> Result<Option<Value>, Interruption> {
     match v {
-        Value::Option(v) => Ok(Some(*v)),
+        Value::Option(v) => Ok(Some((*v).clone())),
         Value::Null => Ok(None),
         _ => Err(Interruption::TypeMismatch),
     }
@@ -425,7 +427,7 @@ mod collection {
                 Value::Collection(Collection::FastRandIter(mut fri)) => {
                     let n = match fri.next() {
                         // to do -- systematic Option<_> ~> ?<_> conversion.
-                        Some(n) => Value::Option(Box::new(n)),
+                        Some(n) => Value::Option(Rc::new(n)),
                         None => Value::Null,
                     };
                     let i = Value::Collection(Collection::FastRandIter(fri));
@@ -463,7 +465,7 @@ mod collection {
                     if let Value::Collection(Collection::HashMap(mut hm)) = hm.clone() {
                         match hm.insert(k.clone(), v.clone()) {
                             None => (hm, Value::Null),
-                            Some(old) => (hm, Value::Option(Box::new(old))),
+                            Some(old) => (hm, Value::Option(Rc::new(old))),
                         }
                     } else {
                         return Err(Interruption::TypeMismatch);
@@ -489,7 +491,7 @@ mod collection {
                     if let Value::Collection(Collection::HashMap(hm)) = hm {
                         match hm.get(k) {
                             None => Value::Null,
-                            Some(v) => Value::Option(Box::new(v.clone())),
+                            Some(v) => Value::Option(Rc::new(v.clone())),
                         }
                     } else {
                         return Err(Interruption::TypeMismatch);
@@ -513,7 +515,7 @@ mod collection {
                     if let Value::Collection(Collection::HashMap(mut hm)) = hm.clone() {
                         match hm.remove(k) {
                             None => (hm, Value::Null),
-                            Some(v) => (hm, Value::Option(Box::new(v.clone()))),
+                            Some(v) => (hm, Value::Option(Rc::new(v.clone()))),
                         }
                     } else {
                         return Err(Interruption::TypeMismatch);
@@ -801,6 +803,10 @@ fn source_from_cont(cont: &Cont) -> Source {
 }
 
 mod store {
+    use num_traits::ToPrimitive;
+
+    use crate::value::Value_;
+
     use super::{Core, Interruption, Mut, Pointer, Value};
 
     pub fn alloc(core: &mut Core, v: Value) -> Pointer {
@@ -826,22 +832,32 @@ mod store {
         Ok(())
     }
 
-    pub fn mutate_array(
+    pub fn mutate_index(
         core: &mut Core,
         p: Pointer,
-        i: usize,
-        v: Value,
+        i: Value_,
+        v: Value_,
     ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
         match core.store.get_mut(&p) {
             None => Err(Interruption::Dangling(p)),
             Some(Value::Array(Mut::Var, a)) => {
+                let i = match &*i {
+                    Value::Nat(n) => n.to_usize().ok_or_else(|| {
+                        Interruption::ValueError(crate::value::ValueError::BigInt)
+                    })?,
+                    _ => Err(Interruption::TypeMismatch)?,
+                };
                 if i < a.len() {
-                    drop(a.set(i, v));
-                    return Ok(());
+                    drop(a.set(i, (*v).clone() /* TODO: `Value_` in store */));
+                    Ok(())
                 } else {
                     Err(Interruption::IndexOutOfBounds)
                 }
+            }
+            Some(Value::Dynamic(d)) => {
+                d.0.set_index(i, v)?;
+                Ok(())
             }
             _ => Err(Interruption::TypeMismatch),
         }
@@ -849,22 +865,15 @@ mod store {
 }
 
 fn usize_from_biguint(n: BigUint, max: Option<usize>) -> Result<usize, Interruption> {
-    let digits = n.to_u64_digits();
-    if digits.len() == 0 {
-        return Ok(0);
-    } else if digits.len() > 1 {
-        Err(Interruption::IndexOutOfBounds)
-    } else {
-        if let Some(m) = max {
-            if (digits[0] as usize) < m {
-                Ok(digits[0] as usize)
-            } else {
-                Err(Interruption::IndexOutOfBounds)
-            }
-        } else {
-            Ok(digits[0] as usize)
+    let n = n
+        .to_usize()
+        .ok_or_else(|| Interruption::ValueError(ValueError::BigInt))?;
+    if let Some(m) = max {
+        if n >= m {
+            Err(Interruption::IndexOutOfBounds)?
         }
     }
+    Ok(n)
 }
 
 fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
@@ -919,6 +928,7 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
             Call1(..) => false,
             Call2(..) => true,
             Call2Prim(..) => true,
+            Call2Dyn(..) => true,
             Call3 => false,
             Return => true,
             //_ => return nyi!(line!()),
@@ -960,7 +970,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
             }
             Assign1(e2) => match v {
                 Value::Pointer(p) => exp_conts(core, Assign2(Value::Pointer(p)), e2),
-                Value::ArrayOffset(p, i) => exp_conts(core, Assign2(Value::ArrayOffset(p, i)), e2),
+                Value::Index(p, i) => exp_conts(core, Assign2(Value::Index(p, i)), e2),
                 _ => Err(Interruption::TypeMismatch),
             },
             Assign2(Value::Pointer(p)) => {
@@ -968,8 +978,8 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
-            Assign2(Value::ArrayOffset(p, i)) => {
-                store::mutate_array(core, p, i, v)?;
+            Assign2(Value::Index(p, i)) => {
+                store::mutate_index(core, p, i, Rc::new(v))?;
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
@@ -981,10 +991,9 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 }) = core.stack.get(0)
                 {
                     match (v1, v) {
-                        (Value::Pointer(p), Value::Nat(i)) => {
+                        (Value::Pointer(p), i) => {
                             // save array pointer and offset until after RHS is evaluated.
-                            let i = usize_from_biguint(i, None)?;
-                            core.cont = Cont::Value(Value::ArrayOffset(p, i));
+                            core.cont = Cont::Value(Value::Index(p, Rc::new(i)));
                             Ok(Step {})
                         }
                         (Value::Dynamic(_), v) => {
@@ -1010,12 +1019,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             _ => Err(Interruption::TypeMismatch),
                         },
                         (Value::Dynamic(d), v) => {
-                            core.cont = Cont::Value(
-                                (*d.0
-                                    .get_index(&v)
-                                    .ok_or_else(|| Interruption::IndexOutOfBounds)?)
-                                .clone(),
-                            );
+                            core.cont = Cont::Value((*d.0.get_index(&v)?).clone());
                             Ok(Step {})
                         }
                         _ => Err(Interruption::TypeMismatch),
@@ -1044,7 +1048,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Ok(Step {})
             }
             Variant(i) => {
-                core.cont = Cont::Value(Value::Variant(*i.0, Some(Box::new(v))));
+                core.cont = Cont::Value(Value::Variant(*i.0, Some(Rc::new(v))));
                 Ok(Step {})
             }
             Switch(cases) => switch(core, v, cases),
@@ -1176,12 +1180,9 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                     }
                 }
                 Value::Dynamic(d) => {
-                    if let Some(f) = d.0.get_field(&*f.0) {
-                        core.cont = Cont::Value((*f).clone());
-                        Ok(Step {})
-                    } else {
-                        Err(Interruption::TypeMismatch)
-                    }
+                    let f = d.0.get_field(&*f.0)?;
+                    core.cont = Cont::Value((*f).clone());
+                    Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
@@ -1284,16 +1285,16 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             Opt => {
-                core.cont = Cont::Value(Value::Option(Box::new(v)));
+                core.cont = Cont::Value(Value::Option(Rc::new(v)));
                 Ok(Step {})
             }
             DoOpt => {
-                core.cont = Cont::Value(Value::Option(Box::new(v)));
+                core.cont = Cont::Value(Value::Option(Rc::new(v)));
                 Ok(Step {})
             }
             Bang => match v {
                 Value::Option(v) => {
-                    core.cont = Cont::Value(*v);
+                    core.cont = Cont::Value((*v).clone());
                     Ok(Step {})
                 }
                 Value::Null => bang_null(core),
@@ -1302,10 +1303,15 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
             Call1(inst, e2) => match v {
                 Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
                 Value::PrimFunction(pf) => exp_conts(core, FrameCont::Call2Prim(pf, inst), e2),
+                Value::Dynamic(d) => exp_conts(core, FrameCont::Call2Dyn(d, inst), e2),
                 _ => Err(Interruption::TypeMismatch),
             },
             Call2(cf, inst) => call_function(core, cf, inst, v),
             Call2Prim(pf, inst) => call_prim_function(core, pf, inst, v),
+            Call2Dyn(mut d, inst) => {
+                core.cont = Cont::Value((*(d.0.call(&inst, Rc::new(v))?)).clone());
+                Ok(Step {})
+            }
             Call3 => {
                 core.cont = Cont::Value(v);
                 Ok(Step {})

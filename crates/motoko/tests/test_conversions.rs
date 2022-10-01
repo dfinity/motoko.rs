@@ -1,7 +1,7 @@
 #![cfg(feature = "to-motoko")]
 
-use std::collections::HashMap;
 use std::fmt::Debug;
+use std::{collections::HashMap, rc::Rc};
 
 use motoko::value::ToMotoko;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -158,10 +158,13 @@ fn roundtrip_value() {
     //     "Variant(\"Pointer\", Some(Pointer(Pointer(123))))",
     // );
     assert(
-        "#ArrayOffset(123, 1)",
+        "#Index(123, #Nat 1)",
         // (123_usize, 1_usize).to_motoko().unwrap(),
-        motoko::value::Value::ArrayOffset(motoko::vm_types::Pointer(123), 1),
-        "Variant(\"ArrayOffset\", Some(Tuple([Nat(123), Nat(1)])))",
+        motoko::value::Value::Index(
+            motoko::vm_types::Pointer(123),
+            Rc::new(1_usize.to_motoko().unwrap()),
+        ),
+        "Variant(\"Index\", Some(Tuple([Nat(123), Variant(\"Nat\", Some(Nat(1)))])))",
     );
     // assert(
     //     "#Function { env = {}; content = { input = (#Wild, { source_type = \"Unknown\" }); exp = (#Literal(#Unit), { source_type = \"Unknown\" }) } }",

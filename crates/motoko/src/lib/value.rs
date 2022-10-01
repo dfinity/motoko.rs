@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::num::Wrapping;
+use std::rc::Rc;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
 use crate::dynamic::Dynamic;
@@ -75,7 +76,7 @@ pub struct FieldValue {
     pub val: Value,
 }
 
-pub type Value_ = Box<Value>;
+pub type Value_ = Rc<Value>;
 
 pub type Pointer = crate::vm_types::Pointer;
 
@@ -101,7 +102,7 @@ pub enum Value {
     Option(Value_),
     Variant(Id, Option<Value_>),
     Pointer(Pointer),
-    ArrayOffset(Pointer, usize),
+    Index(Pointer, Value_),
     Function(ClosedFunction),
     PrimFunction(PrimFunction),
     Collection(Collection),
@@ -109,10 +110,13 @@ pub enum Value {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DynamicValue(#[serde(with = "crate::serde_utils::box_dynamic")] pub Box<dyn Dynamic>);
+pub struct DynamicValue(
+    #[serde(with = "crate::serde_utils::dynamic_value")] pub Box<dyn Dynamic>,
+);
 
 impl Clone for DynamicValue {
     fn clone(&self) -> Self {
+        // TODO: replace `Box` with `Rc`
         DynamicValue(dyn_clone::clone_box(&*self.0))
     }
 }
@@ -315,7 +319,7 @@ impl Value {
     //             Variant((), ())
     //         }
     //         Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
-    //         Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+    //         Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
     //         Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
     //         Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
     //         Value::Collection(c) => match c {
@@ -377,7 +381,7 @@ impl Value {
                 Object(map)
             }
             Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
-            Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+            Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
             Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
             Value::Collection(c) => match c {
@@ -453,7 +457,7 @@ impl Value {
     //             }
     //         }
     //         Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
-    //         Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+    //         Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
     //         Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
     //         Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
     //         Value::Collection(c) => match c {

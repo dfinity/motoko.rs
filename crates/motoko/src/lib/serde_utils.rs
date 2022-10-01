@@ -58,7 +58,7 @@ pub mod im_rc_hashmap {
     }
 }
 
-pub mod box_dynamic {
+pub mod dynamic_value {
     // use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use crate::dynamic::Dynamic;
     use serde::{Deserializer, Serializer};

@@ -29,7 +29,7 @@ pretty = "0.11.3"
 logos = "0.12.1"
 line-col = "0.2.1"
 im-rc = { version = "15.1.0", features = ["serde"] }
-serde = { version = "1.0.143", features = ["derive"] }
+serde = { version = "1.0.143", features = ["derive", "rc"] }
 serde_json = "1.0.85"
 serde_path_to_error = { version = "0.1.8", optional = true }
 # serde_with = "2.0.1"

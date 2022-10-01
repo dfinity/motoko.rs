@@ -1,10 +1,13 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span};
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
 use crate::value::{Value, ValueError};
+use crate::{
+    ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},
+    value::Value_,
+};
 
 pub mod def {
     use crate::ast::{Stab_, Vis_};
@@ -68,7 +71,7 @@ pub enum Cont {
     Taken,
     Decs(Vector<Dec_>),
     Exp_(Exp_, Vector<Dec_>),
-    Value(Value), // Should we retain source locations for these values?
+    Value(Value),
     LetVarRet(Source, Option<Id_>),
 }
 
@@ -78,7 +81,7 @@ pub mod stack {
         BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, Pat_, PrimType, RelOp,
         Source, Type_, UnOp,
     };
-    use crate::value::{ClosedFunction, PrimFunction, Value};
+    use crate::value::{Value, Value_};
     use serde::{Deserialize, Serialize};
 
     /// Local continuation, stored in a stack frame.
@@ -102,7 +105,7 @@ pub mod stack {
         Block,
         Decs(Vector<Dec_>),
         Tuple(Vector<Value>, Vector<Exp_>),
-        Array(Mut, Vector<Value>, Vector<Exp_>),
+        Array(Mut, Vector<Value_>, Vector<Exp_>),
         Object(Vector<FieldValue>, FieldContext, Vector<ExpField_>),
         Annot(Type_),
         Assign1(Exp_),
@@ -125,8 +128,7 @@ pub mod stack {
         DoOpt,
         Bang,
         Call1(Option<Inst>, Exp_),
-        Call2(ClosedFunction, Option<Inst>),
-        Call2Prim(PrimFunction, Option<Inst>),
+        Call2(Value_, Option<Inst>),
         Call3,
         Return,
     }
@@ -162,11 +164,11 @@ pub type Env = HashMap<Identifier, Value>;
 
 /// Store holds mutable variables, mutable arrays and mutable
 /// records.
-pub type Store = HashMap<Pointer, Value>;
+pub type Store = HashMap<Pointer, Value_>;
 
 /// Counts. Some ideas of how we could count and limit what the VM
 /// does, to interject some "slow interactivity" into its execution.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Counts {
     pub step: usize,
     pub redex: usize,
@@ -194,8 +196,8 @@ pub struct Core {
     pub stack: Stack,
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub store: Store,
+    pub next_pointer: usize,
     pub debug_print_out: Vector<crate::value::Text>,
-
     pub counts: Counts,
 }
 
@@ -279,6 +281,7 @@ pub enum Interruption {
     Unknown,
     Impossible,
     EvalInitError(EvalInitError),
+    Other(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

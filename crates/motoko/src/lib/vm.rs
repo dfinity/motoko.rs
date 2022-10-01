@@ -1571,7 +1571,7 @@ impl Core {
 
     pub fn alloc(&mut self, value: Value_) -> Pointer {
         let ptr = Pointer(self.next_pointer);
-        self.next_pointer += 1; // TODO: account for overflow
+        self.next_pointer = self.next_pointer.checked_add(1).expect("Out of pointers");
         self.store.insert(ptr.clone(), value);
         ptr
     }

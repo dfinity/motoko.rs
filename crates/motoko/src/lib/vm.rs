@@ -204,26 +204,27 @@ fn call_prim_function(
     core: &mut Core,
     pf: &PrimFunction,
     targs: Option<Inst>,
-    args: Value,
+    args: Value_,
 ) -> Result<Step, Interruption> {
     use PrimFunction::*;
     match pf {
-        DebugPrint => match args {
+        DebugPrint => match &*args {
             Value::Text(s) => {
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, s);
-                core.debug_print_out.push_back(s);
+                core.debug_print_out.push_back(s.clone()); // TODO: store debug output as `Value_`?
                 core.cont = Cont::Value(Value::Unit.share());
                 Ok(Step {})
             }
             v => {
                 let txt = string_from_value(&v)?;
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
-                core.debug_print_out.push_back(txt.into());
+                core.debug_print_out
+                    .push_back(crate::value::Text::from(txt));
                 core.cont = Cont::Value(Value::Unit.share());
                 Ok(Step {})
             }
         },
-        NatToText => match args {
+        NatToText => match &*args {
             Value::Nat(n) => {
                 core.cont = Cont::Value(Value::Text(format!("{}", n).into()).share());
                 Ok(Step {})
@@ -265,7 +266,7 @@ fn call_collection_function(
     core: &mut Core,
     cf: &CollectionFunction,
     targs: Option<Inst>,
-    args: Value,
+    args: Value_,
 ) -> Result<Step, Interruption> {
     use CollectionFunction::*;
     match cf {
@@ -291,7 +292,7 @@ fn call_hashmap_function(
     core: &mut Core,
     hmf: &HashMapFunction,
     _targs: Option<Inst>,
-    args: Value,
+    args: Value_,
 ) -> Result<Step, Interruption> {
     use HashMapFunction::*;
     match hmf {
@@ -307,7 +308,7 @@ fn call_function(
     value: Value_,
     cf: &ClosedFunction,
     _targs: Option<Inst>,
-    args: Value,
+    args: Value_,
 ) -> Result<Step, Interruption> {
     if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.input.0, &args) {
         let source = core.cont_source.clone();
@@ -372,19 +373,19 @@ mod pattern {
     }
 }
 
-fn assert_value_is_optional(v: &Value) -> Result<Option<Value>, Interruption> {
+fn assert_value_is_optional<'a>(v: &'a Value) -> Result<Option<&'a Value_>, Interruption> {
     match v {
-        Value::Option(v) => Ok(Some((*v).clone())),
+        Value::Option(v) => Ok(Some(v)),
         Value::Null => Ok(None),
         _ => Err(Interruption::TypeMismatch),
     }
 }
 
-fn assert_value_is_u32(v: &Value) -> Result<u32, Interruption> {
+fn assert_value_is_u32<'a>(v: &'a Value) -> Result<u32, Interruption> {
     v.to_rust().map_err(Interruption::ValueError)
 }
 
-fn assert_value_is_option_u32(v: &Value) -> Result<Option<u32>, Interruption> {
+fn assert_value_is_option_u32<'a>(v: &'a Value) -> Result<Option<u32>, Interruption> {
     match assert_value_is_optional(v)? {
         None => Ok(None),
         Some(v) => Ok(Some(assert_value_is_u32(v)?)),
@@ -440,7 +441,7 @@ mod collection {
         use crate::value::Collection;
         use im_rc::vector;
 
-        pub fn new(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+        pub fn new(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(_) = pattern_matches(&core.env, &Pat::Literal(Literal::Unit), &v) {
                 core.cont = Cont::Value(Value::Collection(Collection::HashMap(HashMap::new())));
                 Ok(Step {})
@@ -448,7 +449,7 @@ mod collection {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn put(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+        pub fn put(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
                 &HashMap::new(),
                 &pattern::vars(core, vector!["hm", "k", "v"]),
@@ -475,7 +476,7 @@ mod collection {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn get(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+        pub fn get(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
                 &HashMap::new(),
                 &pattern::vars(core, vector!["hm", "k"]),

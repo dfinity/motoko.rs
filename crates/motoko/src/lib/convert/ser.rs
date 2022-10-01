@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
@@ -245,17 +245,17 @@ pub struct SerializeVec {
 }
 
 pub struct SerializeTuple {
-    vec: Vector<Value>,
+    vec: Vector<Value_>,
 }
 
 pub struct SerializeTupleVariant {
     name: String,
-    vec: Vector<Value>,
+    vec: Vector<Value_>,
 }
 
 pub struct SerializeMap {
-    map: HashMap<Value, Value>,
-    next_key: Option<Value>,
+    map: HashMap<Value_, Value_>,
+    next_key: Option<Value_>,
 }
 
 pub struct SerializeStruct {
@@ -292,7 +292,7 @@ impl serde::ser::SerializeTuple for SerializeTuple {
     where
         T: ?Sized + Serialize,
     {
-        self.vec.push_back(value.serialize(Serializer)?);
+        self.vec.push_back(value.serialize(Serializer)?.share());
         Ok(())
     }
 
@@ -325,7 +325,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     where
         T: ?Sized + Serialize,
     {
-        self.vec.push_back(value.serialize(Serializer)?);
+        self.vec.push_back(value.serialize(Serializer)?.share());
         Ok(())
     }
 
@@ -345,7 +345,7 @@ impl serde::ser::SerializeMap for SerializeMap {
     where
         T: ?Sized + Serialize,
     {
-        self.next_key = Some(key.serialize(Serializer)?);
+        self.next_key = Some(key.serialize(Serializer)?.share());
         Ok(())
     }
 
@@ -357,7 +357,7 @@ impl serde::ser::SerializeMap for SerializeMap {
             .next_key
             .take()
             .expect("serialize_value called before serialize_key");
-        self.map.insert(key, value.serialize(Serializer)?);
+        self.map.insert(key, value.serialize(Serializer)?.share());
         Ok(())
     }
 
@@ -380,7 +380,7 @@ impl serde::ser::SerializeStruct for SerializeStruct {
             String::from(key),
             FieldValue {
                 mut_: Mut::Var, // Mutable by default
-                val: value.serialize(Serializer)?,
+                val: value.serialize(Serializer)?.share(),
             },
         );
         Ok(())
@@ -403,7 +403,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
             String::from(key),
             FieldValue {
                 mut_: Mut::Var, // Mutable by default
-                val: value.serialize(Serializer)?,
+                val: value.serialize(Serializer)?.share(),
             },
         );
         Ok(())

@@ -74,7 +74,7 @@ pub struct FieldValue {
     #[serde(rename = "mut")]
     pub mut_: Mut,
     // pub id: Id,
-    pub val: Value,
+    pub val: Value_,
 }
 
 pub type Value_ = Shared<Value>;

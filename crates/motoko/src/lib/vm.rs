@@ -982,8 +982,8 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                         _ => Err(Interruption::TypeMismatch),
                     }
                 } else {
-                    let v1 = core.deref_value(Rc::new(v1))?;
-                    match (&*v1, v) {
+                    //let v1 = core.deref_value(Rc::new(v1))?;
+                    match (&v1, v) {
                         (Value::Array(_mut, a), Value::Nat(i)) => {
                             let i = usize_from_biguint(i)?;
                             core.cont = Cont::Value(
@@ -1274,8 +1274,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             Call1(inst, e2) => {
-                let v = core.deref_value(Rc::new(v))?;
-                exp_conts(core, FrameCont::Call2(v, inst), e2)
+                exp_conts(core, FrameCont::Call2(Rc::new(v), inst), e2)
                 // match v {
                 //     Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
                 //     Value::PrimFunction(pf) => exp_conts(core, FrameCont::Call2Prim(pf, inst), e2),

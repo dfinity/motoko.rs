@@ -1,8 +1,9 @@
 #![cfg(feature = "to-motoko")]
 
 use std::fmt::Debug;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap};
 
+use motoko::shared::Share;
 use motoko::value::ToMotoko;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -162,7 +163,7 @@ fn roundtrip_value() {
         // (123_usize, 1_usize).to_motoko().unwrap(),
         motoko::value::Value::Index(
             motoko::vm_types::Pointer(123),
-            Rc::new(1_usize.to_motoko().unwrap()),
+            1_usize.to_motoko().unwrap().share(),
         ),
         "Variant(\"Index\", Some(Tuple([Nat(123), Variant(\"Nat\", Some(Nat(1)))])))",
     );

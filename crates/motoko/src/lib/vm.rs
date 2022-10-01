@@ -1001,8 +1001,8 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                             );
                             Ok(Step {})
                         }
-                        (Value::Dynamic(d), v) => {
-                            core.cont = cont_value((*d.dynamic().get_index(&v)?).clone());
+                        (Value::Dynamic(d), _) => {
+                            core.cont = cont_value((*d.dynamic().get_index(v)?).clone());
                             Ok(Step {})
                         }
                         _ => Err(Interruption::TypeMismatch),

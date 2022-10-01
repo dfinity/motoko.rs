@@ -1,7 +1,9 @@
 use std::fmt::Display;
 use std::num::Wrapping;
+use std::rc::Rc;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
+use crate::dynamic::Dynamic;
 use crate::vm_types::Env;
 
 use im_rc::HashMap;
@@ -74,7 +76,7 @@ pub struct FieldValue {
     pub val: Value,
 }
 
-pub type Value_ = Box<Value>;
+pub type Value_ = Rc<Value>;
 
 pub type Pointer = crate::vm_types::Pointer;
 
@@ -84,7 +86,6 @@ pub struct ClosedFunction(pub Closed<Function>);
 pub type Float = OrderedFloat<f64>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-// #[serde(tag = "value_type", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
@@ -95,16 +96,68 @@ pub enum Value {
     Char(char),
     Text(Text),
     Blob(Vec<u8>),
-    Array(Mut, Vector<Value>),
+    Array(Mut, Vector<Value_>),
     Tuple(Vector<Value>),
     Object(HashMap<Id, FieldValue>),
     Option(Value_),
     Variant(Id, Option<Value_>),
     Pointer(Pointer),
-    ArrayOffset(Pointer, usize),
+    Index(Pointer, Value_),
     Function(ClosedFunction),
     PrimFunction(PrimFunction),
     Collection(Collection),
+    Dynamic(DynamicValue),
+}
+
+#[derive(Debug)]
+pub struct DynamicValue(pub Rc<std::cell::RefCell<dyn Dynamic>>);
+
+impl DynamicValue {
+    pub fn dynamic(&self) -> std::cell::Ref<dyn Dynamic> {
+        self.0.borrow()
+    }
+
+    pub fn dynamic_mut(&self) -> std::cell::RefMut<dyn Dynamic> {
+        (*self.0).borrow_mut()
+    }
+}
+
+impl Serialize for DynamicValue {
+    fn serialize<S>(&self, _ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        todo!()
+    }
+}
+
+impl<'de> Deserialize<'de> for DynamicValue {
+    fn deserialize<D>(_des: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        todo!()
+    }
+}
+
+impl Clone for DynamicValue {
+    fn clone(&self) -> Self {
+        // TODO: replace `Box` with `Rc`
+        DynamicValue(Rc::clone(&self.0))
+    }
+}
+
+impl PartialEq for DynamicValue {
+    fn eq(&self, _other: &Self) -> bool {
+        todo!()
+    }
+}
+impl Eq for DynamicValue {}
+
+impl std::hash::Hash for DynamicValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.borrow().dyn_hash(state)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -292,7 +345,7 @@ impl Value {
     //             Variant((), ())
     //         }
     //         Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
-    //         Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+    //         Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
     //         Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
     //         Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
     //         Value::Collection(c) => match c {
@@ -354,7 +407,7 @@ impl Value {
                 Object(map)
             }
             Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
-            Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+            Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
             Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
             Value::Collection(c) => match c {
@@ -374,6 +427,9 @@ impl Value {
                     Err(ValueError::ToRust("FastRandIter".to_string()))?
                 }
             },
+            Value::Dynamic(d) => {
+                serde_json::to_value(d).map_err(|e| ValueError::ToRust(e.to_string()))?
+            }
         })
     }
 
@@ -427,7 +483,7 @@ impl Value {
     //             }
     //         }
     //         Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
-    //         Value::ArrayOffset(_, _) => Err(ValueError::ToRust("ArrayOffset".to_string()))?,
+    //         Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
     //         Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
     //         Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
     //         Value::Collection(c) => match c {

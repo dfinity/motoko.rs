@@ -274,8 +274,8 @@ impl<'de> serde::Deserializer<'de> for Value {
                 "fast random iterator".to_string(),
             ))?,
             Value::Pointer(_) => Err(ValueError::NotConvertible("pointer".to_string()))?,
-            Value::ArrayOffset(_, _) => {
-                Err(ValueError::NotConvertible("array offset".to_string()))?
+            Value::Index(_, _) => {
+                Err(ValueError::NotConvertible("array index".to_string()))?
             }
             Value::Function(_) => Err(ValueError::NotConvertible("function".to_string()))?,
             Value::PrimFunction(_) => Err(ValueError::NotConvertible("prim function".to_string()))?,
@@ -1439,7 +1439,7 @@ impl Value {
             Value::Collection(crate::value::Collection::HashMap(_)) => Unexpected::Map,
             Value::Collection(crate::value::Collection::FastRandIter(_)) => Unexpected::Seq,
             Value::Pointer(_) => Unexpected::Other("pointer"),
-            Value::ArrayOffset(_, _) => Unexpected::Other("array offset"),
+            Value::Index(_, _) => Unexpected::Other("array index"),
             Value::Function(_) => Unexpected::Other("function"),
             Value::PrimFunction(_) => Unexpected::Other("prim function"),
         }

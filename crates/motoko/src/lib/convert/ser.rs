@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigInt, BigUint};
@@ -6,7 +6,7 @@ use serde::{serde_if_integer128, Serialize};
 
 use crate::{
     ast::Mut,
-    value::{FieldValue, Text, Value, ValueError},
+    value::{FieldValue, Text, Value, ValueError, Value_},
 };
 
 type Error = ValueError;
@@ -159,7 +159,7 @@ impl serde::Serializer for Serializer {
     {
         Ok(Value::Variant(
             variant.to_string(),
-            Some(Box::new(value.serialize(self)?)),
+            Some(Rc::new(value.serialize(self)?)),
         ))
     }
 
@@ -173,7 +173,7 @@ impl serde::Serializer for Serializer {
     where
         T: ?Sized + Serialize,
     {
-        Ok(Value::Option(Box::new(value.serialize(self)?)))
+        Ok(Value::Option(Rc::new(value.serialize(self)?)))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -240,7 +240,7 @@ impl serde::Serializer for Serializer {
 }
 
 pub struct SerializeVec {
-    vec: Vector<Value>,
+    vec: Vector<Value_>,
 }
 
 pub struct SerializeTuple {
@@ -274,7 +274,7 @@ impl serde::ser::SerializeSeq for SerializeVec {
     where
         T: ?Sized + Serialize,
     {
-        self.vec.push_back(value.serialize(Serializer)?);
+        self.vec.push_back(Rc::new(value.serialize(Serializer)?));
         Ok(())
     }
 
@@ -331,7 +331,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     fn end(self) -> Result<Value> {
         Ok(Value::Variant(
             self.name,
-            Some(Box::new(Value::Tuple(self.vec))),
+            Some(Rc::new(Value::Tuple(self.vec))),
         ))
     }
 }
@@ -411,7 +411,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     fn end(self) -> Result<Value> {
         Ok(Value::Variant(
             self.name,
-            Some(Box::new(Value::Object(self.map))),
+            Some(Rc::new(Value::Object(self.map))),
         ))
     }
 }

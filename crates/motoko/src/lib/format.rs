@@ -221,7 +221,7 @@ impl ToDoc for Exp {
             Dot(e, s) => e.doc().append(".").append(s.doc()),
             Assign(from, to) => from.doc().append(str(" := ")).append(to.doc()),
             Array(m, es) => array(m, es),
-            Idx(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
+            Index(e, idx) => e.doc().append("[").append(idx.doc()).append("]"),
             Function(_) => todo!(),
             Call(e, b, a) => e
                 .doc()

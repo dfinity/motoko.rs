@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::ast::Inst;
-use crate::value::{Value, Value_};
+use crate::value::{DynamicValue, Value, Value_};
 use crate::vm_types::Interruption;
 
 pub use dyn_clone::DynClone;
@@ -9,6 +9,13 @@ pub use dyn_clone::DynClone;
 pub type Result<T = Value_> = std::result::Result<T, Interruption>;
 
 pub trait Dynamic: Debug + DynClone + DynHash {
+    fn into_value(self) -> Value
+    where
+        Self: 'static + Sized,
+    {
+        Value::Dynamic(DynamicValue(Box::new(self)))
+    }
+
     fn get_index(&self, _index: &Value) -> Result {
         Err(Interruption::IndexOutOfBounds)
     }
@@ -21,9 +28,9 @@ pub trait Dynamic: Debug + DynClone + DynHash {
         Err(Interruption::UnboundIdentifer(name.to_string()))
     }
 
-    fn set_field(&mut self, name: &str, _value: Value_) -> Result<()> {
-        Err(Interruption::UnboundIdentifer(name.to_string()))
-    }
+    // fn set_field(&mut self, name: &str, _value: Value_) -> Result<()> {
+    //     Err(Interruption::UnboundIdentifer(name.to_string()))
+    // }
 
     fn call(&self, _inst: &Option<Inst>, _args: Value_) -> Result {
         Err(Interruption::TypeMismatch)

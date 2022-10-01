@@ -1595,7 +1595,7 @@ impl Core {
     pub fn deref_value(&mut self, value: Value_) -> Result<Value_, Interruption> {
         match &*value {
             Value::Pointer(p) => self.deref(p),
-            v => Ok(value),
+            _ => Ok(value),
         }
     }
 }

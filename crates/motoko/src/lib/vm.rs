@@ -1570,11 +1570,10 @@ impl Core {
     }
 
     pub fn alloc(&mut self, value: Value_) -> Pointer {
-        let next = self.next_pointer;
+        let ptr = Pointer(self.next_pointer);
         self.next_pointer += 1; // TODO: account for overflow
-        let ptr = next;
-        self.store.insert(Pointer(ptr), value);
-        Pointer(ptr)
+        self.store.insert(ptr.clone(), value);
+        ptr
     }
 
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {

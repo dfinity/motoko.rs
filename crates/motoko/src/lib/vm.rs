@@ -426,8 +426,8 @@ mod collection {
                         Some(n) => Value::Option(n.share()),
                         None => Value::Null,
                     };
-                    let i = Value::Collection(Collection::FastRandIter(fri));
-                    core.cont = Cont::Value(Value::Tuple(vector![n, i]));
+                    // let i = Value::Collection(Collection::FastRandIter(fri));
+                    core.cont = Cont::Value(Value::Tuple(vector![n.share(), v]).share());
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
@@ -442,7 +442,8 @@ mod collection {
 
         pub fn new(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(_) = pattern_matches(core.env.clone(), &Pat::Literal(Literal::Unit), v) {
-                core.cont = Cont::Value(Value::Collection(Collection::HashMap(HashMap::new())));
+                core.cont =
+                    Cont::Value(Value::Collection(Collection::HashMap(HashMap::new())).share());
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -454,11 +455,11 @@ mod collection {
                 &pattern::vars(core, vector!["hm", "k", "v"]),
                 v,
             ) {
-                let hm = env.get_mut("hm").unwrap();
+                let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let v = env.get("v").unwrap();
                 let (hm, old) = {
-                    if let Value::Collection(Collection::HashMap(mut hm)) = hm {
+                    if let Value::Collection(Collection::HashMap(mut hm)) = &**hm {
                         match hm.insert(k.fast_clone(), v.fast_clone()) {
                             None => (hm, Value::Null),
                             Some(old) => (hm, Value::Option(old)),
@@ -467,48 +468,46 @@ mod collection {
                         return Err(Interruption::TypeMismatch);
                     }
                 };
+                // Note for later: immutable map updates are adding extra overhead here
+                // We could probably just tolerate this and use `Dynamic` values for performance-critical situations
                 let hm = Value::Collection(Collection::HashMap(hm));
-                let ret = Value::Tuple(vector![hm, old]);
-                core.cont = Cont::Value(ret);
+                let ret = Value::Tuple(vector![hm.share(), old.share()]);
+                core.cont = Cont::Value(ret.share());
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
         pub fn get(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            if let Some(env) = pattern_matches(
-                HashMap::new(),
-                &pattern::vars(core, vector!["hm", "k"]),
-                v,
-            ) {
+            if let Some(env) =
+                pattern_matches(HashMap::new(), &pattern::vars(core, vector!["hm", "k"]), v)
+            {
                 let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let ret = {
-                    if let Value::Collection(Collection::HashMap(hm)) = hm {
+                    if let Value::Collection(Collection::HashMap(hm)) = &**hm {
                         match hm.get(k) {
                             None => Value::Null,
-                            Some(v) => Value::Option(v),
+                            Some(v) => Value::Option(v.fast_clone()),
                         }
                     } else {
                         return Err(Interruption::TypeMismatch);
                     }
                 };
-                core.cont = Cont::Value(ret);
+                core.cont = Cont::Value(ret.share());
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
         pub fn remove(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            if let Some(env) = pattern_matches(
-                HashMap::new(),
-                &pattern::vars(core, vector!["hm", "k"]),
-                v,
-            ) {
-                let hm = env.get_mut("hm").unwrap();
+            if let Some(env) =
+                pattern_matches(HashMap::new(), &pattern::vars(core, vector!["hm", "k"]), v)
+            {
+                let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let (hm, old) = {
-                    if let Value::Collection(Collection::HashMap(mut hm)) = hm {
+                    if let Value::Collection(Collection::HashMap(mut hm)) = &**hm {
                         match hm.remove(k) {
                             None => (hm, Value::Null),
                             Some(v) => (hm, Value::Option(v)),
@@ -518,8 +517,8 @@ mod collection {
                     }
                 };
                 let hm = Value::Collection(Collection::HashMap(hm));
-                let ret = Value::Tuple(vector![hm, old]);
-                core.cont = Cont::Value(ret);
+                let ret = Value::Tuple(vector![hm.share(), old.share()]);
+                core.cont = Cont::Value(ret.share());
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -564,14 +563,15 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     let source = exp.1.clone();
     match *exp.0 {
         Literal(l) => {
-            core.cont = Cont::Value(Value::from_literal(l).map_err(Interruption::ValueError)?);
+            // TODO: partial evaluation would now be highly efficient due to value sharing
+            core.cont = Cont::Value(Value::from_literal(l).map_err(Interruption::ValueError)?.share());
             Ok(Step {})
         }
         Function(f) => {
             core.cont = Cont::Value(Value::Function(ClosedFunction(Closed {
                 env: core.env.clone(),
                 content: f,
-            })));
+            })).share());
             Ok(Step {})
         }
         Call(e1, inst, e2) => exp_conts(core, FrameCont::Call1(inst, e2), e1),
@@ -588,7 +588,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Un(un, e) => exp_conts(core, FrameCont::UnOp(un), e),
         Paren(e) => exp_conts(core, FrameCont::Paren, e),
         Variant(id, None) => {
-            core.cont = Cont::Value(Value::Variant(*id.0, None));
+            core.cont = Cont::Value(Value::Variant(*id.0, None).share());
             Ok(Step {})
         }
         Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id), e),
@@ -1587,7 +1587,7 @@ impl Core {
         self.store
             .get(pointer)
             .ok_or_else(|| Interruption::Dangling(pointer.clone()))
-            .map(Rc::clone)
+            .map(|v| v.fast_clone())
     }
 }
 

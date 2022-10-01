@@ -15,7 +15,7 @@ use crate::vm_types::{
     Signal, Step, NYI,
 };
 use im_rc::{HashMap, Vector};
-use num_bigint::{BigInt, BigUint};
+use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::ToPrimitive;
 use std::rc::Rc;
 use std::vec::Vec;
@@ -78,7 +78,7 @@ fn core_init(prog: Prog) -> Core {
 
 fn unop(un: UnOp, v: Value_) -> Result<Value, Interruption> {
     match (un, &*v) {
-        (UnOp::Neg, Value::Nat(n)) => Ok(Value::Int(-BigInt::from(n))),
+        (UnOp::Neg, Value::Nat(n)) => Ok(Value::Int(-n.to_bigint().unwrap())),
         _ => nyi!(line!()),
     }
 }

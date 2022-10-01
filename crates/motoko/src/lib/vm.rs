@@ -1054,7 +1054,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 core.cont = Cont::Value_(v);
                 Ok(Step {})
             }
-            Assert => match v {
+            Assert => match &*v {
                 Value::Bool(true) => {
                     core.cont = cont_value(Value::Unit);
                     Ok(Step {})
@@ -1070,23 +1070,23 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 done.push_back(v);
                 match rest.pop_front() {
                     None => {
-                        core.cont = Cont::Value_(Value::Tuple(done));
+                        core.cont = cont_value(Value::Tuple(done));
                         Ok(Step {})
                     }
                     Some(next) => exp_conts(core, Tuple(done, rest), next),
                 }
             }
             Array(mut_, mut done, mut rest) => {
-                done.push_back(Rc::new(v));
+                done.push_back(v);
                 match rest.pop_front() {
                     None => {
                         if let Mut::Const = mut_ {
-                            core.cont = Cont::Value(Value::Array(mut_, done));
+                            core.cont = cont_value(Value::Array(mut_, done));
                             Ok(Step {})
                         } else {
                             let arr = Value::Array(mut_, done);
-                            let ptr = core.alloc(Rc::new(arr));
-                            core.cont = Cont::Value(Value::Pointer(ptr));
+                            let ptr = core.alloc(arr.share());
+                            core.cont = cont_value(Value::Pointer(ptr));
                             Ok(Step {})
                         }
                     }
@@ -1107,7 +1107,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                             let id = *f.id.0; // to do -- avoid cloning strings. Use Rc.
                             let val = match f.mut_ {
                                 Mut::Const => f.val,
-                                Mut::Var => Value::Pointer(core.alloc(f.val)),
+                                Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
                             };
                             hm.insert(
                                 id.clone(),

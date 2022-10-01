@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
-use crate::value::ValueError;
+use crate::value::{ValueError, Value};
 use crate::{
     ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},
     value::Value_,
@@ -72,6 +72,7 @@ pub enum Cont {
     Decs(Vector<Dec_>),
     Exp_(Exp_, Vector<Dec_>),
     Value(Value_),
+    // Value_(Value_),
     LetVarRet(Source, Option<Id_>),
 }
 

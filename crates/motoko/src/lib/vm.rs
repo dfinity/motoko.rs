@@ -76,8 +76,8 @@ fn core_init(prog: Prog) -> Core {
     }
 }
 
-fn unop(un: UnOp, v: Value) -> Result<Value, Interruption> {
-    match (un, v) {
+fn unop(un: UnOp, v: Value_) -> Result<Value, Interruption> {
+    match (un, &*v) {
         (UnOp::Neg, Value::Nat(n)) => Ok(Value::Int(-BigInt::from(n))),
         _ => nyi!(line!()),
     }
@@ -86,8 +86,8 @@ fn unop(un: UnOp, v: Value) -> Result<Value, Interruption> {
 fn binop(
     cont_prim_type: &Option<PrimType>,
     binop: BinOp,
-    v1: Value,
-    v2: Value,
+    v1: Value_,
+    v2: Value_,
 ) -> Result<Value, Interruption> {
     use BinOp::*;
     use Value::*;
@@ -564,23 +564,30 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     match *exp.0 {
         Literal(l) => {
             // TODO: partial evaluation would now be highly efficient due to value sharing
-            core.cont = Cont::Value(Value::from_literal(l).map_err(Interruption::ValueError)?.share());
+            core.cont = Cont::Value(
+                Value::from_literal(l)
+                    .map_err(Interruption::ValueError)?
+                    .share(),
+            );
             Ok(Step {})
         }
         Function(f) => {
-            core.cont = Cont::Value(Value::Function(ClosedFunction(Closed {
-                env: core.env.clone(),
-                content: f,
-            })).share());
+            core.cont = Cont::Value(
+                Value::Function(ClosedFunction(Closed {
+                    env: core.env.clone(),
+                    content: f,
+                }))
+                .share(),
+            );
             Ok(Step {})
         }
         Call(e1, inst, e2) => exp_conts(core, FrameCont::Call1(inst, e2), e1),
-        Return(None) => return_(core, Value::Unit),
+        Return(None) => return_(core, Value::Unit.share()),
         Return(Some(e)) => exp_conts(core, FrameCont::Return, e),
         Var(x) => match core.env.get(&x) {
             None => Err(Interruption::UnboundIdentifer(x.clone())),
             Some(v) => {
-                core.cont = Cont::Value(v.clone());
+                core.cont = Cont::Value(v.fast_clone());
                 Ok(Step {})
             }
         },
@@ -588,6 +595,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Un(un, e) => exp_conts(core, FrameCont::UnOp(un), e),
         Paren(e) => exp_conts(core, FrameCont::Paren, e),
         Variant(id, None) => {
+            // TODO: cache and share variants?
             core.cont = Cont::Value(Value::Variant(*id.0, None).share());
             Ok(Step {})
         }
@@ -606,7 +614,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             let mut fs: Vector<_> = fs.vec.into();
             match fs.pop_front() {
                 None => {
-                    core.cont = Cont::Value(Value::Object(HashMap::new()));
+                    core.cont = Cont::Value(Value::Object(HashMap::new()).share());
                     Ok(Step {})
                 }
                 Some(f1) => {
@@ -624,7 +632,8 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             let mut es: Vector<_> = es.vec.into();
             match es.pop_front() {
                 None => {
-                    core.cont = Cont::Value(Value::Unit);
+                    // TODO: globally share (), true, false, null, etc.
+                    core.cont = Cont::Value(Value::Unit.share());
                     Ok(Step {})
                 }
                 Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), e1),
@@ -634,7 +643,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             let mut es: Vector<_> = es.vec.into();
             match es.pop_front() {
                 None => {
-                    core.cont = Cont::Value(Value::Array(mut_, Vector::new()));
+                    core.cont = Cont::Value(Value::Array(mut_, Vector::new()).share());
                     Ok(Step {})
                 }
                 Some(e1) => exp_conts(core, FrameCont::Array(mut_, Vector::new(), es), e1),
@@ -667,7 +676,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
         Debug(e) => exp_conts(core, FrameCont::Debug, e),
         Prim(s) => {
-            core.cont = Cont::Value(prim_value(&s)?);
+            core.cont = Cont::Value(prim_value(&s)?.share());
             Ok(Step {})
         }
         _ => nyi!(line!()),
@@ -721,7 +730,7 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
 
 fn switch(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
-        if let Some(env) = pattern_matches(core.env.clone(), &*case.0.pat.0, &v) {
+        if let Some(env) = pattern_matches(core.env.clone(), &*case.0.pat.0, v) {
             core.env = env;
             core.cont_source = case.0.exp.1.clone();
             core.cont = Cont::Exp_(case.0.exp, Vector::new());
@@ -738,7 +747,7 @@ fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
             match fr.cont {
                 FrameCont::DoOpt => {
                     core.stack = stack;
-                    core.cont = Cont::Value(Value::Null);
+                    core.cont = Cont::Value(Value::Null.share());
                     return Ok(Step {});
                 }
                 _ => {}
@@ -749,7 +758,7 @@ fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
     }
 }
 
-fn return_(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+fn return_(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
     let mut stack = core.stack.clone();
     loop {
         if let Some(fr) = stack.pop_front() {
@@ -804,7 +813,7 @@ mod store {
 
     use num_traits::ToPrimitive;
 
-    use crate::value::Value_;
+    use crate::{value::Value_, shared::Share};
 
     use super::{Core, Interruption, Mut, Pointer, Value};
 
@@ -825,12 +834,12 @@ mod store {
         v: Value_,
     ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
-        let deallocated = core
+        let pointer_ref = core
             .store
             .get_mut(&p)
             .ok_or_else(|| Interruption::Dangling(p))?;
 
-        match &**deallocated {
+        match &**pointer_ref {
             Value::Array(Mut::Var, a) => {
                 let i = match &*i {
                     Value::Nat(n) => n.to_usize().ok_or_else(|| {
@@ -841,7 +850,7 @@ mod store {
                 let mut a = a.clone();
                 if i < a.len() {
                     a.set(i, v);
-                    *deallocated = Rc::new(Value::Array(Mut::Var, a));
+                    *pointer_ref = Value::Array(Mut::Var, a).share();
                     Ok(())
                 } else {
                     Err(Interruption::IndexOutOfBounds)

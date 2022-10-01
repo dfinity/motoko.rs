@@ -50,9 +50,9 @@ fn dyn_struct() {
 
     let mut core = motoko::vm_types::Core::empty();
 
-    // TODO: use `alloc()`
+    // TODO: use something like `core.alloc()`
     let pointer = Pointer(12345);
-    core.store.insert(pointer, value);
+    core.store.insert(pointer.clone(), value);
     core.env
         .insert("value".to_string(), Value::Pointer(pointer));
 

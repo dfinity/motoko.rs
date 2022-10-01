@@ -815,10 +815,10 @@ mod store {
         Pointer(ptr)
     }
 
-    pub fn deref(core: &mut Core, p: &Pointer) -> Option<Value> {
+    pub fn deref(core: &mut Core, p: &Pointer) -> Result<Value, Interruption> {
         match core.store.get(p) {
-            None => None,
-            Some(v) => Some(v.clone()),
+            None => Err(Interruption::Dangling(p.clone())),
+            Some(v) => Ok(v.clone()),
         }
     }
 
@@ -1003,25 +1003,37 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                         _ => Err(Interruption::TypeMismatch),
                     }
                 } else {
+                    let v1 = match v1 {
+                        Value::Pointer(p) => store::deref(core, &p)?,
+                        v1 => v1,
+                    };
                     match (v1, v) {
                         (Value::Array(_mut_, a), Value::Nat(i)) => {
                             let i = usize_from_biguint(i, Some(a.len()))?;
                             core.cont = Cont::Value(a.get(i.into()).unwrap().clone());
                             Ok(Step {})
                         }
-                        (Value::Pointer(p), Value::Nat(i)) => match store::deref(core, &p) {
-                            None => Err(Interruption::Dangling(p.clone())),
-                            Some(Value::Array(_mut_, a)) => {
-                                let i = usize_from_biguint(i, Some(a.len()))?;
-                                core.cont = Cont::Value(a.get(i).unwrap().clone());
-                                Ok(Step {})
-                            }
-                            _ => Err(Interruption::TypeMismatch),
-                        },
                         (Value::Dynamic(d), v) => {
                             core.cont = Cont::Value((*d.0.get_index(&v)?).clone());
                             Ok(Step {})
                         }
+                        // (Value::Pointer(p), i) => match store::deref(core, &p) {
+                        //     None => Err(Interruption::Dangling(p.clone())),
+                        //     Some(Value::Array(_mut_, a)) => {
+                        //         let i = match v {
+                        //             Value::Nat(i) => i,
+                        //             _ => Err(Interruption::TypeMismatch)?,
+                        //         };
+                        //         let i = usize_from_biguint(i, Some(a.len()))?;
+                        //         core.cont = Cont::Value(a.get(i).unwrap().clone());
+                        //         Ok(Step {})
+                        //     }
+                        //     Some(Value::Dynamic(d)) => {
+                        //         core.cont = Cont::Value((*d.0.get_index(&v)?).clone());
+                        //         Ok(Step {})
+                        //     }
+                        //     _ => Err(Interruption::TypeMismatch),
+                        // },
                         _ => Err(Interruption::TypeMismatch),
                     }
                 }
@@ -1310,9 +1322,8 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
             Call2Prim(pf, inst) => call_prim_function(core, pf, inst, v),
             Call2Pointer(p, inst) => {
                 // TODO: move to helper function in `store` module?
-                let d = match core.store.get_mut(&p) {
-                    Some(Value::Dynamic(d)) => d,
-                    None => Err(Interruption::Dangling(p))?,
+                let d = match store::deref(core, &p)? {
+                    Value::Dynamic(d) => d,
                     _ => Err(Interruption::TypeMismatch)?,
                 };
                 let v = d.0.call(&inst, Rc::new(v))?;
@@ -1431,7 +1442,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                 _ => (),
             };
             // Final case: Implicit dereferencing of pointer:
-            let v = store::deref(core, &p).ok_or_else(|| Interruption::Dangling(p.clone()))?;
+            let v = store::deref(core, &p)?;
             core.cont = Cont::Value(v);
             Ok(Step {})
         }

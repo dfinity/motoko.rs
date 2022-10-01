@@ -52,7 +52,7 @@ pub mod def {
 pub struct Id(u64);
 
 /// Or maybe a string?
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Pointer(pub usize);
 
 /// Local continuation as a Dec sequence.  This Vector permits

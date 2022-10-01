@@ -96,7 +96,7 @@ pub enum Value {
     Char(char),
     Text(Text),
     Blob(Vec<u8>),
-    Array(Mut, Vector<Value>),
+    Array(Mut, Vector<Value_>),
     Tuple(Vector<Value>),
     Object(HashMap<Id, FieldValue>),
     Option(Value_),

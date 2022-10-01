@@ -1,10 +1,13 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::{ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span}, value::Value_};
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
 use crate::value::{Value, ValueError};
+use crate::{
+    ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},
+    value::Value_,
+};
 
 pub mod def {
     use crate::ast::{Stab_, Vis_};
@@ -102,7 +105,7 @@ pub mod stack {
         Block,
         Decs(Vector<Dec_>),
         Tuple(Vector<Value>, Vector<Exp_>),
-        Array(Mut, Vector<Value>, Vector<Exp_>),
+        Array(Mut, Vector<Value_>, Vector<Exp_>),
         Object(Vector<FieldValue>, FieldContext, Vector<ExpField_>),
         Annot(Type_),
         Assign1(Exp_),
@@ -278,6 +281,7 @@ pub enum Interruption {
     Unknown,
     Impossible,
     EvalInitError(EvalInitError),
+    Other(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

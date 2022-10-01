@@ -804,6 +804,8 @@ fn source_from_cont(cont: &Cont) -> Source {
 }
 
 mod store {
+    use std::rc::Rc;
+
     use num_traits::ToPrimitive;
 
     use crate::value::Value_;
@@ -842,8 +844,8 @@ mod store {
                 };
                 let mut a = a.clone();
                 if i < a.len() {
-                    // TODO: avoid clone by using `Value_` as array elements?
-                    a.set(i, (*v).clone());
+                    a.set(i, v);
+                    *deallocated = Rc::new(Value::Array(Mut::Var, a));
                     Ok(())
                 } else {
                     Err(Interruption::IndexOutOfBounds)
@@ -858,16 +860,9 @@ mod store {
     }
 }
 
-fn usize_from_biguint(n: BigUint, max: Option<usize>) -> Result<usize, Interruption> {
-    let n = n
-        .to_usize()
-        .ok_or_else(|| Interruption::ValueError(ValueError::BigInt))?;
-    if let Some(m) = max {
-        if n >= m {
-            Err(Interruption::IndexOutOfBounds)?
-        }
-    }
-    Ok(n)
+fn usize_from_biguint(n: BigUint) -> Result<usize, Interruption> {
+    n.to_usize()
+        .ok_or_else(|| Interruption::ValueError(ValueError::BigInt))
 }
 
 fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
@@ -971,6 +966,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Ok(Step {})
             }
             Assign2(Value::Index(p, i)) => {
+                println!("Assign2 index {:?}[{:?}] := {:?}", p, i, v); ////
                 store::mutate_index(core, p, i, Rc::new(v))?;
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
@@ -988,18 +984,19 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             core.cont = Cont::Value(Value::Index(p, Rc::new(i)));
                             Ok(Step {})
                         }
-                        (Value::Dynamic(_), v) => {
-                            core.cont = Cont::Value(v);
-                            Ok(Step {})
-                        }
+                        (Value::Dynamic(_), _) => Err(Interruption::Other(
+                            "Dynamic Rust value without a pointer".to_string(),
+                        )),
                         _ => Err(Interruption::TypeMismatch),
                     }
                 } else {
                     let v1 = core.deref_value(Rc::new(v1))?;
                     match (&*v1, v) {
                         (Value::Array(_mut, a), Value::Nat(i)) => {
-                            let i = usize_from_biguint(i, Some(a.len()))?;
-                            core.cont = Cont::Value(a.get(i.into()).unwrap().clone());
+                            let i = usize_from_biguint(i)?;
+                            core.cont = Cont::Value(
+                                (**a.get(i).ok_or(Interruption::IndexOutOfBounds)?).clone(),
+                            );
                             Ok(Step {})
                         }
                         (Value::Dynamic(d), v) => {
@@ -1080,7 +1077,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 }
             }
             Array(mut_, mut done, mut rest) => {
-                done.push_back(v);
+                done.push_back(Rc::new(v));
                 match rest.pop_front() {
                     None => {
                         if let Mut::Const = mut_ {

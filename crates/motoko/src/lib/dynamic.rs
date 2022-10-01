@@ -6,6 +6,8 @@ use crate::ast::Inst;
 use crate::value::{DynamicValue, Value, Value_};
 use crate::vm_types::Interruption;
 
+pub use dyn_clone::DynClone;
+
 pub type Result<T = Value_> = std::result::Result<T, Interruption>;
 
 pub trait Dynamic: Debug + DynClone + DynHash {
@@ -34,16 +36,6 @@ pub trait Dynamic: Debug + DynClone + DynHash {
 
     fn call(&self, _inst: &Option<Inst>, _args: Value_) -> Result {
         Err(Interruption::TypeMismatch)
-    }
-}
-
-pub trait DynClone {
-    fn dyn_clone(&self) -> Self;
-}
-
-impl<T: Clone + ?Sized> DynClone for T {
-    fn dyn_clone(&self) -> Self {
-        self.clone()
     }
 }
 

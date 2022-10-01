@@ -109,15 +109,41 @@ pub enum Value {
     Dynamic(DynamicValue),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DynamicValue(
-    #[serde(with = "crate::serde_utils::dynamic_value")] pub Box<dyn Dynamic>,
-);
+#[derive(Debug)]
+pub struct DynamicValue(pub Rc<std::cell::RefCell<dyn Dynamic>>);
+
+impl DynamicValue {
+    pub fn dynamic(&self) -> std::cell::Ref<dyn Dynamic> {
+        self.0.borrow()
+    }
+
+    pub fn dynamic_mut(&self) -> std::cell::RefMut<dyn Dynamic> {
+        (*self.0).borrow_mut()
+    }
+}
+
+impl Serialize for DynamicValue {
+    fn serialize<S>(&self, _ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        todo!()
+    }
+}
+
+impl<'de> Deserialize<'de> for DynamicValue {
+    fn deserialize<D>(_des: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        todo!()
+    }
+}
 
 impl Clone for DynamicValue {
     fn clone(&self) -> Self {
         // TODO: replace `Box` with `Rc`
-        DynamicValue(dyn_clone::clone_box(&*self.0))
+        DynamicValue(Rc::clone(&self.0))
     }
 }
 
@@ -130,7 +156,7 @@ impl Eq for DynamicValue {}
 
 impl std::hash::Hash for DynamicValue {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.dyn_hash(state)
+        self.0.borrow().dyn_hash(state)
     }
 }
 

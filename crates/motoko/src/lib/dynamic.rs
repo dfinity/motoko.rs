@@ -1,10 +1,10 @@
+use std::cell::RefCell;
 use std::fmt::Debug;
+use std::rc::Rc;
 
 use crate::ast::Inst;
 use crate::value::{DynamicValue, Value, Value_};
 use crate::vm_types::Interruption;
-
-pub use dyn_clone::DynClone;
 
 pub type Result<T = Value_> = std::result::Result<T, Interruption>;
 
@@ -13,7 +13,7 @@ pub trait Dynamic: Debug + DynClone + DynHash {
     where
         Self: 'static + Sized,
     {
-        Value::Dynamic(DynamicValue(Box::new(self)))
+        Value::Dynamic(DynamicValue(Rc::new(RefCell::new(self))))
     }
 
     fn get_index(&self, _index: &Value) -> Result {
@@ -37,11 +37,21 @@ pub trait Dynamic: Debug + DynClone + DynHash {
     }
 }
 
+pub trait DynClone {
+    fn dyn_clone(&self) -> Self;
+}
+
+impl<T: Clone + ?Sized> DynClone for T {
+    fn dyn_clone(&self) -> Self {
+        self.clone()
+    }
+}
+
 pub trait DynHash {
     fn dyn_hash(&self, state: &mut dyn std::hash::Hasher);
 }
 
-impl<H: std::hash::Hash + ?Sized> DynHash for H {
+impl<T: std::hash::Hash + ?Sized> DynHash for T {
     fn dyn_hash(&self, mut state: &mut dyn std::hash::Hasher) {
         self.hash(&mut state);
     }

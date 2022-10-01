@@ -810,7 +810,7 @@ mod store {
 
     use super::{Core, Interruption, Mut, Pointer, Value};
 
-    pub fn mutate(core: &mut Core, p: Pointer, v: Value) -> Result<(), Interruption> {
+    pub fn mutate(core: &mut Core, p: Pointer, v: Value_) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
         match core.store.get(&p) {
             None => return Err(Interruption::Dangling(p)),
@@ -827,24 +827,30 @@ mod store {
         v: Value_,
     ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
-        match core.store.get_mut(&p) {
-            None => Err(Interruption::Dangling(p)),
-            Some(Value::Array(Mut::Var, a)) => {
+        let deallocated = core
+            .store
+            .get_mut(&p)
+            .ok_or_else(|| Interruption::Dangling(p))?;
+
+        match &**deallocated {
+            Value::Array(Mut::Var, a) => {
                 let i = match &*i {
                     Value::Nat(n) => n.to_usize().ok_or_else(|| {
                         Interruption::ValueError(crate::value::ValueError::BigInt)
                     })?,
                     _ => Err(Interruption::TypeMismatch)?,
                 };
+                let mut a = a.clone();
                 if i < a.len() {
-                    drop(a.set(i, (*v).clone() /* TODO: `Value_` in store */));
+                    // TODO: avoid clone by using `Value_` as array elements?
+                    a.set(i, (*v).clone());
                     Ok(())
                 } else {
                     Err(Interruption::IndexOutOfBounds)
                 }
             }
-            Some(Value::Dynamic(d)) => {
-                d.0.set_index(i, v)?;
+            Value::Dynamic(d) => {
+                d.dynamic_mut().set_index(i, v)?;
                 Ok(())
             }
             _ => Err(Interruption::TypeMismatch),
@@ -960,7 +966,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             Assign2(Value::Pointer(p)) => {
-                store::mutate(core, p, v)?;
+                store::mutate(core, p, Rc::new(v))?;
                 core.cont = Cont::Value(Value::Unit);
                 Ok(Step {})
             }
@@ -997,7 +1003,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                         (Value::Dynamic(d), v) => {
-                            core.cont = Cont::Value((*d.0.get_index(&v)?).clone());
+                            core.cont = Cont::Value((*d.dynamic().get_index(&v)?).clone());
                             Ok(Step {})
                         }
                         _ => Err(Interruption::TypeMismatch),
@@ -1158,7 +1164,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                     }
                 }
                 Value::Dynamic(d) => {
-                    let f = d.0.get_field(&*f.0)?;
+                    let f = d.dynamic().get_field(&*f.0)?;
                     core.cont = Cont::Value((*f).clone());
                     Ok(Step {})
                 }
@@ -1292,7 +1298,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Value::Function(cf) => call_function(core, f.clone(), cf, inst, v),
                 Value::PrimFunction(pf) => call_prim_function(core, pf, inst, v),
                 Value::Dynamic(d) => {
-                    let result = d.0.call(&inst, Rc::new(v))?;
+                    let result = d.dynamic().call(&inst, Rc::new(v))?;
                     core.cont = Cont::Value((*result).clone());
                     Ok(Step {})
                 }
@@ -1576,19 +1582,19 @@ impl Core {
 
     pub fn alloc(&mut self, value: Value_) -> Pointer {
         let ptr = self.store.len();
-        self.store.insert(Pointer(ptr), (*value).clone()); // TODO: store RC
+        self.store.insert(Pointer(ptr), value);
         Pointer(ptr)
     }
 
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
-        self.store.remove(pointer).map(Rc::new) // TODO: RC from store
+        self.store.remove(pointer)
     }
 
     pub fn deref(&mut self, pointer: &Pointer) -> Result<Value_, Interruption> {
         self.store
             .get(pointer)
             .ok_or_else(|| Interruption::Dangling(pointer.clone()))
-            .map(|v| Rc::new(v.clone())) // TODO: remove this line
+            .map(Rc::clone)
     }
 
     pub fn deref_value(&mut self, value: Value_) -> Result<Value_, Interruption> {

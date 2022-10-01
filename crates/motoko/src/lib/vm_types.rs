@@ -1,7 +1,7 @@
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
-use crate::ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span};
+use crate::{ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span}, value::Value_};
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
 use crate::value::{Value, ValueError};
@@ -161,7 +161,7 @@ pub type Env = HashMap<Identifier, Value>;
 
 /// Store holds mutable variables, mutable arrays and mutable
 /// records.
-pub type Store = HashMap<Pointer, Value>;
+pub type Store = HashMap<Pointer, Value_>;
 
 /// Counts. Some ideas of how we could count and limit what the VM
 /// does, to interject some "slow interactivity" into its execution.

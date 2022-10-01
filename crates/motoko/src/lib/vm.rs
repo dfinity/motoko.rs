@@ -310,14 +310,15 @@ fn call_function(
     _targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
-    if let Some(env_) = pattern_matches(&cf.0.env, &cf.0.content.input.0, &args) {
+    if let Some(env_) = pattern_matches(cf.0.env, &cf.0.content.input.0, args) {
+        // TODO: any subtle optimizations here will probably make a huge difference
         let source = core.cont_source.clone();
         let env_saved = core.env.clone();
         core.env = env_;
         cf.0.content
             .name
             .clone()
-            .map(|f| core.env.insert(*f.0, (*value).clone()));
+            .map(|f| core.env.insert(*f.0, value));
         core.cont = Cont::Exp_(cf.0.content.exp.clone(), Vector::new());
         core.stack.push_front(Frame {
             source,
@@ -394,8 +395,6 @@ fn assert_value_is_option_u32<'a>(v: &'a Value) -> Result<Option<u32>, Interrupt
 
 mod collection {
     pub mod fastranditer {
-        use std::borrow::Borrow;
-
         use super::super::*;
         use crate::{shared::Share, value::Collection};
         use im_rc::vector;
@@ -442,7 +441,7 @@ mod collection {
         use im_rc::vector;
 
         pub fn new(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            if let Some(_) = pattern_matches(&core.env, &Pat::Literal(Literal::Unit), &v) {
+            if let Some(_) = pattern_matches(core.env.clone(), &Pat::Literal(Literal::Unit), v) {
                 core.cont = Cont::Value(Value::Collection(Collection::HashMap(HashMap::new())));
                 Ok(Step {})
             } else {
@@ -451,9 +450,9 @@ mod collection {
         }
         pub fn put(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
-                &HashMap::new(),
+                HashMap::new(),
                 &pattern::vars(core, vector!["hm", "k", "v"]),
-                &v,
+                v,
             ) {
                 let hm = env.get_mut("hm").unwrap();
                 let k = env.get("k").unwrap();
@@ -478,9 +477,9 @@ mod collection {
         }
         pub fn get(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
-                &HashMap::new(),
+                HashMap::new(),
                 &pattern::vars(core, vector!["hm", "k"]),
-                &v,
+                v,
             ) {
                 let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
@@ -488,7 +487,7 @@ mod collection {
                     if let Value::Collection(Collection::HashMap(hm)) = hm {
                         match hm.get(k) {
                             None => Value::Null,
-                            Some(v) => Value::Option(Rc::new(v.clone())),
+                            Some(v) => Value::Option(v),
                         }
                     } else {
                         return Err(Interruption::TypeMismatch);
@@ -500,19 +499,19 @@ mod collection {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn remove(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+        pub fn remove(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
-                &HashMap::new(),
+                HashMap::new(),
                 &pattern::vars(core, vector!["hm", "k"]),
-                &v,
+                v,
             ) {
-                let hm = env.get("hm").unwrap();
+                let hm = env.get_mut("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let (hm, old) = {
-                    if let Value::Collection(Collection::HashMap(mut hm)) = hm.clone() {
+                    if let Value::Collection(Collection::HashMap(mut hm)) = hm {
                         match hm.remove(k) {
                             None => (hm, Value::Null),
-                            Some(v) => (hm, Value::Option(Rc::new(v.clone()))),
+                            Some(v) => (hm, Value::Option(v)),
                         }
                     } else {
                         return Err(Interruption::TypeMismatch);

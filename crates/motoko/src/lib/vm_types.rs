@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
-use crate::shared::Shared;
 use crate::value::ValueError;
 use crate::{
     ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},

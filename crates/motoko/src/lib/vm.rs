@@ -69,17 +69,9 @@ fn core_init(prog: Prog) -> Core {
         cont: Cont::Decs(prog.vec.into()),
         cont_source: Source::CoreInit, // special source -- or get the "full span" (but then what line or column number would be helpful here?  line 1 column 0?)
         cont_prim_type,
+        next_pointer: 0,
         debug_print_out: Vector::new(),
-        counts: Counts {
-            step: 0,
-            redex: 0,
-            /*
-            stack: 0,
-            call: 0,
-            alloc: 0,
-            send: 0,
-             */
-        },
+        counts: Counts::default(),
     }
 }
 
@@ -1578,7 +1570,9 @@ impl Core {
     }
 
     pub fn alloc(&mut self, value: Value_) -> Pointer {
-        let ptr = self.store.len();
+        let next = self.next_pointer;
+        self.next_pointer += 1; // TODO: account for overflow
+        let ptr = next;
         self.store.insert(Pointer(ptr), value);
         Pointer(ptr)
     }

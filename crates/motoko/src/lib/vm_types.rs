@@ -168,7 +168,7 @@ pub type Store = HashMap<Pointer, Value_>;
 
 /// Counts. Some ideas of how we could count and limit what the VM
 /// does, to interject some "slow interactivity" into its execution.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Counts {
     pub step: usize,
     pub redex: usize,
@@ -196,8 +196,8 @@ pub struct Core {
     pub stack: Stack,
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub store: Store,
+    pub next_pointer: usize,
     pub debug_print_out: Vector<crate::value::Text>,
-
     pub counts: Counts,
 }
 

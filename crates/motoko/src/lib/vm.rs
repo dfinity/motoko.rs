@@ -928,7 +928,7 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
             Call1(..) => false,
             Call2(..) => true,
             Call2Prim(..) => true,
-            Call2Dyn(..) => true,
+            Call2Pointer(..) => true,
             Call3 => false,
             Return => true,
             //_ => return nyi!(line!()),
@@ -1303,13 +1303,21 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
             Call1(inst, e2) => match v {
                 Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
                 Value::PrimFunction(pf) => exp_conts(core, FrameCont::Call2Prim(pf, inst), e2),
-                Value::Dynamic(d) => exp_conts(core, FrameCont::Call2Dyn(d, inst), e2),
+                Value::Pointer(p) => exp_conts(core, FrameCont::Call2Pointer(p, inst), e2),
                 _ => Err(Interruption::TypeMismatch),
             },
             Call2(cf, inst) => call_function(core, cf, inst, v),
             Call2Prim(pf, inst) => call_prim_function(core, pf, inst, v),
-            Call2Dyn(mut d, inst) => {
-                core.cont = Cont::Value((*(d.0.call(&inst, Rc::new(v))?)).clone());
+            Call2Pointer(p, inst) => {
+                // TODO: move to helper function in `store` module?
+                let d = match core.store.get_mut(&p) {
+                    Some(Value::Dynamic(d)) => d,
+                    None => Err(Interruption::Dangling(p))?,
+                    _ => Err(Interruption::TypeMismatch)?,
+                };
+                let v = d.0.call(&inst, Rc::new(v))?;
+                // mutate(core, p, Value::Dynamic(d.clone()))?;
+                core.cont = Cont::Value((*v).clone());
                 Ok(Step {})
             }
             Call3 => {

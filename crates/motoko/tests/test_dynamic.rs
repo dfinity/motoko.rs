@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use motoko::vm_types::{Interruption, Pointer};
 use motoko::{dynamic::Dynamic, value::Value_};
 
@@ -49,10 +51,8 @@ fn dyn_struct() {
     let value = Value::Dynamic(DynamicValue(Box::new(Struct::default())));
 
     let mut core = motoko::vm_types::Core::empty();
+    let pointer = core.alloc(Rc::new(value));
 
-    // TODO: use something like `core.alloc()`
-    let pointer = Pointer(12345);
-    core.store.insert(pointer.clone(), value);
     core.env
         .insert("value".to_string(), Value::Pointer(pointer));
 
@@ -60,12 +60,12 @@ fn dyn_struct() {
         core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap()),
         Ok(Value::Char('a'))
     );
-    // assert_eq!(
-    //     core.eval_prog(motoko::check::parse("value.x := 'b'; value.x").unwrap()),
-    //     Ok(Value::Char('b'))
-    // );
-    // assert_eq!(
-    //     core.eval_prog(motoko::check::parse("value('c')").unwrap()),
-    //     Ok(Value::Char('c'))
-    // );
+    assert_eq!(
+        core.eval_prog(motoko::check::parse("value.x := 'b'; value.x").unwrap()),
+        Ok(Value::Char('b'))
+    );
+    assert_eq!(
+        core.eval_prog(motoko::check::parse("value('c')").unwrap()),
+        Ok(Value::Char('c'))
+    );
 }

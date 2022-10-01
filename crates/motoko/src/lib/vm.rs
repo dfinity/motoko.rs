@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::ast_traversal::ToNode;
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
-    HashMapFunction, PrimFunction, Value, ValueError,
+    HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::EvalInitError;
 use crate::vm_types::{
@@ -809,19 +809,6 @@ mod store {
 
     use super::{Core, Interruption, Mut, Pointer, Value};
 
-    pub fn alloc(core: &mut Core, v: Value) -> Pointer {
-        let ptr = core.store.len();
-        core.store.insert(Pointer(ptr), v);
-        Pointer(ptr)
-    }
-
-    pub fn deref(core: &mut Core, p: &Pointer) -> Result<Value, Interruption> {
-        match core.store.get(p) {
-            None => Err(Interruption::Dangling(p.clone())),
-            Some(v) => Ok(v.clone()),
-        }
-    }
-
     pub fn mutate(core: &mut Core, p: Pointer, v: Value) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
         match core.store.get(&p) {
@@ -1003,12 +990,9 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                         _ => Err(Interruption::TypeMismatch),
                     }
                 } else {
-                    let v1 = match v1 {
-                        Value::Pointer(p) => store::deref(core, &p)?,
-                        v1 => v1,
-                    };
-                    match (v1, v) {
-                        (Value::Array(_mut_, a), Value::Nat(i)) => {
+                    let v1 = core.deref_value(Rc::new(v1))?;
+                    match (&*v1, v) {
+                        (Value::Array(_mut, a), Value::Nat(i)) => {
                             let i = usize_from_biguint(i, Some(a.len()))?;
                             core.cont = Cont::Value(a.get(i.into()).unwrap().clone());
                             Ok(Step {})
@@ -1017,23 +1001,6 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             core.cont = Cont::Value((*d.0.get_index(&v)?).clone());
                             Ok(Step {})
                         }
-                        // (Value::Pointer(p), i) => match store::deref(core, &p) {
-                        //     None => Err(Interruption::Dangling(p.clone())),
-                        //     Some(Value::Array(_mut_, a)) => {
-                        //         let i = match v {
-                        //             Value::Nat(i) => i,
-                        //             _ => Err(Interruption::TypeMismatch)?,
-                        //         };
-                        //         let i = usize_from_biguint(i, Some(a.len()))?;
-                        //         core.cont = Cont::Value(a.get(i).unwrap().clone());
-                        //         Ok(Step {})
-                        //     }
-                        //     Some(Value::Dynamic(d)) => {
-                        //         core.cont = Cont::Value((*d.0.get_index(&v)?).clone());
-                        //         Ok(Step {})
-                        //     }
-                        //     _ => Err(Interruption::TypeMismatch),
-                        // },
                         _ => Err(Interruption::TypeMismatch),
                     }
                 }
@@ -1049,7 +1016,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 }
             }
             Var(x, cont) => {
-                let ptr = store::alloc(core, v);
+                let ptr = core.alloc(Rc::new(v));
                 core.env.insert(x, Value::Pointer(ptr));
                 core.cont_source = source_from_cont(&cont);
                 core.cont = cont;
@@ -1116,7 +1083,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             Ok(Step {})
                         } else {
                             let arr = Value::Array(mut_, done);
-                            let ptr = store::alloc(core, arr);
+                            let ptr = core.alloc(Rc::new(arr));
                             core.cont = Cont::Value(Value::Pointer(ptr));
                             Ok(Step {})
                         }
@@ -1138,7 +1105,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                             let id = *f.id.0; // to do -- avoid cloning strings. Use Rc.
                             let val = match f.mut_ {
                                 Mut::Const => f.val,
-                                Mut::Var => Value::Pointer(store::alloc(core, f.val)),
+                                Mut::Var => Value::Pointer(core.alloc(Rc::new(f.val))),
                             };
                             hm.insert(
                                 id.clone(),
@@ -1322,13 +1289,14 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
             Call2Prim(pf, inst) => call_prim_function(core, pf, inst, v),
             Call2Pointer(p, inst) => {
                 // TODO: move to helper function in `store` module?
-                let d = match store::deref(core, &p)? {
+                let target = core.deref(&p)?;
+                let d = match &*target {
                     Value::Dynamic(d) => d,
                     _ => Err(Interruption::TypeMismatch)?,
                 };
-                let v = d.0.call(&inst, Rc::new(v))?;
+                let result = d.0.call(&inst, Rc::new(v))?;
                 // mutate(core, p, Value::Dynamic(d.clone()))?;
-                core.cont = Cont::Value((*v).clone());
+                core.cont = Cont::Value((*result).clone());
                 Ok(Step {})
             }
             Call3 => {
@@ -1442,8 +1410,8 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                 _ => (),
             };
             // Final case: Implicit dereferencing of pointer:
-            let v = store::deref(core, &p)?;
-            core.cont = Cont::Value(v);
+            let v = core.deref(&p)?;
+            core.cont = Cont::Value((*v).clone());
             Ok(Step {})
         }
         Cont::Value(v) => stack_cont(core, v),
@@ -1605,6 +1573,30 @@ impl Core {
             self.cont = Cont::Decs(Vector::from(p.vec));
         };
         self.continue_(limits)
+    }
+
+    pub fn alloc(&mut self, value: Value_) -> Pointer {
+        let ptr = self.store.len();
+        self.store.insert(Pointer(ptr), (*value).clone()); // TODO: store RC
+        Pointer(ptr)
+    }
+
+    pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
+        self.store.remove(pointer).map(Rc::new) // TODO: RC from store
+    }
+
+    pub fn deref(&mut self, pointer: &Pointer) -> Result<Value_, Interruption> {
+        self.store
+            .get(pointer)
+            .ok_or_else(|| Interruption::Dangling(pointer.clone()))
+            .map(|v| Rc::new(v.clone())) // TODO: remove this line
+    }
+
+    pub fn deref_value(&mut self, value: Value_) -> Result<Value_, Interruption> {
+        match &*value {
+            Value::Pointer(p) => self.deref(p),
+            v => Ok(value),
+        }
     }
 }
 

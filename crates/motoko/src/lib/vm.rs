@@ -309,7 +309,7 @@ fn call_function(
     _targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
-    if let Some(env_) = pattern_matches(cf.0.env, &cf.0.content.input.0, args) {
+    if let Some(env_) = pattern_matches(cf.0.env.clone(), &cf.0.content.input.0, args) {
         // TODO: any subtle optimizations here will probably make a huge difference
         let source = core.cont_source.clone();
         let env_saved = core.env.clone();
@@ -417,16 +417,15 @@ mod collection {
         }
 
         pub fn next(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            // TODO: maybe implement FastRandIter as a `Dynamic` value so we can mutably borrow here
-            match &*v {
+            match v.get() {
                 Value::Collection(Collection::FastRandIter(mut fri)) => {
                     let n = match fri.next() {
                         // to do -- systematic Option<_> ~> ?<_> conversion.
                         Some(n) => Value::Option(n.share()),
                         None => Value::Null,
                     };
-                    // let i = Value::Collection(Collection::FastRandIter(fri));
-                    core.cont = cont_value(Value::Tuple(vector![n.share(), v]));
+                    let i = Value::Collection(Collection::FastRandIter(fri));
+                    core.cont = cont_value(Value::Tuple(vector![n.share(), i.share()]));
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
@@ -457,7 +456,7 @@ mod collection {
                 let k = env.get("k").unwrap();
                 let v = env.get("v").unwrap();
                 let (hm, old) = {
-                    if let Value::Collection(Collection::HashMap(mut hm)) = &**hm {
+                    if let Value::Collection(Collection::HashMap(mut hm)) = hm.get() {
                         match hm.insert(k.fast_clone(), v.fast_clone()) {
                             None => (hm, Value::Null),
                             Some(old) => (hm, Value::Option(old)),
@@ -483,7 +482,7 @@ mod collection {
                 let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let ret = {
-                    if let Value::Collection(Collection::HashMap(hm)) = &**hm {
+                    if let Value::Collection(Collection::HashMap(hm)) = hm.get() {
                         match hm.get(k) {
                             None => Value::Null,
                             Some(v) => Value::Option(v.fast_clone()),
@@ -505,7 +504,7 @@ mod collection {
                 let hm = env.get("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let (hm, old) = {
-                    if let Value::Collection(Collection::HashMap(mut hm)) = &**hm {
+                    if let Value::Collection(Collection::HashMap(mut hm)) = hm.get() {
                         match hm.remove(k) {
                             None => (hm, Value::Null),
                             Some(v) => (hm, Value::Option(v)),
@@ -674,6 +673,8 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     }
 }
 
+// TODO: see whether it's possible to return something like `&'a Option<Env>` to reduce cloning
+// (since this has more of a performance impact than `fast_clone()`)
 fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
     match (pat, &*v) {
         (Pat::Wild, _) => Some(env),
@@ -701,6 +702,7 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
             if ps.vec.len() != vs.len() {
                 None
             } else {
+                let mut env = env;
                 for i in 0..ps.vec.len() {
                     if let Some(env_) = pattern_matches(
                         env,
@@ -721,7 +723,7 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
 
 fn switch(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
-        if let Some(env) = pattern_matches(core.env.clone(), &*case.0.pat.0, v) {
+        if let Some(env) = pattern_matches(core.env.clone(), &*case.0.pat.0, v.fast_clone()) {
             core.env = env;
             core.cont_source = case.0.exp.1.clone();
             core.cont = Cont::Exp_(case.0.exp, Vector::new());
@@ -922,7 +924,7 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
 // continue execution using the top-most stack frame, if any.
 fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
     if core.stack.len() == 0 {
-        core.cont = Cont::Value_(v);
+        core.cont = Cont::Value_(v.fast_clone());
         Err(Interruption::Done(v))
     } else {
         use FrameCont::*;

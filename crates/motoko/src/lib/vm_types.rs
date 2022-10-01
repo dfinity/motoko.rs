@@ -78,7 +78,7 @@ pub mod stack {
         BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, Pat_, PrimType, RelOp,
         Source, Type_, UnOp,
     };
-    use crate::value::{ClosedFunction, PrimFunction, Value};
+    use crate::value::{Value, Value_};
     use serde::{Deserialize, Serialize};
 
     /// Local continuation, stored in a stack frame.
@@ -125,9 +125,7 @@ pub mod stack {
         DoOpt,
         Bang,
         Call1(Option<Inst>, Exp_),
-        Call2(ClosedFunction, Option<Inst>),
-        Call2Prim(PrimFunction, Option<Inst>),
-        Call2Pointer(super::Pointer, Option<Inst>),
+        Call2(Value_, Option<Inst>),
         Call3,
         Return,
     }

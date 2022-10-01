@@ -209,7 +209,7 @@ fn string_from_value(v: &Value) -> Result<String, Interruption> {
 
 fn call_prim_function(
     core: &mut Core,
-    pf: PrimFunction,
+    pf: &PrimFunction,
     targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
@@ -270,7 +270,7 @@ fn call_prim_function(
 
 fn call_collection_function(
     core: &mut Core,
-    cf: CollectionFunction,
+    cf: &CollectionFunction,
     targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
@@ -283,7 +283,7 @@ fn call_collection_function(
 
 fn call_fastranditer_function(
     core: &mut Core,
-    frif: FastRandIterFunction,
+    frif: &FastRandIterFunction,
     targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
@@ -296,7 +296,7 @@ fn call_fastranditer_function(
 
 fn call_hashmap_function(
     core: &mut Core,
-    hmf: HashMapFunction,
+    hmf: &HashMapFunction,
     _targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
@@ -311,7 +311,8 @@ fn call_hashmap_function(
 
 fn call_function(
     core: &mut Core,
-    cf: ClosedFunction,
+    value: Value_,
+    cf: &ClosedFunction,
     _targs: Option<Inst>,
     args: Value,
 ) -> Result<Step, Interruption> {
@@ -322,7 +323,7 @@ fn call_function(
         cf.0.content
             .name
             .clone()
-            .map(|f| core.env.insert(*f.0, Value::Function(cf.clone())));
+            .map(|f| core.env.insert(*f.0, (*value).clone()));
         core.cont = Cont::Exp_(cf.0.content.exp.clone(), Vector::new());
         core.stack.push_front(Frame {
             source,
@@ -914,8 +915,6 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
             Bang => true,
             Call1(..) => false,
             Call2(..) => true,
-            Call2Prim(..) => true,
-            Call2Pointer(..) => true,
             Call3 => false,
             Return => true,
             //_ => return nyi!(line!()),
@@ -1279,26 +1278,26 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Value::Null => bang_null(core),
                 _ => Err(Interruption::TypeMismatch),
             },
-            Call1(inst, e2) => match v {
-                Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
-                Value::PrimFunction(pf) => exp_conts(core, FrameCont::Call2Prim(pf, inst), e2),
-                Value::Pointer(p) => exp_conts(core, FrameCont::Call2Pointer(p, inst), e2),
+            Call1(inst, e2) => {
+                let v = core.deref_value(Rc::new(v))?;
+                exp_conts(core, FrameCont::Call2(v, inst), e2)
+                // match v {
+                //     Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
+                //     Value::PrimFunction(pf) => exp_conts(core, FrameCont::Call2Prim(pf, inst), e2),
+                //     Value::Dynamic(d) => exp_conts(core, FrameCont::Call2Dyn(d, inst), e2),
+                //     _ => Err(Interruption::TypeMismatch),
+                // }
+            }
+            Call2(f, inst) => match &*f {
+                Value::Function(cf) => call_function(core, f.clone(), cf, inst, v),
+                Value::PrimFunction(pf) => call_prim_function(core, pf, inst, v),
+                Value::Dynamic(d) => {
+                    let result = d.0.call(&inst, Rc::new(v))?;
+                    core.cont = Cont::Value((*result).clone());
+                    Ok(Step {})
+                }
                 _ => Err(Interruption::TypeMismatch),
             },
-            Call2(cf, inst) => call_function(core, cf, inst, v),
-            Call2Prim(pf, inst) => call_prim_function(core, pf, inst, v),
-            Call2Pointer(p, inst) => {
-                // TODO: move to helper function in `store` module?
-                let target = core.deref(&p)?;
-                let d = match &*target {
-                    Value::Dynamic(d) => d,
-                    _ => Err(Interruption::TypeMismatch)?,
-                };
-                let result = d.0.call(&inst, Rc::new(v))?;
-                // mutate(core, p, Value::Dynamic(d.clone()))?;
-                core.cont = Cont::Value((*result).clone());
-                Ok(Step {})
-            }
             Call3 => {
                 core.cont = Cont::Value(v);
                 Ok(Step {})

@@ -212,7 +212,7 @@ fn call_prim_function(
             Value::Text(s) => {
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, s);
                 core.debug_print_out.push_back(s.clone()); // TODO: store debug output as `Value_`?
-                core.cont = Cont::Value(Value::Unit.share());
+                core.cont = cont_value(Value::Unit);
                 Ok(Step {})
             }
             v => {
@@ -220,17 +220,17 @@ fn call_prim_function(
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
                 core.debug_print_out
                     .push_back(crate::value::Text::from(txt));
-                core.cont = Cont::Value(Value::Unit.share());
+                core.cont = cont_value(Value::Unit);
                 Ok(Step {})
             }
         },
         NatToText => match &*args {
             Value::Nat(n) => {
-                core.cont = Cont::Value(Value::Text(format!("{}", n).into()).share());
+                core.cont = cont_value(Value::Text(format!("{}", n).into()));
                 Ok(Step {})
             }
             v => {
-                core.cont = Cont::Value(Value::Text(format!("{:?}", v).into()).share());
+                core.cont = cont_value(Value::Text(format!("{:?}", v).into()));
                 Ok(Step {})
             }
         },
@@ -238,19 +238,19 @@ fn call_prim_function(
         #[cfg(feature = "value-reflection")]
         ReifyValue => {
             use crate::value::ToMotoko;
-            core.cont = Cont::Value(args.to_motoko().map_err(Interruption::ValueError)?);
+            core.cont = cont_value(args.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         #[cfg(feature = "value-reflection")]
         ReflectValue => {
-            // core.cont = Cont::Value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
+            // core.cont = cont_value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         #[cfg(feature = "to-motoko")]
         #[cfg(feature = "core-reflection")]
         ReifyCore => {
             use crate::value::ToMotoko;
-            core.cont = Cont::Value(core.to_motoko().map_err(Interruption::ValueError)?);
+            core.cont = cont_value(core.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         #[cfg(feature = "core-reflection")]
@@ -408,9 +408,8 @@ mod collection {
                 let seed: u32 = assert_value_is_u32(&*env.get("seed").unwrap())?;
                 let size: Option<u32> = assert_value_is_option_u32(&*env.get("size").unwrap())?;
 
-                core.cont = Cont::Value(
+                core.cont = cont_value(
                     Value::Collection(Collection::FastRandIter(FastRandIter::new(size, seed)))
-                        .share(),
                 );
                 Ok(Step {})
             } else {
@@ -427,7 +426,7 @@ mod collection {
                         None => Value::Null,
                     };
                     // let i = Value::Collection(Collection::FastRandIter(fri));
-                    core.cont = Cont::Value(Value::Tuple(vector![n.share(), v]).share());
+                    core.cont = cont_value(Value::Tuple(vector![n.share(), v]));
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
@@ -443,7 +442,7 @@ mod collection {
         pub fn new(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(_) = pattern_matches(core.env.clone(), &Pat::Literal(Literal::Unit), v) {
                 core.cont =
-                    Cont::Value(Value::Collection(Collection::HashMap(HashMap::new())).share());
+                cont_value(Value::Collection(Collection::HashMap(HashMap::new())));
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -472,7 +471,7 @@ mod collection {
                 // We could probably just tolerate this and use `Dynamic` values for performance-critical situations
                 let hm = Value::Collection(Collection::HashMap(hm));
                 let ret = Value::Tuple(vector![hm.share(), old.share()]);
-                core.cont = Cont::Value(ret.share());
+                core.cont = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -494,7 +493,7 @@ mod collection {
                         return Err(Interruption::TypeMismatch);
                     }
                 };
-                core.cont = Cont::Value(ret.share());
+                core.cont = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -518,7 +517,7 @@ mod collection {
                 };
                 let hm = Value::Collection(Collection::HashMap(hm));
                 let ret = Value::Tuple(vector![hm.share(), old.share()]);
-                core.cont = Cont::Value(ret.share());
+                core.cont = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -564,20 +563,18 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     match *exp.0 {
         Literal(l) => {
             // TODO: partial evaluation would now be highly efficient due to value sharing
-            core.cont = Cont::Value(
+            core.cont = cont_value(
                 Value::from_literal(l)
                     .map_err(Interruption::ValueError)?
-                    .share(),
             );
             Ok(Step {})
         }
         Function(f) => {
-            core.cont = Cont::Value(
+            core.cont = cont_value(
                 Value::Function(ClosedFunction(Closed {
                     env: core.env.clone(),
                     content: f,
                 }))
-                .share(),
             );
             Ok(Step {})
         }
@@ -587,7 +584,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Var(x) => match core.env.get(&x) {
             None => Err(Interruption::UnboundIdentifer(x.clone())),
             Some(v) => {
-                core.cont = Cont::Value(v.fast_clone());
+                core.cont = _(v.fast_clone());
                 Ok(Step {})
             }
         },
@@ -596,7 +593,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Paren(e) => exp_conts(core, FrameCont::Paren, e),
         Variant(id, None) => {
             // TODO: cache and share variants?
-            core.cont = Cont::Value(Value::Variant(*id.0, None).share());
+            core.cont =cont_value(Value::Variant(*id.0, None));
             Ok(Step {})
         }
         Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id), e),
@@ -614,7 +611,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             let mut fs: Vector<_> = fs.vec.into();
             match fs.pop_front() {
                 None => {
-                    core.cont = Cont::Value(Value::Object(HashMap::new()).share());
+                    core.cont = cont_value(Value::Object(HashMap::new()));
                     Ok(Step {})
                 }
                 Some(f1) => {
@@ -633,7 +630,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             match es.pop_front() {
                 None => {
                     // TODO: globally share (), true, false, null, etc.
-                    core.cont = Cont::Value(Value::Unit.share());
+                    core.cont = cont_value(Value::Unit);
                     Ok(Step {})
                 }
                 Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), e1),
@@ -643,7 +640,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             let mut es: Vector<_> = es.vec.into();
             match es.pop_front() {
                 None => {
-                    core.cont = Cont::Value(Value::Array(mut_, Vector::new()).share());
+                    core.cont = cont_value(Value::Array(mut_, Vector::new()));
                     Ok(Step {})
                 }
                 Some(e1) => exp_conts(core, FrameCont::Array(mut_, Vector::new(), es), e1),
@@ -676,7 +673,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
         Debug(e) => exp_conts(core, FrameCont::Debug, e),
         Prim(s) => {
-            core.cont = Cont::Value(prim_value(&s)?.share());
+            core.cont = cont_value(prim_value(&s)?);
             Ok(Step {})
         }
         _ => nyi!(line!()),
@@ -747,7 +744,7 @@ fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
             match fr.cont {
                 FrameCont::DoOpt => {
                     core.stack = stack;
-                    core.cont = Cont::Value(Value::Null.share());
+                    core.cont = cont_value(Value::Null);
                     return Ok(Step {});
                 }
                 _ => {}
@@ -766,7 +763,7 @@ fn return_(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 FrameCont::Call3 => {
                     core.env = fr.env;
                     core.stack = stack;
-                    core.cont = Cont::Value(v);
+                    core.cont = cont_value(v);
                     return Ok(Step {});
                 }
                 _ => {}
@@ -804,13 +801,11 @@ fn source_from_cont(cont: &Cont) -> Source {
             }
         }
         LetVarRet(s, _) => s.clone(),
-        Value(_v) => Source::Evaluation,
+        Value_(_v) => Source::Evaluation,
     }
 }
 
 mod store {
-    use std::rc::Rc;
-
     use num_traits::ToPrimitive;
 
     use crate::{shared::Share, value::Value_};
@@ -932,7 +927,7 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
 // continue execution using the top-most stack frame, if any.
 fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
     if core.stack.len() == 0 {
-        core.cont = Cont::Value(v);
+        core.cont = cont_value(v);
         Err(Interruption::Done(v))
     } else {
         use FrameCont::*;
@@ -947,35 +942,40 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
         core.cont_source = frame.source;
         match frame.cont {
             UnOp(un) => {
-                core.cont = Cont::Value(unop(un, v)?);
+                core.cont = cont_value(unop(un, v)?);
                 Ok(Step {})
             }
             RelOp1(relop, e2) => exp_conts(core, RelOp2(v, relop), e2),
             RelOp2(v1, rel) => {
-                core.cont = Cont::Value(relop(&core.cont_prim_type, rel, v1, v)?);
+                core.cont = cont_value(relop(&core.cont_prim_type, rel, v1, v)?);
                 Ok(Step {})
             }
             BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), e2),
             BinOp2(v1, bop) => {
-                core.cont = Cont::Value(binop(&core.cont_prim_type, bop, v1, v)?);
+                core.cont = cont_value(binop(&core.cont_prim_type, bop, v1, v)?);
                 Ok(Step {})
             }
-            Assign1(e2) => match v {
-                Value::Pointer(p) => exp_conts(core, Assign2(Value::Pointer(p)), e2),
-                Value::Index(p, i) => exp_conts(core, Assign2(Value::Index(p, i)), e2),
+            // Updating for consistency with the `Call1` / `Call2` optimization
+            // Assign1(e2) => match &*v {
+            //     Value::Pointer(p) => exp_conts(core, Assign2(v), e2),
+            //     Value::Index(p, i) => exp_conts(core, Assign2(v), e2),
+            //     _ => Err(Interruption::TypeMismatch),
+            // },
+            Assign1(e2) => exp_conts(core, Assign2(v), e2),
+            Assign2(v1) => match &*v1 {
+                Value::Pointer(p) => {
+                    store::mutate(core, p.clone(), v)?;
+                    core.cont = cont_value(Value::Unit);
+                    Ok(Step {})
+                }
+                Value::Index(p, i) => {
+                    println!("Assign2 index {:?}[{:?}] := {:?}", p, i, v); ////
+                    store::mutate_index(core, p.clone(), i.fast_clone(), v)?;
+                    core.cont = cont_value(Value::Unit);
+                    Ok(Step {})
+                }
                 _ => Err(Interruption::TypeMismatch),
             },
-            Assign2(Value::Pointer(p)) => {
-                store::mutate(core, p, Rc::new(v))?;
-                core.cont = Cont::Value(Value::Unit);
-                Ok(Step {})
-            }
-            Assign2(Value::Index(p, i)) => {
-                println!("Assign2 index {:?}[{:?}] := {:?}", p, i, v); ////
-                store::mutate_index(core, p, i, Rc::new(v))?;
-                core.cont = Cont::Value(Value::Unit);
-                Ok(Step {})
-            }
             Idx1(e2) => exp_conts(core, Idx2(v), e2),
             Idx2(v1) => {
                 if let Some(Frame {
@@ -983,29 +983,30 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     ..
                 }) = core.stack.get(0)
                 {
-                    match (v1, v) {
-                        (Value::Pointer(p), i) => {
+                    match &*v1 {
+                        Value::Pointer(p) => {
                             // save array pointer and offset until after RHS is evaluated.
-                            core.cont = Cont::Value(Value::Index(p, Rc::new(i)));
+                            core.cont =
+                            cont_value(Value::Index(p.clone(), v.fast_clone()));
                             Ok(Step {})
                         }
-                        (Value::Dynamic(_), _) => Err(Interruption::Other(
+                        Value::Dynamic(_) => Err(Interruption::Other(
                             "Dynamic Rust value without a pointer".to_string(),
                         )),
                         _ => Err(Interruption::TypeMismatch),
                     }
                 } else {
-                    let v1 = core.deref_value(Rc::new(v1))?;
+                    let v1 = core.deref_value(v1)?;
                     match (&*v1, v) {
                         (Value::Array(_mut, a), Value::Nat(i)) => {
                             let i = usize_from_biguint(i)?;
-                            core.cont = Cont::Value(
+                            core.cont = cont_value(
                                 (**a.get(i).ok_or(Interruption::IndexOutOfBounds)?).clone(),
                             );
                             Ok(Step {})
                         }
                         (Value::Dynamic(d), v) => {
-                            core.cont = Cont::Value((*d.dynamic().get_index(&v)?).clone());
+                            core.cont = cont_value((*d.dynamic().get_index(&v)?).clone());
                             Ok(Step {})
                         }
                         _ => Err(Interruption::TypeMismatch),
@@ -1023,30 +1024,30 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 }
             }
             Var(x, cont) => {
-                let ptr = core.alloc(Rc::new(v));
-                core.env.insert(x, Value::Pointer(ptr));
+                let ptr = core.alloc(v);
+                core.env.insert(x, Value::Pointer(ptr).share());
                 core.cont_source = source_from_cont(&cont);
                 core.cont = cont;
                 Ok(Step {})
             }
             Paren => {
-                core.cont = Cont::Value(v);
+                core.cont = Cont::Value_(v);
                 Ok(Step {})
             }
             Variant(i) => {
-                core.cont = Cont::Value(Value::Variant(*i.0, Some(v)));
+                core.cont = cont_value(Value::Variant(*i.0, Some(v)));
                 Ok(Step {})
             }
             Switch(cases) => switch(core, v, cases),
             Block => {
-                core.cont = Cont::Value(v);
+                core.cont = Cont::Value_(v);
                 Ok(Step {})
             }
             Decs(decs) => {
                 match decs.front() {
                     None => {
                         // return final value from block.
-                        core.cont = Cont::Value(v);
+                        core.cont = Cont::Value_(v);
                         return Ok(Step {});
                     }
                     Some(_) => {
@@ -1598,6 +1599,13 @@ impl Core {
             .ok_or_else(|| Interruption::Dangling(pointer.clone()))
             .map(|v| v.fast_clone())
     }
+
+    pub fn deref_value(&mut self, value: Value_) -> Result<Value_, Interruption> {
+        match &*value {
+            Value::Pointer(p) => self.deref(p),
+            _ => Ok(value),
+        }
+    }
 }
 
 // For core Motoko state initializing local VM state.
@@ -1656,4 +1664,10 @@ pub fn eval(prog: &str) -> Result<Value, Interruption> {
 #[cfg(feature = "parser")]
 pub fn eval_into<T: serde::de::DeserializeOwned>(prog: &str) -> Result<T, Interruption> {
     eval(prog)?.to_rust().map_err(Interruption::ValueError)
+}
+
+// TODO: possibly refactor to `Cont::Value(Value)` and `Cont::Value_(Value_)`
+#[inline(always)]
+fn cont_value(value: Value) -> Cont {
+    Cont::Value_(value.share())
 }

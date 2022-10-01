@@ -71,8 +71,8 @@ pub enum Cont {
     Taken,
     Decs(Vector<Dec_>),
     Exp_(Exp_, Vector<Dec_>),
-    Value(Value_),
-    // Value_(Value_),
+    // Value(Value_),
+    Value_(Value_),
     LetVarRet(Source, Option<Id_>),
 }
 

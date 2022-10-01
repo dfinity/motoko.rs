@@ -91,40 +91,40 @@ fn binop(
 ) -> Result<Value, Interruption> {
     use BinOp::*;
     use Value::*;
-    if let Unit = v1 {
+    if let Unit = &*v1 {
         return Err(Interruption::TypeMismatch);
     };
-    if let Unit = v2 {
+    if let Unit = &*v2 {
         return Err(Interruption::TypeMismatch);
     };
     match binop {
-        Add => match (v1, v2) {
+        Add => match (&*v1, &*v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 + n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 + i2)),
             // _ => nyi!(line!()),
             (v1, v2) => unimplemented!("{:?} + {:?}", v1, v2),
         },
-        Sub => match (v1, v2) {
+        Sub => match (&*v1, &*v2) {
             (Nat(n1), Nat(n2)) => {
                 if n2 > n1 {
-                    Ok(Int(BigInt::from(n1) - BigInt::from(n2)))
+                    Ok(Int(n1.to_bigint().unwrap() - n2.to_bigint().unwrap()))
                 } else {
                     Ok(Nat(n1 - n2))
                 }
             }
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
-            (Int(i1), Nat(n2)) => Ok(Int(i1 - BigInt::from(n2))),
-            (Nat(n1), Int(i2)) => Ok(Int(BigInt::from(n1) - i2)),
+            (Int(i1), Nat(n2)) => Ok(Int(i1 - n2.to_bigint().unwrap())),
+            (Nat(n1), Int(i2)) => Ok(Int(n1.to_bigint().unwrap() - i2)),
             // _ => nyi!(line!()),
             (v1, v2) => unimplemented!("{:?} - {:?}", v1, v2),
         },
-        Mul => match (v1, v2) {
+        Mul => match (&*v1, &*v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
             // _ => nyi!(line!()),
             (v1, v2) => unimplemented!("{:?} * {:?}", v1, v2),
         },
-        WAdd => match (cont_prim_type, v1, v2) {
+        WAdd => match (cont_prim_type, &*v1, &*v2) {
             (None, _, _) => Err(Interruption::AmbiguousOperation),
             (Some(t), Value::Nat(n1), Value::Nat(n2)) => match t {
                 PrimType::Nat => Ok(Value::Nat(n1 + n2)),
@@ -813,7 +813,7 @@ mod store {
 
     use num_traits::ToPrimitive;
 
-    use crate::{value::Value_, shared::Share};
+    use crate::{shared::Share, value::Value_};
 
     use super::{Core, Interruption, Mut, Pointer, Value};
 

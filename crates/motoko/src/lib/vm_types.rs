@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
-use crate::value::{ValueError, Value};
+use crate::value::{ValueError};
 use crate::{
     ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},
     value::Value_,
@@ -140,8 +140,8 @@ pub mod stack {
                 FrameCont::Call1(..) => Call1,
                 FrameCont::Call2(v, ..) => match &**v {
                     Value::Function(..) => Call2,
-                    Value::Function(..) => Call2Prim,
-                    Value::Function(..) => Call2Dyn,
+                    Value::PrimFunction(..) => Call2Prim,
+                    Value::Dynamic(..) => Call2Dyn,
                     _ => None?,
                 },
                 _ => todo!(),

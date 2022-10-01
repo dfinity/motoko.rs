@@ -3,6 +3,7 @@ use crate::ast::{
     Type, UnOp,
 };
 use crate::ast_traversal::ToNode;
+use crate::shared::Share;
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
@@ -211,24 +212,24 @@ fn call_prim_function(
             Value::Text(s) => {
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, s);
                 core.debug_print_out.push_back(s);
-                core.cont = Cont::Value(Value::Unit);
+                core.cont = Cont::Value(Value::Unit.share());
                 Ok(Step {})
             }
             v => {
                 let txt = string_from_value(&v)?;
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
                 core.debug_print_out.push_back(txt.into());
-                core.cont = Cont::Value(Value::Unit);
+                core.cont = Cont::Value(Value::Unit.share());
                 Ok(Step {})
             }
         },
         NatToText => match args {
             Value::Nat(n) => {
-                core.cont = Cont::Value(Value::Text(format!("{}", n).into()));
+                core.cont = Cont::Value(Value::Text(format!("{}", n).into()).share());
                 Ok(Step {})
             }
             v => {
-                core.cont = Cont::Value(Value::Text(format!("{:?}", v).into()));
+                core.cont = Cont::Value(Value::Text(format!("{:?}", v).into()).share());
                 Ok(Step {})
             }
         },
@@ -277,7 +278,7 @@ fn call_fastranditer_function(
     core: &mut Core,
     frif: &FastRandIterFunction,
     targs: Option<Inst>,
-    args: Value,
+    args: Value_,
 ) -> Result<Step, Interruption> {
     use FastRandIterFunction::*;
     match frif {
@@ -371,7 +372,7 @@ mod pattern {
     }
 }
 
-fn assert_value_is_optional(v: Value) -> Result<Option<Value>, Interruption> {
+fn assert_value_is_optional(v: &Value) -> Result<Option<Value>, Interruption> {
     match v {
         Value::Option(v) => Ok(Some((*v).clone())),
         Value::Null => Ok(None),
@@ -379,11 +380,11 @@ fn assert_value_is_optional(v: Value) -> Result<Option<Value>, Interruption> {
     }
 }
 
-fn assert_value_is_u32(v: Value) -> Result<u32, Interruption> {
+fn assert_value_is_u32(v: &Value) -> Result<u32, Interruption> {
     v.to_rust().map_err(Interruption::ValueError)
 }
 
-fn assert_value_is_option_u32(v: Value) -> Result<Option<u32>, Interruption> {
+fn assert_value_is_option_u32(v: &Value) -> Result<Option<u32>, Interruption> {
     match assert_value_is_optional(v)? {
         None => Ok(None),
         Some(v) => Ok(Some(assert_value_is_u32(v)?)),
@@ -392,35 +393,37 @@ fn assert_value_is_option_u32(v: Value) -> Result<Option<u32>, Interruption> {
 
 mod collection {
     pub mod fastranditer {
+        use std::borrow::Borrow;
+
         use super::super::*;
-        use crate::value::Collection;
+        use crate::{shared::Share, value::Collection};
         use im_rc::vector;
 
-        pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value) -> Result<Step, Interruption> {
+        pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value_) -> Result<Step, Interruption> {
             if let Some(env) = pattern_matches(
-                &HashMap::new(),
+                HashMap::new(),
                 &pattern::vars(core, vector!["size", "seed"]),
-                &v,
+                v,
             ) {
-                let seed: u32 = assert_value_is_u32(env.get("seed").unwrap().clone())?;
-                let size: Option<u32> =
-                    assert_value_is_option_u32(env.get("size").unwrap().clone())?;
+                let seed: u32 = assert_value_is_u32(&*env.get("seed").unwrap())?;
+                let size: Option<u32> = assert_value_is_option_u32(&*env.get("size").unwrap())?;
 
-                core.cont = Cont::Value(Value::Collection(Collection::FastRandIter(
-                    FastRandIter::new(size, seed),
-                )));
+                core.cont = Cont::Value(
+                    Value::Collection(Collection::FastRandIter(FastRandIter::new(size, seed)))
+                        .share(),
+                );
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
 
-        pub fn next(core: &mut Core, v: Value) -> Result<Step, Interruption> {
-            match v {
+        pub fn next(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+            match &*v {
                 Value::Collection(Collection::FastRandIter(mut fri)) => {
                     let n = match fri.next() {
                         // to do -- systematic Option<_> ~> ?<_> conversion.
-                        Some(n) => Value::Option(Rc::new(n)),
+                        Some(n) => Value::Option(n.share()),
                         None => Value::Null,
                     };
                     let i = Value::Collection(Collection::FastRandIter(fri));
@@ -451,14 +454,14 @@ mod collection {
                 &pattern::vars(core, vector!["hm", "k", "v"]),
                 &v,
             ) {
-                let hm = env.get("hm").unwrap();
+                let hm = env.get_mut("hm").unwrap();
                 let k = env.get("k").unwrap();
                 let v = env.get("v").unwrap();
                 let (hm, old) = {
-                    if let Value::Collection(Collection::HashMap(mut hm)) = hm.clone() {
-                        match hm.insert(k.clone(), v.clone()) {
+                    if let Value::Collection(Collection::HashMap(mut hm)) = hm {
+                        match hm.insert(k.fast_clone(), v.fast_clone()) {
                             None => (hm, Value::Null),
-                            Some(old) => (hm, Value::Option(Rc::new(old))),
+                            Some(old) => (hm, Value::Option(old)),
                         }
                     } else {
                         return Err(Interruption::TypeMismatch);
@@ -671,38 +674,39 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     }
 }
 
-fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
-    match (pat, v) {
-        (Pat::Wild, _) => Some(env.clone()),
-        (Pat::Literal(Literal::Unit), Value::Unit) => Some(env.clone()),
-        (Pat::Paren(p), v) => pattern_matches(env, &*p.0, v),
-        (Pat::Annot(p, _), v) => pattern_matches(env, &*p.0, v),
-        (Pat::Var(x), v) => {
-            let mut env = env.clone();
-            env.insert(*x.0.clone(), v.clone());
+fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
+    match (pat, &*v) {
+        (Pat::Wild, _) => Some(env),
+        (Pat::Literal(Literal::Unit), Value::Unit) => Some(env),
+        (Pat::Paren(p), _) => pattern_matches(env, &*p.0, v),
+        (Pat::Annot(p, _), _) => pattern_matches(env, &*p.0, v),
+        (Pat::Var(x), _) => {
+            let mut env = env;
+            env.insert(*x.0.clone() /* TODO: remove clone() */, v);
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
             if **id1.0 != *id2 {
                 return None;
             };
-            Some(env.clone())
+            Some(env)
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
             if **id1.0 != *id2 {
                 return None;
             };
-            pattern_matches(env, &*pat_.0, &*v_)
+            pattern_matches(env, &*pat_.0, v_.fast_clone())
         }
         (Pat::Tuple(ps), Value::Tuple(vs)) => {
             if ps.vec.len() != vs.len() {
                 None
             } else {
-                let mut env = env.clone();
                 for i in 0..ps.vec.len() {
-                    if let Some(env_) =
-                        pattern_matches(&env, &*ps.vec.get(i).unwrap().0, vs.get(i).unwrap())
-                    {
+                    if let Some(env_) = pattern_matches(
+                        env,
+                        &*ps.vec.get(i).unwrap().0,
+                        vs.get(i).unwrap().fast_clone(),
+                    ) {
                         env = env_
                     } else {
                         return None;
@@ -715,9 +719,9 @@ fn pattern_matches(env: &Env, pat: &Pat, v: &Value) -> Option<Env> {
     }
 }
 
-fn switch(core: &mut Core, v: Value, cases: Cases) -> Result<Step, Interruption> {
+fn switch(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
-        if let Some(env) = pattern_matches(&core.env, &*case.0.pat.0, &v) {
+        if let Some(env) = pattern_matches(core.env.clone(), &*case.0.pat.0, &v) {
             core.env = env;
             core.cont_source = case.0.exp.1.clone();
             core.cont = Cont::Exp_(case.0.exp, Vector::new());
@@ -917,9 +921,9 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
 }
 
 // continue execution using the top-most stack frame, if any.
-fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
+fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
     if core.stack.len() == 0 {
-        core.cont = Cont::Value(v.clone());
+        core.cont = Cont::Value(v);
         Err(Interruption::Done(v))
     } else {
         use FrameCont::*;
@@ -1021,7 +1025,7 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 Ok(Step {})
             }
             Variant(i) => {
-                core.cont = Cont::Value(Value::Variant(*i.0, Some(Rc::new(v))));
+                core.cont = Cont::Value(Value::Variant(*i.0, Some(v)));
                 Ok(Step {})
             }
             Switch(cases) => switch(core, v, cases),
@@ -1274,7 +1278,6 @@ fn stack_cont(core: &mut Core, v: Value) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             Call1(inst, e2) => {
-                let v = core.deref_value(Rc::new(v))?;
                 exp_conts(core, FrameCont::Call2(v, inst), e2)
                 // match v {
                 //     Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
@@ -1585,13 +1588,6 @@ impl Core {
             .get(pointer)
             .ok_or_else(|| Interruption::Dangling(pointer.clone()))
             .map(Rc::clone)
-    }
-
-    pub fn deref_value(&mut self, value: Value_) -> Result<Value_, Interruption> {
-        match &*value {
-            Value::Pointer(p) => self.deref(p),
-            _ => Ok(value),
-        }
     }
 }
 

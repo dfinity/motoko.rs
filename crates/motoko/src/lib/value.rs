@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
 use crate::dynamic::Dynamic;
+use crate::shared::Shared;
 use crate::vm_types::Env;
 
 use im_rc::HashMap;
@@ -76,7 +77,7 @@ pub struct FieldValue {
     pub val: Value,
 }
 
-pub type Value_ = Rc<Value>;
+pub type Value_ = Shared<Value>;
 
 pub type Pointer = crate::vm_types::Pointer;
 
@@ -97,7 +98,7 @@ pub enum Value {
     Text(Text),
     Blob(Vec<u8>),
     Array(Mut, Vector<Value_>),
-    Tuple(Vector<Value>),
+    Tuple(Vector<Value_>),
     Object(HashMap<Id, FieldValue>),
     Option(Value_),
     Variant(Id, Option<Value_>),
@@ -162,7 +163,7 @@ impl std::hash::Hash for DynamicValue {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Collection {
-    HashMap(#[serde(with = "crate::serde_utils::im_rc_hashmap")] HashMap<Value, Value>),
+    HashMap(#[serde(with = "crate::serde_utils::im_rc_hashmap")] HashMap<Value_, Value_>),
     FastRandIter(FastRandIter),
 }
 

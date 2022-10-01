@@ -6,6 +6,7 @@ use serde::{serde_if_integer128, Serialize};
 
 use crate::{
     ast::Mut,
+    shared::Share,
     value::{FieldValue, Text, Value, ValueError, Value_},
 };
 
@@ -159,7 +160,7 @@ impl serde::Serializer for Serializer {
     {
         Ok(Value::Variant(
             variant.to_string(),
-            Some(Rc::new(value.serialize(self)?)),
+            Some(value.serialize(self)?.share()),
         ))
     }
 
@@ -173,7 +174,7 @@ impl serde::Serializer for Serializer {
     where
         T: ?Sized + Serialize,
     {
-        Ok(Value::Option(Rc::new(value.serialize(self)?)))
+        Ok(Value::Option(value.serialize(self)?.share()))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -274,7 +275,7 @@ impl serde::ser::SerializeSeq for SerializeVec {
     where
         T: ?Sized + Serialize,
     {
-        self.vec.push_back(Rc::new(value.serialize(Serializer)?));
+        self.vec.push_back(value.serialize(Serializer)?.share());
         Ok(())
     }
 
@@ -331,7 +332,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     fn end(self) -> Result<Value> {
         Ok(Value::Variant(
             self.name,
-            Some(Rc::new(Value::Tuple(self.vec))),
+            Some(Value::Tuple(self.vec).share()),
         ))
     }
 }
@@ -411,7 +412,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     fn end(self) -> Result<Value> {
         Ok(Value::Variant(
             self.name,
-            Some(Rc::new(Value::Object(self.map))),
+            Some(Value::Object(self.map).share()),
         ))
     }
 }

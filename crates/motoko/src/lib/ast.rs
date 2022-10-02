@@ -45,7 +45,6 @@ impl<X: Clone> NodeData<X> {
     }
 }
 
-
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(tag = "source_type")]
 pub enum Source {

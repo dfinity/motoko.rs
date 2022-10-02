@@ -1,3 +1,4 @@
+use motoko::shared::Share;
 use motoko::value::Value;
 use motoko::vm_types::{Core, Limits};
 use motoko_proc_macro::parse_static;
@@ -11,14 +12,14 @@ fn test_eval_open_block() {
     core.continue_(&Limits::none()).unwrap();
     core.eval_open_block(
         vec![
-            ("x", Value::Nat(BigUint::from(1 as u32))),
-            ("y", Value::Nat(BigUint::from(2 as u32))),
+            ("x", Value::Nat(BigUint::from(1 as u32)).share()),
+            ("y", Value::Nat(BigUint::from(2 as u32)).share()),
         ],
         parse_static!("var z = x + y").clone(),
     )
     .unwrap();
     let r = core.eval_prog(parse_static!("x + y").clone()).unwrap();
-    assert_eq!(r, Value::Nat(BigUint::from(666 + 777 as u32)));
+    assert_eq!(r, Value::Nat(BigUint::from(666 + 777 as u32)).share());
 }
 
 #[test]
@@ -37,7 +38,7 @@ fn test_hashmap_performance_steps() {
     // generate initial data / batch random put.
     let size = 10;
     core.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)))],
+        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
         parse_static!(
             "
       var i = prim \"fastRandIterNew\" (?size, 1);
@@ -62,7 +63,7 @@ fn test_hashmap_performance_steps() {
     // batch get.
     let size = 10;
     core.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)))],
+        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
         parse_static!(
             "
       var i = prim \"fastRandIterNew\" (?size, 1);
@@ -85,7 +86,7 @@ fn test_hashmap_performance_steps() {
     // batch remove.
     let size = 10;
     core.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)))],
+        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
         parse_static!(
             "
       var i = prim \"fastRandIterNew\" (?size, 1);

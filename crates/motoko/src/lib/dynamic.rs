@@ -18,7 +18,7 @@ pub trait Dynamic: Debug + DynClone + DynHash {
         Value::Dynamic(DynamicValue(Rc::new(RefCell::new(self))))
     }
 
-    fn get_index(&self, _index: &Value) -> Result {
+    fn get_index(&self, _index: Value_) -> Result {
         Err(Interruption::IndexOutOfBounds)
     }
 

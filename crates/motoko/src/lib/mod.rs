@@ -23,6 +23,7 @@ mod parser_utils;
 #[doc(hidden)]
 pub mod proc_macro;
 mod serde_utils;
+pub mod shared;
 pub mod value;
 pub mod vm;
 pub mod vm_types;

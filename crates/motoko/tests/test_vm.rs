@@ -343,8 +343,8 @@ fn prim_collection_hashmap() {
 #[test]
 fn fastranditer() {
     assert_(
-        "var i = prim \"fastRandIterNew\" (null, 33); (prim \"fastRandIterNext\" i).0",
-        "?1592943",
+        "var i = prim \"fastRandIterNew\" (null, 33); let (x, i) = (prim \"fastRandIterNext\" i); (x, (prim \"fastRandIterNext\" i).0)",
+        "(?1592943, ?1731023874)",
     );
 }
 
@@ -438,7 +438,7 @@ fn test_core_eval() {
     core.eval("var y = x + 1").expect("oops");
     let y = core.eval("y").expect("oops");
     assert_eq!(
-        y,
-        motoko::value::Value::Nat(num_bigint::BigUint::from(2 as u32))
+        &*y,
+        &motoko::value::Value::Nat(num_bigint::BigUint::from(2 as u32))
     )
 }

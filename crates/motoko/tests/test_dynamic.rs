@@ -1,5 +1,4 @@
-use std::rc::Rc;
-
+use motoko::shared::Share;
 use motoko::value::Value;
 use motoko::vm_types::Interruption;
 use motoko::{dynamic::Dynamic, value::Value_};
@@ -13,9 +12,9 @@ fn dyn_struct() {
     }
 
     impl Dynamic for Struct {
-        fn get_index(&self, index: &Value) -> motoko::dynamic::Result {
+        fn get_index(&self, index: Value_) -> motoko::dynamic::Result {
             self.map
-                .get(index)
+                .get(&index)
                 .map(Clone::clone)
                 .ok_or_else(|| Interruption::IndexOutOfBounds)
         }
@@ -47,24 +46,28 @@ fn dyn_struct() {
         }
     }
 
-    let value = Struct::default().into_value();
+    let value = Struct::default().into_value().share();
 
     let mut core = motoko::vm_types::Core::empty();
-    let pointer = core.alloc(Rc::new(value));
+    let pointer = core.alloc(value);
 
     core.env
-        .insert("value".to_string(), Value::Pointer(pointer));
+        .insert("value".to_string(), Value::Pointer(pointer).share());
 
     assert_eq!(
-        core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap()),
-        Ok(Value::Char('a'))
+        core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())
+            .unwrap()
+            .get(),
+        Value::Char('a')
     );
     // assert_eq!(
     //     core.eval_prog(motoko::check::parse("value.x := 'b'; value.x").unwrap()),
     //     Ok(Value::Char('b'))
     // );
     assert_eq!(
-        core.eval_prog(motoko::check::parse("value('c')").unwrap()),
-        Ok(Value::Char('c'))
+        core.eval_prog(motoko::check::parse("value('c')").unwrap())
+            .unwrap()
+            .get(),
+        Value::Char('c')
     );
 }

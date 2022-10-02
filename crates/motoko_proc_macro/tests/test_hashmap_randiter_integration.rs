@@ -1,3 +1,4 @@
+use motoko::shared::Share;
 use motoko::value::Value;
 use motoko::vm_types::{Core, Limits};
 use motoko_proc_macro::parse_static;
@@ -36,7 +37,7 @@ fn test_hashmap_randiter_intergration() {
     // generate initial data / batch random put.
     let size = 10;
     core.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)))],
+        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
         parse_static!(
             "
       let j = rands(size);
@@ -54,7 +55,7 @@ fn test_hashmap_randiter_intergration() {
     // batch get.
     let size = 10;
     core.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)))],
+        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
         parse_static!(
             "
       let j = rands(size);
@@ -70,7 +71,7 @@ fn test_hashmap_randiter_intergration() {
     // batch remove.
     let size = 10;
     core.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)))],
+        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
         parse_static!(
             "
       let j = rands(size);

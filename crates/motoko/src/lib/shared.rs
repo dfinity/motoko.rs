@@ -3,9 +3,27 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Shared<T> {
     rc: Rc<T>,
+}
+
+impl<T: Serialize> Serialize for Shared<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde::Serialize::serialize(&self.rc, serializer)
+    }
+}
+
+impl<'de, T: Clone + Deserialize<'de>> Deserialize<'de> for Shared<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        serde::Deserialize::deserialize(deserializer).map(Shared::new)
+    }
 }
 
 impl<T: Clone> Shared<T> {

@@ -26,13 +26,11 @@ impl<X> Loc<X> {
 
 impl<X: Clone> Node<X> {
     pub fn without_source(value: X) -> Self {
-        let p: NodeData<_> = NodeData(value, Source::Unknown);
-        p.share()
+        NodeData(value, Source::Unknown).share()
     }
 
     pub fn map_node<F: Fn(X) -> T, T: Clone>(self, map_fn: F) -> Node<T> {
-        let p = NodeData(map_fn(self.0), self.1);
-        p.share()
+        NodeData(map_fn(self.0), self.1).share()
     }
 }
 

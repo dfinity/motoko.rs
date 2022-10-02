@@ -318,7 +318,10 @@ fn call_function(
             .name
             .clone()
             .map(|f| core.env.insert(*f.0, value));
-        core.cont = Cont::Exp_(cf.0.content.exp.clone() /* #JuicyClone. */ , Vector::new());
+        core.cont = Cont::Exp_(
+            cf.0.content.exp.clone(), /* #JuicyClone. */
+            Vector::new(),
+        );
         core.stack.push_front(Frame {
             source,
             env: env_saved,

@@ -1,5 +1,5 @@
+use crate::shared::{Share, Shared};
 use std::ops::Range;
-use crate::shared::{Shared, Share};
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,10 @@ impl<X: std::fmt::Debug> std::fmt::Debug for Loc<X> {
     }
 }
 
-pub type Node<X> = Shared<(X, Source)>;
+pub type Node<X> = Shared<NodeData<X>>;
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct NodeData<X>(pub X, pub Source);
 
 impl<X> Loc<X> {
     pub fn map<F: Fn(X) -> T, T>(self, map_fn: F) -> Loc<T> {
@@ -21,13 +24,15 @@ impl<X> Loc<X> {
     }
 }
 
-impl<X> Node<X> {
+impl<X: Clone> Node<X> {
     pub fn without_source(value: X) -> Self {
-        Loc(Box::new(value), Source::Unknown)
+        let p: NodeData<_> = NodeData(value, Source::Unknown);
+        p.share()
     }
 
-    pub fn map_node<F: Fn(X) -> T, T>(self, map_fn: F) -> Node<T> {
-        Loc(Box::new(map_fn(*self.0)), self.1)
+    pub fn map_node<F: Fn(X) -> T, T: Clone>(self, map_fn: F) -> Node<T> {
+        let p = NodeData(map_fn(self.0), self.1);
+        p.share()
     }
 }
 

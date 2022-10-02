@@ -3,9 +3,15 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Shared<T> {
     rc: Rc<T>,
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for Shared<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.rc)
+    }
 }
 
 impl<T: Serialize> Serialize for Shared<T> {
@@ -59,6 +65,7 @@ impl<T> AsRef<T> for Shared<T> {
 }
 
 pub trait Share<T> {
+    /// TODO: gradually minimize the number of calls to this function.
     fn share(self) -> Shared<T>;
 }
 

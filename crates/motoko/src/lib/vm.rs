@@ -318,7 +318,7 @@ fn call_function(
             .name
             .clone()
             .map(|f| core.env.insert(*f.0, value));
-        core.cont = Cont::Exp_(cf.0.content.exp.clone(), Vector::new());
+        core.cont = Cont::Exp_(cf.0.content.exp.clone() /* #JuicyClone. */ , Vector::new());
         core.stack.push_front(Frame {
             source,
             env: env_saved,
@@ -335,7 +335,9 @@ fn call_dot_next(core: &mut Core, exp: Exp_) -> Exp_ {
     use crate::ast::Literal::Unit;
     use crate::ast::Loc;
     use Exp::*;
-
+    // To do 20221001 -- specialize the stack for this pattern and
+    // avoid constructing all of these temp expression forms for each
+    // loop iteration.
     let s = Source::ExpStep {
         source: Box::new(core.cont_source.clone()),
     };

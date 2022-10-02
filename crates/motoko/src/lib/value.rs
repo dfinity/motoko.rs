@@ -243,42 +243,42 @@ pub struct Closed<X> {
 }
 
 impl Value {
-    pub fn from_dec(dec: Dec) -> Result {
+    pub fn from_dec(dec: &Dec) -> Result {
         match dec {
             Dec::Exp(e) => Value::from_exp(e),
             _ => Err(ValueError::NotAValue),
         }
     }
 
-    pub fn from_decs(decs: Decs) -> Result {
+    pub fn from_decs(decs: &Decs) -> Result {
         if decs.vec.len() > 1 {
             Err(ValueError::NotAValue)
         } else {
-            Value::from_dec((*decs.vec[0].0).clone())
+            Value::from_dec(decs.vec[0].as_ref().data_ref())
         }
     }
 
-    pub fn from_exp(e: Exp) -> Result {
+    pub fn from_exp(e: &Exp) -> Result {
         use Exp::*;
         match e {
             Literal(l) => Value::from_literal(l),
-            Paren(e) => Value::from_exp(*e.0),
-            Annot(e, _) => Value::from_exp(*e.0),
+            Paren(e) => Value::from_exp(&e.0),
+            Annot(e, _) => Value::from_exp(&e.0),
             Return(e) => match e {
-                Some(e) => Value::from_exp(*e.0),
+                Some(e) => Value::from_exp(&e.0),
                 None => Ok(Value::Unit),
             },
-            Do(e) => Value::from_exp(*e.0),
+            Do(e) => Value::from_exp(&e.0),
             Block(decs) => Value::from_decs(decs),
             _ => Err(ValueError::NotAValue),
         }
     }
 
-    pub fn from_literal(l: Literal) -> Result {
+    pub fn from_literal(l: &Literal) -> Result {
         use Value::*;
         Ok(match l {
             Literal::Null => Null,
-            Literal::Bool(b) => Bool(b),
+            Literal::Bool(b) => Bool(b.clone()),
             Literal::Unit => Unit,
             Literal::Nat(n) => Nat({
                 let n = n.replace('_', "");
@@ -295,7 +295,7 @@ impl Value {
             }
             Literal::Char(s) => Char(s[1..s.len() - 1].parse().map_err(|_| ValueError::Char)?),
             Literal::Text(s) => Text(crate::value::Text::from(s[1..s.len() - 1].to_string())),
-            Literal::Blob(v) => Blob(v),
+            Literal::Blob(v) => Blob(v.clone()),
         })
     }
 }

@@ -183,13 +183,13 @@ fn exp_conts_(
     Ok(Step {})
 }
 
-fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: Exp_) -> Result<Step, Interruption> {
+fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: &Exp_) -> Result<Step, Interruption> {
     let cont_source = cont.1.clone();
     exp_conts_(
         core,
         core.cont_source.clone(),
         frame_cont,
-        Cont::Exp_(cont, Vector::new()),
+        Cont::Exp_(cont.fast_clone(), Vector::new()),
         cont_source,
     )
 }
@@ -317,7 +317,7 @@ fn call_function(
         cf.0.content
             .name
             .clone()
-            .map(|f| core.env.insert(*f.0, value));
+            .map(|f| core.env.insert(f.0.clone(), value));
         core.cont = Cont::Exp_(
             cf.0.content.exp.clone(), /* #JuicyClone. */
             Vector::new(),
@@ -335,12 +335,15 @@ fn call_function(
 }
 
 fn call_dot_next(core: &mut Core, exp: Exp_) -> Exp_ {
-    use crate::ast::Literal::Unit;
-    use crate::ast::Loc;
-    use Exp::*;
+    //use crate::ast::Literal::Unit;
+    //use crate::ast::Loc;
+    //use Exp::*;
+
     // To do 20221001 -- specialize the stack for this pattern and
     // avoid constructing all of these temp expression forms for each
     // loop iteration.
+
+    /*
     let s = Source::ExpStep {
         source: Box::new(core.cont_source.clone()),
     };
@@ -355,17 +358,19 @@ fn call_dot_next(core: &mut Core, exp: Exp_) -> Exp_ {
         )),
         s,
     )
+    */
+    todo!()
 }
 
 mod pattern {
     use super::*;
-    use crate::ast::{Delim, Loc, Node, Pat_};
+    use crate::ast::{Delim, Node, NodeData, Pat_};
 
-    pub fn node<X>(core: &Core, x: X) -> Node<X> {
+    pub fn node<X: Clone>(core: &Core, x: X) -> Node<X> {
         let s = Source::ExpStep {
             source: Box::new(core.cont_source.clone()),
         };
-        Loc(Box::new(x), s)
+        NodeData::new(x, s).share()
     }
 
     pub fn var_(core: &Core, id: &str) -> Pat_ {
@@ -563,39 +568,42 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
 fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
-    match *exp.0 {
+    use crate::shared::fast_option_;
+    match &exp.0 {
         Literal(l) => {
             // TODO: partial evaluation would now be highly efficient due to value sharing
-            core.cont = cont_value(Value::from_literal(l).map_err(Interruption::ValueError)?);
+            core.cont = cont_value(Value::from_literal(&l).map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         Function(f) => {
             core.cont = cont_value(Value::Function(ClosedFunction(Closed {
                 env: core.env.clone(),
-                content: f,
+                content: f.clone(),
             })));
             Ok(Step {})
         }
-        Call(e1, inst, e2) => exp_conts(core, FrameCont::Call1(inst, e2), e1),
+        Call(e1, inst, e2) => exp_conts(core, FrameCont::Call1(inst.clone(), e2.fast_clone()), e1),
         Return(None) => return_(core, Value::Unit.share()),
         Return(Some(e)) => exp_conts(core, FrameCont::Return, e),
-        Var(x) => match core.env.get(&x) {
+        Var(x) => match core.env.get(x) {
             None => Err(Interruption::UnboundIdentifer(x.clone())),
             Some(v) => {
                 core.cont = Cont::Value_(v.fast_clone());
                 Ok(Step {})
             }
         },
-        Bin(e1, binop, e2) => exp_conts(core, FrameCont::BinOp1(binop, e2), e1),
-        Un(un, e) => exp_conts(core, FrameCont::UnOp(un), e),
+        Bin(e1, binop, e2) => {
+            exp_conts(core, FrameCont::BinOp1(binop.clone(), e2.fast_clone()), e1)
+        }
+        Un(un, e) => exp_conts(core, FrameCont::UnOp(un.clone()), e),
         Paren(e) => exp_conts(core, FrameCont::Paren, e),
         Variant(id, None) => {
             // TODO: cache and share variants?
-            core.cont = cont_value(Value::Variant(*id.0, None));
+            core.cont = cont_value(Value::Variant(id.0, None));
             Ok(Step {})
         }
-        Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id), e),
-        Switch(e1, cases) => exp_conts(core, FrameCont::Switch(cases), e1),
+        Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id.clone()), e),
+        Switch(e1, cases) => exp_conts(core, FrameCont::Switch(cases.clone()), e1),
         Block(decs) => exp_conts_(
             core,
             source.clone(),
@@ -619,7 +627,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
                         id: f1.id,
                         typ: f1.typ,
                     };
-                    exp_conts(core, FrameCont::Object(Vector::new(), fc, fs), f1.exp)
+                    exp_conts(core, FrameCont::Object(Vector::new(), fc, fs), &f1.exp)
                 }
             }
         }
@@ -631,39 +639,49 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
                     core.cont = cont_value(Value::Unit);
                     Ok(Step {})
                 }
-                Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), e1),
+                Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), &e1),
             }
         }
         Array(mut_, es) => {
             let mut es: Vector<_> = es.vec.into();
             match es.pop_front() {
                 None => {
-                    core.cont = cont_value(Value::Array(mut_, Vector::new()));
+                    core.cont = cont_value(Value::Array(mut_.clone(), Vector::new()));
                     Ok(Step {})
                 }
-                Some(e1) => exp_conts(core, FrameCont::Array(mut_, Vector::new(), es), e1),
+                Some(e1) => exp_conts(core, FrameCont::Array(mut_.clone(), Vector::new(), es), &e1),
             }
         }
-        Index(e1, e2) => exp_conts(core, FrameCont::Idx1(e2), e1),
+        Index(e1, e2) => exp_conts(core, FrameCont::Idx1(e2.fast_clone()), e1),
         Annot(e, t) => {
-            match &*t.0 {
+            match &t.0 {
                 Type::Prim(pt) => core.cont_prim_type = Some(pt.clone()),
                 _ => {}
             };
-            exp_conts(core, FrameCont::Annot(t), e)
+            exp_conts(core, FrameCont::Annot(t.fast_clone()), &e)
         }
-        Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2), e1),
-        Proj(e1, i) => exp_conts(core, FrameCont::Proj(i), e1),
-        Dot(e1, f) => exp_conts(core, FrameCont::Dot(f), e1),
-        If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2, e3), e1),
-        Rel(e1, relop, e2) => exp_conts(core, FrameCont::RelOp1(relop, e2), e1),
-        While(e1, e2) => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
+        Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2.fast_clone()), e1),
+        Proj(e1, i) => exp_conts(core, FrameCont::Proj(*i), e1),
+        Dot(e1, f) => exp_conts(core, FrameCont::Dot(f.fast_clone()), e1),
+        If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2.fast_clone(), fast_option_(e3)), e1),
+        Rel(e1, relop, e2) => {
+            exp_conts(core, FrameCont::RelOp1(relop.clone(), e2.fast_clone()), e1)
+        }
+        While(e1, e2) => exp_conts(
+            core,
+            FrameCont::While1(e1.fast_clone(), e2.fast_clone()),
+            e1,
+        ),
         For(p, e1, e2) => {
-            let next = call_dot_next(core, e1);
-            exp_conts(core, FrameCont::For1(p, next.clone(), e2), next)
+            let next = call_dot_next(core, e1.fast_clone());
+            exp_conts(
+                core,
+                FrameCont::For1(p.fast_clone(), next.fast_clone(), e2.fast_clone()),
+                &next,
+            )
         }
-        And(e1, e2) => exp_conts(core, FrameCont::And1(e2), e1),
-        Or(e1, e2) => exp_conts(core, FrameCont::Or1(e2), e1),
+        And(e1, e2) => exp_conts(core, FrameCont::And1(e2.fast_clone()), e1),
+        Or(e1, e2) => exp_conts(core, FrameCont::Or1(e2.fast_clone()), e1),
         Not(e) => exp_conts(core, FrameCont::Not, e),
         Opt(e) => exp_conts(core, FrameCont::Opt, e),
         DoOpt(e) => exp_conts(core, FrameCont::DoOpt, e),
@@ -684,24 +702,24 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
     match (pat, &*v) {
         (Pat::Wild, _) => Some(env),
         (Pat::Literal(Literal::Unit), Value::Unit) => Some(env),
-        (Pat::Paren(p), _) => pattern_matches(env, &*p.0, v),
-        (Pat::Annot(p, _), _) => pattern_matches(env, &*p.0, v),
+        (Pat::Paren(p), _) => pattern_matches(env, &p.0, v),
+        (Pat::Annot(p, _), _) => pattern_matches(env, &p.0, v),
         (Pat::Var(x), _) => {
             let mut env = env;
-            env.insert(*x.0.clone() /* TODO: remove clone() */, v);
+            env.insert(x.0, v);
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if **id1.0 != *id2 {
+            if *id1.0 != *id2 {
                 return None;
             };
             Some(env)
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if **id1.0 != *id2 {
+            if *id1.0 != *id2 {
                 return None;
             };
-            pattern_matches(env, &*pat_.0, v_.fast_clone())
+            pattern_matches(env, &pat_.0, v_.fast_clone())
         }
         (Pat::Tuple(ps), Value::Tuple(vs)) => {
             if ps.vec.len() != vs.len() {
@@ -711,7 +729,7 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
                 for i in 0..ps.vec.len() {
                     if let Some(env_) = pattern_matches(
                         env,
-                        &*ps.vec.get(i).unwrap().0,
+                        &ps.vec.get(i).unwrap().0,
                         vs.get(i).unwrap().fast_clone(),
                     ) {
                         env = env_
@@ -728,7 +746,7 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
 
 fn switch(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
-        if let Some(env) = pattern_matches(core.env.clone(), &*case.0.pat.0, v.fast_clone()) {
+        if let Some(env) = pattern_matches(core.env.clone(), &case.0.pat.0, v.fast_clone()) {
             core.env = env;
             core.cont_source = case.0.exp.1.clone();
             core.cont = Cont::Exp_(case.0.exp, Vector::new());
@@ -1036,7 +1054,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 Ok(Step {})
             }
             Variant(i) => {
-                core.cont = cont_value(Value::Variant(*i.0, Some(v)));
+                core.cont = cont_value(Value::Variant(i.0, Some(v)));
                 Ok(Step {})
             }
             Switch(cases) => switch(core, v, cases),
@@ -1111,7 +1129,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     None => {
                         let mut hm = HashMap::new();
                         for f in done.into_iter() {
-                            let id = *f.id.0; // to do -- avoid cloning strings. Use Rc.
+                            let id = f.id.0; // to do -- avoid cloning strings. Use Rc.
                             let val = match f.mut_ {
                                 Mut::Const => f.val,
                                 Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
@@ -1215,7 +1233,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     Ok(Step {})
                 }
                 Value::Option(v_) => {
-                    if let Some(env) = pattern_matches(core.env.clone(), &*p.0, v_.fast_clone()) {
+                    if let Some(env) = pattern_matches(core.env.clone(), &p.0, v_.fast_clone()) {
                         core.env = env;
                         exp_conts(core, FrameCont::For2(p, e1, e2.clone()), e2)
                     } else {
@@ -1436,32 +1454,33 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                 Ok(Step {})
             } else {
                 let dec_ = decs.pop_front().unwrap();
-                match *dec_.0 {
+                match dec_.0 {
                     Dec::Exp(e) => {
                         core.cont_source = dec_.1.clone();
-                        core.cont = Cont::Exp_(e.node(dec_.1), decs);
+                        core.cont =
+                            Cont::Exp_(crate::ast::NodeData::new(e, dec_.1.clone()).share(), decs);
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {
                         if decs.len() == 0 {
-                            let i = match &*p.0 {
+                            let i = match &p.0 {
                                 Pat::Var(i) => Some(i.clone()),
                                 _ => None,
                             };
                             exp_conts(
                                 core,
-                                FrameCont::Let(*p.0, Cont::LetVarRet(core.cont_source.clone(), i)),
+                                FrameCont::Let(p.0, Cont::LetVarRet(core.cont_source.clone(), i)),
                                 e,
                             )
                         } else {
-                            exp_conts(core, FrameCont::Let(*p.0, Cont::Decs(decs)), e)
+                            exp_conts(core, FrameCont::Let(p.0, Cont::Decs(decs)), e)
                         }
                     }
                     Dec::LetModule(_i, _, _dfs) => {
                         nyi!(line!())
                     }
-                    Dec::Var(p, e) => match *p.0 {
-                        Pat::Var(x) => exp_conts(core, FrameCont::Var(*x.0, Cont::Decs(decs)), e),
+                    Dec::Var(p, e) => match p.0 {
+                        Pat::Var(x) => exp_conts(core, FrameCont::Var(x.0, Cont::Decs(decs)), e),
                         _ => nyi!(line!()),
                     },
                     Dec::Func(f) => {
@@ -1476,7 +1495,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                             Ok(Step {})
                         } else {
                             if let Some(i) = id {
-                                core.env.insert(*i.0, v);
+                                core.env.insert(i.0, v);
                             };
                             core.cont = Cont::Decs(decs);
                             Ok(Step {})

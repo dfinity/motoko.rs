@@ -29,16 +29,22 @@ impl<X: Clone> Node<X> {
         NodeData(value, Source::Unknown).share()
     }
 
-    pub fn map_node<F: Fn(X) -> T, T: Clone>(self, map_fn: F) -> Node<T> {
-        NodeData(map_fn(self.0), self.1).share()
+    pub fn map_node<F: Fn(&X) -> T, T: Clone>(self, map_fn: F) -> Node<T> {
+        NodeData(map_fn(&self.0), self.1.clone()).share()
     }
 }
 
 pub type Span = Range<usize>;
 
 impl<X: Clone> NodeData<X> {
+    pub fn new(x: X, s: Source) -> Self {
+        NodeData(x, s)
+    }
     pub fn data_clone(self) -> X {
         self.0.clone()
+    }
+    pub fn data_ref<'a>(&'a self) -> &'a X {
+        &self.0
     }
     pub fn source_clone(self) -> Source {
         self.1.clone()

@@ -74,3 +74,11 @@ impl<T: Clone> Share<T> for T {
         Shared::new(self)
     }
 }
+
+pub fn fast_option<X: Clone>(o: &Option<&Shared<X>>) -> Option<Shared<X>> {
+    o.map(|x| x.fast_clone())
+}
+
+pub fn fast_option_<X: Clone>(o: &Option<Shared<X>>) -> Option<Shared<X>> {
+    o.map(|x| x.fast_clone())
+}

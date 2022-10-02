@@ -1,4 +1,5 @@
 use std::ops::Range;
+use crate::shared::{Shared, Share};
 
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,7 @@ impl<X: std::fmt::Debug> std::fmt::Debug for Loc<X> {
     }
 }
 
-pub type Node<X> = Loc<Box<X>>;
+pub type Node<X> = Shared<(X, Source)>;
 
 impl<X> Loc<X> {
     pub fn map<F: Fn(X) -> T, T>(self, map_fn: F) -> Loc<T> {

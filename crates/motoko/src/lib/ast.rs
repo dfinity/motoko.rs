@@ -15,7 +15,7 @@ impl<X: std::fmt::Debug> std::fmt::Debug for Loc<X> {
 
 pub type Node<X> = Shared<NodeData<X>>;
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash, Debug)]
 pub struct NodeData<X>(pub X, pub Source);
 
 impl<X> Loc<X> {
@@ -35,6 +35,16 @@ impl<X: Clone> Node<X> {
 }
 
 pub type Span = Range<usize>;
+
+impl<X: Clone> NodeData<X> {
+    pub fn data_clone(self) -> X {
+        self.0.clone()
+    }
+    pub fn source_clone(self) -> Source {
+        self.1.clone()
+    }
+}
+
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(tag = "source_type")]

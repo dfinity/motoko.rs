@@ -125,21 +125,21 @@ impl std::default::Default for Source {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct Delim<X> {
-    pub vec: Vec<X>,
+pub struct Delim<X: Clone> {
+    pub vec: im_rc::Vector<X>,
     pub has_trailing: bool,
 }
 
-impl<X> Delim<X> {
+impl<X: Clone> Delim<X> {
     pub fn new() -> Self {
         Delim {
-            vec: vec![],
+            vec: im_rc::vector![],
             has_trailing: false,
         }
     }
     pub fn from(vec: Vec<X>) -> Self {
         Delim {
-            vec,
+            vec: vec.into(),
             has_trailing: false,
         }
     }

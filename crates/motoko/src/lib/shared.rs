@@ -34,7 +34,7 @@ impl<'de, T: Clone + Deserialize<'de>> Deserialize<'de> for Shared<T> {
 
 impl<T: Clone> Shared<T> {
     /// Call `value.share()` to construct a `Shared` value.
-    fn new(x: T) -> Shared<T> {
+    pub fn new(x: T) -> Shared<T> {
         Shared { rc: Rc::new(x) }
     }
 
@@ -80,5 +80,8 @@ pub fn fast_option<X: Clone>(o: &Option<&Shared<X>>) -> Option<Shared<X>> {
 }
 
 pub fn fast_option_<X: Clone>(o: &Option<Shared<X>>) -> Option<Shared<X>> {
-    o.map(|x| x.fast_clone())
+    match o {
+        None => None,
+        Some(x) => Some(x.fast_clone()),
+    }
 }

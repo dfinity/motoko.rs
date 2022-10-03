@@ -66,7 +66,7 @@ fn core_init(prog: Prog) -> Core {
         store: HashMap::new(),
         stack: Vector::new(),
         env: HashMap::new(),
-        cont: Cont::Decs(prog.vec.into()),
+        cont: Cont::Decs(prog.vec.clone()),
         cont_source: Source::CoreInit, // special source -- or get the "full span" (but then what line or column number would be helpful here?  line 1 column 0?)
         cont_prim_type,
         next_pointer: 0,
@@ -139,7 +139,7 @@ fn binop(
 }
 
 fn relop(
-    _cont_prim_type: &Option<PrimType>,
+    _cont_prim_xotype: &Option<PrimType>,
     relop: RelOp,
     v1: Value_,
     v2: Value_,
@@ -599,7 +599,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Paren(e) => exp_conts(core, FrameCont::Paren, e),
         Variant(id, None) => {
             // TODO: cache and share variants?
-            core.cont = cont_value(Value::Variant(id.0, None));
+            core.cont = cont_value(Value::Variant(id.0.clone(), None));
             Ok(Step {})
         }
         Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id.clone()), e),
@@ -608,13 +608,13 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             core,
             source.clone(),
             FrameCont::Block,
-            Cont::Decs(decs.vec.into()),
+            Cont::Decs(decs.vec.clone()),
             source,
         ),
         Do(e) => exp_conts(core, FrameCont::Do, e),
         Assert(e) => exp_conts(core, FrameCont::Assert, e),
         Object(fs) => {
-            let mut fs: Vector<_> = fs.vec.into();
+            let mut fs: Vector<_> = fs.vec.clone();
             match fs.pop_front() {
                 None => {
                     core.cont = cont_value(Value::Object(HashMap::new()));

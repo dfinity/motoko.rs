@@ -1,4 +1,4 @@
-use crate::ast::{Dec, Dec_, Delim, Exp, Loc, Node, Source};
+use crate::{ast::{Dec, Dec_, Delim, Exp, Node, Source, Exp_, NodeData}, shared::Share};
 
 pub fn get_one<T:Clone>(d: Delim<T>) -> Result<T, Delim<T>> {
     if d.vec.len() == 1 && !d.has_trailing {
@@ -8,16 +8,16 @@ pub fn get_one<T:Clone>(d: Delim<T>) -> Result<T, Delim<T>> {
     }
 }
 
-pub fn dec_node_into_exp(d: Dec_) -> Exp {
-    match *d.0 {
+pub fn dec_node_into_exp(d: Dec_) -> Exp_ {
+    match d.as_ref().0 {
         Dec::Exp(e) => e,
-        _ => Exp::Block(Delim {
-            vec: vec![d],
+        _ => NodeData(Exp::Block(Delim {
+            vec: vec![d].into(),
             has_trailing: false,
-        }),
+        }), d.1).share(),
     }
 }
 
-pub fn node<T>(value: T, src: Source) -> Node<T> {
-    Loc(Box::new(value), src)
-}
+// pub fn node<T>(value: T, src: Source) -> Node<T> {
+//     NodeData(value, src).share()
+// }

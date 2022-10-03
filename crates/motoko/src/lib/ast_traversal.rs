@@ -1,4 +1,5 @@
 use logos::Span;
+use crate::shared::Share;
 
 use crate::ast::{
     Case, Class, Dec, DecField, Exp, ExpField, Function, Loc, Node, Pat, PatField, Source, Type,
@@ -61,71 +62,71 @@ impl<'a> ToTree<'a> for Loc<SyntaxTree<'a>> {
     }
 }
 
-pub trait ToNode: Sized {
+pub trait ToNode: Sized + Clone {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>>;
 
     fn node(self, src: Source) -> Node<Self> {
-        Loc(Box::new(self), src)
+        crate::ast::NodeData::new(self, src).share()
     }
 }
 
 impl ToNode for Exp {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::Exp(&*node.0), node.1.clone())
+        Loc(SyntaxTree::Exp(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for Dec {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::Dec(&*node.0), node.1.clone())
+        Loc(SyntaxTree::Dec(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for Pat {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::Pat(&*node.0), node.1.clone())
+        Loc(SyntaxTree::Pat(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for Type {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::Type(&*node.0), node.1.clone())
+        Loc(SyntaxTree::Type(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for ExpField {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::ExpField(&*node.0), node.1.clone())
+        Loc(SyntaxTree::ExpField(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for DecField {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::DecField(&*node.0), node.1.clone())
+        Loc(SyntaxTree::DecField(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for PatField {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::PatField(&*node.0), node.1.clone())
+        Loc(SyntaxTree::PatField(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for TypeField {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::TypeField(&*node.0), node.1.clone())
+        Loc(SyntaxTree::TypeField(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for Case {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::Case(&*node.0), node.1.clone())
+        Loc(SyntaxTree::Case(&node.0), node.1.clone())
     }
 }
 
 impl ToNode for TypeBind {
     fn node_tree<'a>(node: &'a Node<Self>) -> Loc<SyntaxTree<'a>> {
-        Loc(SyntaxTree::TypeBind(&*node.0), node.1.clone())
+        Loc(SyntaxTree::TypeBind(&node.0), node.1.clone())
     }
 }
 
@@ -311,7 +312,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
 impl<'a> Traverse for Loc<&'a Dec> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         match &self.0 {
-            Dec::Exp(e) => f(&e.clone().node(self.1.clone()).tree()), // TODO: no clone
+            Dec::Exp(_e) => /*f(e).tree(), */ todo!(),
             Dec::Let(p, e) => {
                 f(&p.tree());
                 f(&e.tree());
@@ -355,6 +356,7 @@ impl<'a> Traverse for Loc<&'a Pat> {
         match &self.0 {
             Pat::Wild => {}
             Pat::Var(_) => {}
+            Pat::TempVar(_) => {}
             Pat::Literal(_) => {}
             Pat::Signed(_, p) => f(&p.tree()),
             Pat::Tuple(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),

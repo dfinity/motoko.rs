@@ -446,7 +446,7 @@ mod collection {
     pub mod hashmap {
         use super::super::*;
         use crate::value::Collection;
-        use im_rc::vector;
+        // use im_rc::vector;
 
         pub fn new(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             /*

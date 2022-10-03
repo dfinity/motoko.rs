@@ -34,7 +34,7 @@ pub trait ToDoc {
 // }
 
 // optional delimiter on the right
-fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
+fn delim<'a, T: ToDoc + Clone>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
         doc.append(sep)
@@ -44,7 +44,7 @@ fn delim<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
 }
 
 // optional delimiter on the left
-fn delim_left<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
+fn delim_left<'a, T: ToDoc + Clone>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
         str(sep).append(RcDoc::space()).append(doc)
@@ -53,23 +53,23 @@ fn delim_left<'a, T: ToDoc>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     }
 }
 
-fn block<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
+fn block<'a, T: ToDoc + Clone>(d: &'a Delim<T>) -> RcDoc<'a> {
     enclose_space("{", delim(d, ";"), "}")
 }
 
-fn tuple<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
+fn tuple<'a, T: ToDoc + Clone>(d: &'a Delim<T>) -> RcDoc<'a> {
     enclose("(", delim(d, ","), ")")
 }
 
-fn field_block<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
+fn field_block<'a, T: ToDoc + Clone>(d: &'a Delim<T>) -> RcDoc<'a> {
     enclose("{", delim(d, ","), "}")
 }
 
-fn array<'a, T: ToDoc>(m: &'a Mut, d: &'a Delim<T>) -> RcDoc<'a> {
+fn array<'a, T: ToDoc + Clone>(m: &'a Mut, d: &'a Delim<T>) -> RcDoc<'a> {
     enclose("[", m.doc().append(delim(d, ",")), "]")
 }
 
-fn bind<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
+fn bind<'a, T: ToDoc + Clone>(d: &'a Delim<T>) -> RcDoc<'a> {
     if d.vec.len() == 0 {
         RcDoc::nil()
     } else {
@@ -77,7 +77,7 @@ fn bind<'a, T: ToDoc>(d: &'a Delim<T>) -> RcDoc<'a> {
     }
 }
 
-fn bin_op<'a, E: ToDoc>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
+fn bin_op<'a, E: ToDoc + Clone>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a> {
     e1.doc()
         .append(RcDoc::space())
         .append(b)
@@ -97,20 +97,20 @@ impl ToDoc for String {
     }
 }
 
-impl<T: ToDoc> ToDoc for Loc<T> {
+impl<T: ToDoc + Clone> ToDoc for Loc<T> {
     fn doc(&self) -> RcDoc {
         let Loc(t, _) = self;
         t.doc()
     }
 }
 
-impl<T: ToDoc> ToDoc for Box<T> {
+impl<T: ToDoc + Clone> ToDoc for Box<T> {
     fn doc(&self) -> RcDoc {
         self.as_ref().doc()
     }
 }
 
-impl<T: ToDoc> ToDoc for Option<T> {
+impl<T: ToDoc + Clone> ToDoc for Option<T> {
     fn doc(&self) -> RcDoc {
         match self {
             None => RcDoc::nil(),

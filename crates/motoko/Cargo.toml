@@ -55,8 +55,8 @@ path = "src/bin/mo.rs"
 required-features = ["exe"]
 
 [features]
-#default = ["parser", "to-motoko"]
-default = []
+default = ["parser", "to-motoko"]
+#default = []
 reflection = ["value-reflection", "core-reflection"]
 
 exe = []

@@ -79,7 +79,7 @@ pub enum Cont {
 pub mod stack {
     use super::{Cont, Env, Vector};
     use crate::ast::{
-        BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, Pat_, PrimType, RelOp,
+        BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, RelOp,
         Source, Type_, UnOp,
     };
     use crate::value::{Value, Value_};

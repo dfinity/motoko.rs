@@ -1,12 +1,13 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Loc, Mut, ObjSort,
-    Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
+    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Loc, Mut, NodeData,
+    ObjSort, Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
 use crate::lexer::is_keyword;
 use crate::lexer_types::{GroupType, Token, TokenTree};
+use crate::shared::Shared;
 use pretty::RcDoc;
 
 fn format_(doc: RcDoc, width: usize) -> String {
@@ -107,6 +108,18 @@ impl<T: ToDoc + Clone> ToDoc for Loc<T> {
 impl<T: ToDoc + Clone> ToDoc for Box<T> {
     fn doc(&self) -> RcDoc {
         self.as_ref().doc()
+    }
+}
+
+impl<T: ToDoc + Clone> ToDoc for Shared<T> {
+    fn doc(&self) -> RcDoc {
+        self.as_ref().doc()
+    }
+}
+
+impl<T: ToDoc + Clone> ToDoc for NodeData<T> {
+    fn doc(&self) -> RcDoc {
+        self.0.doc()
     }
 }
 
@@ -404,6 +417,7 @@ impl ToDoc for Pat {
             Alt(d) => delim_left(d, " |"),
             Annot(p, t) => p.doc().append(" : ").append(t.doc()),
             Paren(p) => enclose("(", p.doc(), ")"),
+            TempVar(_) => unimplemented!(),
         }
     }
 }

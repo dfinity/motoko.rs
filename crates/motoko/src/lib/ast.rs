@@ -179,7 +179,7 @@ pub type Dec_ = Node<Dec>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Dec {
-    Exp(Exp),
+    Exp(Exp_),
     Let(Pat_, Exp_),
     LetModule(Option<Id_>, Sugar, DecFields),
     Func(Function),

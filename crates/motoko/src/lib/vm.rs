@@ -379,10 +379,10 @@ mod pattern {
         Pat::Tuple(Delim::from(vars))
     }
 
-    pub fn temps(source: Source, num: u16) -> Pat {
+    pub fn temps(num: u16) -> Pat {
         let mut vars = vec![];
         for i in 0..num {
-            vars.push(NodeData::new(Pat::TempVar(i as u16), source).share())
+            vars.push(NodeData::new(Pat::TempVar(i as u16), Source::Evaluation).share())
         }
         Pat::Tuple(Delim::from(vars))
     }
@@ -414,9 +414,7 @@ mod collection {
         use im_rc::vector;
 
         pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value_) -> Result<Step, Interruption> {
-            if let Some(args) =
-                pattern_matches_temps(&pattern::temps(core.cont_source.clone(), 2), v)
-            {
+            if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let seed: u32 = assert_value_is_u32(&args[0])?;
                 let size: Option<u32> = assert_value_is_option_u32(&args[1])?;
                 core.cont = cont_value(Value::Collection(Collection::FastRandIter(
@@ -451,14 +449,18 @@ mod collection {
         use im_rc::vector;
 
         pub fn new(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+            /*
             if let Some(_) = pattern_matches(core.env.clone(), &Pat::Literal(Literal::Unit), v) {
                 core.cont = cont_value(Value::Collection(Collection::HashMap(HashMap::new())));
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
+            */
+            todo!()
         }
         pub fn put(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+            /*
             if let Some(env) = pattern_matches(
                 HashMap::new(),
                 &pattern::vars(core, vector!["hm", "k", "v"]),
@@ -486,8 +488,11 @@ mod collection {
             } else {
                 Err(Interruption::TypeMismatch)
             }
+            */
+            todo!()
         }
         pub fn get(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+            /*
             if let Some(env) =
                 pattern_matches(HashMap::new(), &pattern::vars(core, vector!["hm", "k"]), v)
             {
@@ -508,8 +513,11 @@ mod collection {
             } else {
                 Err(Interruption::TypeMismatch)
             }
+            */
+            todo!()
         }
         pub fn remove(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+            /*
             if let Some(env) =
                 pattern_matches(HashMap::new(), &pattern::vars(core, vector!["hm", "k"]), v)
             {
@@ -532,6 +540,8 @@ mod collection {
             } else {
                 Err(Interruption::TypeMismatch)
             }
+            */
+            todo!()
         }
     }
 }
@@ -703,7 +713,7 @@ fn pattern_matches_temps(pat: &Pat, v: Value_) -> Option<Vec<Value_>> {
 
 // TODO: see whether it's possible to return something like `&'a Option<Env>` to reduce cloning
 // (since this has more of a performance impact than `fast_clone()`)
-fn pattern_matches_temps_(pat: &Pat, v: Value_, out: Vec<Value_>) -> Option<Vec<Value_>> {
+fn pattern_matches_temps_(pat: &Pat, v: Value_, mut out: Vec<Value_>) -> Option<Vec<Value_>> {
     match (pat, &*v) {
         (Pat::Wild, _) => Some(out),
         (Pat::Literal(Literal::Unit), Value::Unit) => Some(out),
@@ -805,7 +815,7 @@ fn switch(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption
         if let Some(env) = pattern_matches(core.env.clone(), &case.0.pat.0, v.fast_clone()) {
             core.env = env;
             core.cont_source = case.0.exp.1.clone();
-            core.cont = Cont::Exp_(case.0.exp, Vector::new());
+            core.cont = Cont::Exp_(case.0.exp.fast_clone(), Vector::new());
             return Ok(Step {});
         }
     }
@@ -1089,7 +1099,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 }
             }
             Let(p, cont) => {
-                if let Some(env) = pattern_matches(core.env.clone(), &p, v) {
+                if let Some(env) = pattern_matches(core.env.clone(), p.as_ref().data_ref(), v) {
                     core.env = env;
                     core.cont_source = source_from_cont(&cont);
                     core.cont = cont;
@@ -1100,7 +1110,10 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             }
             Var(x, cont) => {
                 let ptr = core.alloc(v);
-                core.env.insert(x, Value::Pointer(ptr).share());
+                core.env.insert(
+                    x.as_ref().data_ref().fast_clone(),
+                    Value::Pointer(ptr).share(),
+                );
                 core.cont_source = source_from_cont(&cont);
                 core.cont = cont;
                 Ok(Step {})
@@ -1110,7 +1123,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 Ok(Step {})
             }
             Variant(i) => {
-                core.cont = cont_value(Value::Variant(i.0, Some(v)));
+                core.cont = cont_value(Value::Variant(i.0.fast_clone(), Some(v)));
                 Ok(Step {})
             }
             Switch(cases) => switch(core, v, cases),
@@ -1185,7 +1198,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     None => {
                         let mut hm = HashMap::new();
                         for f in done.into_iter() {
-                            let id = f.id.0; // to do -- avoid cloning strings. Use Rc.
+                            let id = f.id.0.fast_clone();
                             let val = match f.mut_ {
                                 Mut::Const => f.val,
                                 Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
@@ -1206,9 +1219,9 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                         Object(
                             done,
                             FieldContext {
-                                mut_: next.0.mut_,
-                                id: next.0.id,
-                                typ: next.0.typ,
+                                mut_: next.0.mut_.clone(),
+                                id: next.0.id.fast_clone(),
+                                typ: crate::shared::fast_option_(&next.0.typ),
                             },
                             rest,
                         ),
@@ -1510,11 +1523,10 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                 Ok(Step {})
             } else {
                 let dec_ = decs.pop_front().unwrap();
-                match dec_.0 {
+                match &dec_.0 {
                     Dec::Exp(e) => {
                         core.cont_source = dec_.1.clone();
-                        core.cont =
-                            Cont::Exp_(crate::ast::NodeData::new(e, dec_.1.clone()).share(), decs);
+                        core.cont = Cont::Exp_(e.fast_clone(), decs);
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {
@@ -1525,25 +1537,30 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                             };
                             exp_conts(
                                 core,
-                                FrameCont::Let(p.0, Cont::LetVarRet(core.cont_source.clone(), i)),
+                                FrameCont::Let(
+                                    p.fast_clone(),
+                                    Cont::LetVarRet(core.cont_source.clone(), i),
+                                ),
                                 &e,
                             )
                         } else {
-                            exp_conts(core, FrameCont::Let(p.0, Cont::Decs(decs)), &e)
+                            exp_conts(core, FrameCont::Let(p.fast_clone(), Cont::Decs(decs)), &e)
                         }
                     }
                     Dec::LetModule(_i, _, _dfs) => {
                         nyi!(line!())
                     }
                     Dec::Var(p, e) => match p.0 {
-                        Pat::Var(x) => exp_conts(core, FrameCont::Var(x.0, Cont::Decs(decs)), &e),
+                        Pat::Var(ref x) => {
+                            exp_conts(core, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), &e)
+                        }
                         _ => nyi!(line!()),
                     },
                     Dec::Func(f) => {
                         let id = f.name.clone();
                         let v = Value::Function(ClosedFunction(Closed {
                             env: core.env.clone(),
-                            content: f,
+                            content: f.clone(),
                         }))
                         .share();
                         if decs.len() == 0 {
@@ -1551,7 +1568,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                             Ok(Step {})
                         } else {
                             if let Some(i) = id {
-                                core.env.insert(i.0, v);
+                                core.env.insert(i.as_ref().data_ref().fast_clone(), v);
                             };
                             core.cont = Cont::Decs(decs);
                             Ok(Step {})

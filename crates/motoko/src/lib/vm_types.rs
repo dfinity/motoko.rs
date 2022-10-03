@@ -89,8 +89,8 @@ pub mod stack {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(tag = "frame_cont_type", content = "value")]
     pub enum FrameCont {
-        Let(Pat, Cont),
-        Var(Id, Cont),
+        Let(Pat_, Cont),
+        Var(Id_, Cont),
         UnOp(UnOp),
         BinOp1(BinOp, Exp_),
         BinOp2(Value_, BinOp),

@@ -245,7 +245,7 @@ pub struct Closed<X> {
 impl Value {
     pub fn from_dec(dec: &Dec) -> Result {
         match dec {
-            Dec::Exp(e) => Value::from_exp(e),
+            Dec::Exp(e) => Value::from_exp(e.as_ref().data_ref()),
             _ => Err(ValueError::NotAValue),
         }
     }

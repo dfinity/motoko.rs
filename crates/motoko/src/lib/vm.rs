@@ -965,12 +965,12 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 core.cont = cont_value(unop(un, v)?);
                 Ok(Step {})
             }
-            RelOp1(relop, e2) => exp_conts(core, RelOp2(v, relop), e2),
+            RelOp1(relop, e2) => exp_conts(core, RelOp2(v, relop), &e2),
             RelOp2(v1, rel) => {
                 core.cont = cont_value(relop(&core.cont_prim_type, rel, v1, v)?);
                 Ok(Step {})
             }
-            BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), e2),
+            BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), &e2),
             BinOp2(v1, bop) => {
                 core.cont = cont_value(binop(&core.cont_prim_type, bop, v1, v)?);
                 Ok(Step {})
@@ -981,7 +981,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             //     Value::Index(p, i) => exp_conts(core, Assign2(v), e2),
             //     _ => Err(Interruption::TypeMismatch),
             // },
-            Assign1(e2) => exp_conts(core, Assign2(v), e2),
+            Assign1(e2) => exp_conts(core, Assign2(v), &e2),
             Assign2(v1) => match &*v1 {
                 Value::Pointer(p) => {
                     store::mutate(core, p.clone(), v)?;
@@ -996,7 +996,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
-            Idx1(e2) => exp_conts(core, Idx2(v), e2),
+            Idx1(e2) => exp_conts(core, Idx2(v), &e2),
             Idx2(v1) => {
                 if let Some(Frame {
                     cont: FrameCont::Assign1(_), // still need to evaluate RHS of assignment.
@@ -1098,7 +1098,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                         core.cont = cont_value(Value::Tuple(done));
                         Ok(Step {})
                     }
-                    Some(next) => exp_conts(core, Tuple(done, rest), next),
+                    Some(next) => exp_conts(core, Tuple(done, rest), &next),
                 }
             }
             Array(mut_, mut done, mut rest) => {
@@ -1115,7 +1115,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                     }
-                    Some(next) => exp_conts(core, Array(mut_, done, rest), next),
+                    Some(next) => exp_conts(core, Array(mut_, done, rest), &next),
                 }
             }
             Object(mut done, ctx, mut rest) => {
@@ -1156,7 +1156,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                             },
                             rest,
                         ),
-                        next.0.exp,
+                        &next.0.exp,
                     ),
                 }
             }
@@ -1215,7 +1215,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             While1(e1, e2) => match &*v {
                 Value::Bool(b) => {
                     if *b {
-                        exp_conts(core, FrameCont::While2(e1, e2.clone()), e2)
+                        exp_conts(core, FrameCont::While2(e1, e2.clone()), &e2)
                     } else {
                         core.cont = cont_value(Value::Unit);
                         Ok(Step {})
@@ -1224,7 +1224,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             While2(e1, e2) => match &*v {
-                Value::Unit => exp_conts(core, FrameCont::While1(e1.clone(), e2), e1),
+                Value::Unit => exp_conts(core, FrameCont::While1(e1.clone(), e2), &e1),
                 _ => Err(Interruption::TypeMismatch),
             },
             For1(p, e1, e2) => match &*v {
@@ -1235,7 +1235,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 Value::Option(v_) => {
                     if let Some(env) = pattern_matches(core.env.clone(), &p.0, v_.fast_clone()) {
                         core.env = env;
-                        exp_conts(core, FrameCont::For2(p, e1, e2.clone()), e2)
+                        exp_conts(core, FrameCont::For2(p, e1, e2.clone()), &e2)
                     } else {
                         Err(Interruption::TypeMismatch)
                     }
@@ -1243,13 +1243,13 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             For2(p, e1, e2) => match &*v {
-                Value::Unit => exp_conts(core, FrameCont::For1(p, e1.clone(), e2), e1),
+                Value::Unit => exp_conts(core, FrameCont::For1(p, e1.clone(), e2), &e1),
                 _ => Err(Interruption::TypeMismatch),
             },
             And1(e2) => match &*v {
                 Value::Bool(b) => {
                     if *b {
-                        exp_conts(core, FrameCont::And2, e2)
+                        exp_conts(core, FrameCont::And2, &e2)
                     } else {
                         core.cont = cont_value(Value::Bool(false));
                         Ok(Step {})
@@ -1270,7 +1270,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                         core.cont = cont_value(Value::Bool(true));
                         Ok(Step {})
                     } else {
-                        exp_conts(core, FrameCont::Or2, e2)
+                        exp_conts(core, FrameCont::Or2, &e2)
                     }
                 }
                 _ => Err(Interruption::TypeMismatch),
@@ -1306,7 +1306,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             Call1(inst, e2) => {
-                exp_conts(core, FrameCont::Call2(v, inst), e2)
+                exp_conts(core, FrameCont::Call2(v, inst), &e2)
                 // match v {
                 //     Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
                 //     Value::PrimFunction(pf) => exp_conts(core, FrameCont::Call2Prim(pf, inst), e2),
@@ -1470,17 +1470,17 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                             exp_conts(
                                 core,
                                 FrameCont::Let(p.0, Cont::LetVarRet(core.cont_source.clone(), i)),
-                                e,
+                                &e,
                             )
                         } else {
-                            exp_conts(core, FrameCont::Let(p.0, Cont::Decs(decs)), e)
+                            exp_conts(core, FrameCont::Let(p.0, Cont::Decs(decs)), &e)
                         }
                     }
                     Dec::LetModule(_i, _, _dfs) => {
                         nyi!(line!())
                     }
                     Dec::Var(p, e) => match p.0 {
-                        Pat::Var(x) => exp_conts(core, FrameCont::Var(x.0, Cont::Decs(decs)), e),
+                        Pat::Var(x) => exp_conts(core, FrameCont::Var(x.0, Cont::Decs(decs)), &e),
                         _ => nyi!(line!()),
                     },
                     Dec::Func(f) => {

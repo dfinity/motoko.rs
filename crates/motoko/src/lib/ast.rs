@@ -462,6 +462,8 @@ pub enum Pat {
     Alt(Delim<Pat_>),
     Annot(Pat_, Type_),
     Paren(Pat_),
+    // used by the VM to pattern-match values.
+    TempVar(u16),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -505,5 +507,5 @@ pub enum RelOp {
     Ge,
 }
 
-pub type Id = String;
+pub type Id = Shared<String>;
 pub type Id_ = Node<Id>;

@@ -3,7 +3,7 @@ use crate::ast::{
     Type, UnOp,
 };
 //use crate::ast_traversal::ToNode;
-use crate::shared::Share;
+use crate::shared::{Share, Shared};
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
@@ -310,7 +310,6 @@ fn call_function(
     args: Value_,
 ) -> Result<Step, Interruption> {
     if let Some(env_) = pattern_matches(cf.0.env.clone(), &cf.0.content.input.0, args) {
-        // TODO: any subtle optimizations here will probably make a huge difference
         let source = core.cont_source.clone();
         let env_saved = core.env.clone();
         core.env = env_;
@@ -318,10 +317,7 @@ fn call_function(
             .name
             .clone()
             .map(|f| core.env.insert(f.0.clone(), value));
-        core.cont = Cont::Exp_(
-            cf.0.content.exp.clone(), /* #JuicyClone. */
-            Vector::new(),
-        );
+        core.cont = Cont::Exp_(cf.0.content.exp.fast_clone(), Vector::new());
         core.stack.push_front(Frame {
             source,
             env: env_saved,
@@ -334,7 +330,7 @@ fn call_function(
     }
 }
 
-fn call_dot_next(core: &mut Core, exp: Exp_) -> Exp_ {
+fn call_dot_next(_core: &mut Core, _exp: Exp_) -> Exp_ {
     //use crate::ast::Literal::Unit;
     //use crate::ast::Loc;
     //use Exp::*;
@@ -365,6 +361,7 @@ fn call_dot_next(core: &mut Core, exp: Exp_) -> Exp_ {
 mod pattern {
     use super::*;
     use crate::ast::{Delim, Node, NodeData, Pat_};
+    use crate::shared::Shared;
 
     pub fn node<X: Clone>(core: &Core, x: X) -> Node<X> {
         let s = Source::ExpStep {
@@ -374,11 +371,19 @@ mod pattern {
     }
 
     pub fn var_(core: &Core, id: &str) -> Pat_ {
-        node(core, Pat::Var(node(core, id.to_string())))
+        node(core, Pat::Var(node(core, Shared::new(id.to_string()))))
     }
 
-    pub fn vars(core: &Core, ids: Vector<&str>) -> Pat {
+    pub fn vars(core: &Core, ids: Vec<&str>) -> Pat {
         let vars: Vec<_> = ids.into_iter().map(|i| var_(core, i)).collect();
+        Pat::Tuple(Delim::from(vars))
+    }
+
+    pub fn temps(source: Source, num: u16) -> Pat {
+        let mut vars = vec![];
+        for i in 0..num {
+            vars.push(NodeData::new(Pat::TempVar(i as u16), source).share())
+        }
         Pat::Tuple(Delim::from(vars))
     }
 }
@@ -409,14 +414,11 @@ mod collection {
         use im_rc::vector;
 
         pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value_) -> Result<Step, Interruption> {
-            if let Some(env) = pattern_matches(
-                HashMap::new(),
-                &pattern::vars(core, vector!["size", "seed"]),
-                v,
-            ) {
-                let seed: u32 = assert_value_is_u32(&*env.get("seed").unwrap())?;
-                let size: Option<u32> = assert_value_is_option_u32(&*env.get("size").unwrap())?;
-
+            if let Some(args) =
+                pattern_matches_temps(&pattern::temps(core.cont_source.clone(), 2), v)
+            {
+                let seed: u32 = assert_value_is_u32(&args[0])?;
+                let size: Option<u32> = assert_value_is_option_u32(&args[1])?;
                 core.cont = cont_value(Value::Collection(Collection::FastRandIter(
                     FastRandIter::new(size, seed),
                 )));
@@ -621,18 +623,17 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
                     Ok(Step {})
                 }
                 Some(f1) => {
-                    let f1 = f1.0;
                     let fc = FieldContext {
-                        mut_: f1.mut_,
-                        id: f1.id,
-                        typ: f1.typ,
+                        mut_: f1.0.mut_.clone(),
+                        id: f1.0.id.clone(),
+                        typ: f1.0.typ.clone(),
                     };
-                    exp_conts(core, FrameCont::Object(Vector::new(), fc, fs), &f1.exp)
+                    exp_conts(core, FrameCont::Object(Vector::new(), fc, fs), &f1.0.exp)
                 }
             }
         }
         Tuple(es) => {
-            let mut es: Vector<_> = es.vec.into();
+            let mut es: Vector<_> = es.vec.clone();
             match es.pop_front() {
                 None => {
                     // TODO: globally share (), true, false, null, etc.
@@ -643,7 +644,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             }
         }
         Array(mut_, es) => {
-            let mut es: Vector<_> = es.vec.into();
+            let mut es: Vector<_> = es.vec.clone();
             match es.pop_front() {
                 None => {
                     core.cont = cont_value(Value::Array(mut_.clone(), Vector::new()));
@@ -696,6 +697,61 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     }
 }
 
+fn pattern_matches_temps(pat: &Pat, v: Value_) -> Option<Vec<Value_>> {
+    pattern_matches_temps_(pat, v, vec![])
+}
+
+// TODO: see whether it's possible to return something like `&'a Option<Env>` to reduce cloning
+// (since this has more of a performance impact than `fast_clone()`)
+fn pattern_matches_temps_(pat: &Pat, v: Value_, out: Vec<Value_>) -> Option<Vec<Value_>> {
+    match (pat, &*v) {
+        (Pat::Wild, _) => Some(out),
+        (Pat::Literal(Literal::Unit), Value::Unit) => Some(out),
+        (Pat::Paren(p), _) => pattern_matches_temps_(&p.0, v, out),
+        (Pat::Annot(p, _), _) => pattern_matches_temps_(&p.0, v, out),
+        (Pat::Var(x), _) => {
+            unreachable!()
+        }
+        (Pat::TempVar(n), _) => {
+            assert_eq!(out.len() as u16, *n);
+            out.push(v.fast_clone());
+            Some(out)
+        }
+        (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
+            if *id1.0 != **id2 {
+                return None;
+            };
+            Some(out)
+        }
+        (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
+            if *id1.0 != **id2 {
+                return None;
+            };
+            pattern_matches_temps_(&pat_.0, v_.fast_clone(), out)
+        }
+        (Pat::Tuple(ps), Value::Tuple(vs)) => {
+            if ps.vec.len() != vs.len() {
+                None
+            } else {
+                let mut out = out;
+                for i in 0..ps.vec.len() {
+                    if let Some(out_) = pattern_matches_temps_(
+                        &ps.vec.get(i).unwrap().0,
+                        vs.get(i).unwrap().fast_clone(),
+                        out,
+                    ) {
+                        out = out_
+                    } else {
+                        return None;
+                    }
+                }
+                Some(out)
+            }
+        }
+        _ => None,
+    }
+}
+
 // TODO: see whether it's possible to return something like `&'a Option<Env>` to reduce cloning
 // (since this has more of a performance impact than `fast_clone()`)
 fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
@@ -706,17 +762,17 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
         (Pat::Annot(p, _), _) => pattern_matches(env, &p.0, v),
         (Pat::Var(x), _) => {
             let mut env = env;
-            env.insert(x.0, v);
+            env.insert(x.0.clone(), v);
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if *id1.0 != *id2 {
+            if *id1.0 != **id2 {
                 return None;
             };
             Some(env)
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if *id1.0 != *id2 {
+            if *id1.0 != **id2 {
                 return None;
             };
             pattern_matches(env, &pat_.0, v_.fast_clone())
@@ -1177,7 +1233,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             },
             Dot(f) => match &*v {
                 Value::Object(fs) => {
-                    if let Some(f) = fs.get(&*f.0) {
+                    if let Some(f) = fs.get(&f.0) {
                         core.cont = Cont::Value_(f.val.fast_clone());
                         Ok(Step {})
                     } else {
@@ -1407,7 +1463,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                 Some(i) => {
                     core.cont = Cont::Value_(
                         core.env
-                            .get(&*i.0)
+                            .get(&i.0)
                             .ok_or(Interruption::Impossible)?
                             .fast_clone(),
                     )
@@ -1559,7 +1615,7 @@ impl Core {
             source.clone(),
         )?;
         for (x, v) in value_bindings.into_iter() {
-            let _ = self.env.insert(x.to_string(), v);
+            let _ = self.env.insert(Shared::new(x.to_string()), v);
         }
         self.continue_(&Limits::none())
     }

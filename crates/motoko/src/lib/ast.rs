@@ -339,9 +339,9 @@ pub enum PrimType {
 }
 
 impl PrimType {
-    pub fn from_ident(name: &str) -> Option<PrimType> {
+    pub fn from_ident(i: Id) -> Option<PrimType> {
         use PrimType::*;
-        Some(match name {
+        Some(match i.string.as_str() {
             "Bool" => Bool,
             "Nat" => Nat,
             "Nat8" => Nat8,

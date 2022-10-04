@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
-use crate::value::{ValueError};
+use crate::value::ValueError;
 use crate::{
     ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},
     value::Value_,
@@ -79,8 +79,8 @@ pub enum Cont {
 pub mod stack {
     use super::{Cont, Env, Vector};
     use crate::ast::{
-        BinOp, Cases, Dec_, ExpField_, Exp_, Id, Id_, Inst, Mut, Pat, Pat_, PrimType, RelOp,
-        Source, Type_, UnOp,
+        BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, RelOp, Source, Type_,
+        UnOp,
     };
     use crate::value::{Value, Value_};
     use serde::{Deserialize, Serialize};
@@ -89,8 +89,8 @@ pub mod stack {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(tag = "frame_cont_type", content = "value")]
     pub enum FrameCont {
-        Let(Pat, Cont),
-        Var(Id, Cont),
+        Let(Pat_, Cont),
+        Var(Id_, Cont),
         UnOp(UnOp),
         BinOp1(BinOp, Exp_),
         BinOp2(Value_, BinOp),
@@ -118,8 +118,12 @@ pub mod stack {
         RelOp2(Value_, RelOp),
         While1(Exp_, Exp_),
         While2(Exp_, Exp_),
-        For1(Pat_, Exp_, Exp_),
-        For2(Pat_, Exp_, Exp_),
+        // For1 is waiting for iterator expression to become a value.
+        For1(Pat_, Exp_),
+        // For2 is waiting for iterator .next() to evaluate.
+        For2(Pat_, Value_, Exp_),
+        // For3 is waiting for for-loop body to evaluate.
+        For3(Pat_, Value_, Exp_),
         And1(Exp_),
         And2,
         Or1(Exp_),

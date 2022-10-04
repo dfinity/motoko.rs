@@ -1,7 +1,7 @@
 #![cfg(feature = "to-motoko")]
 
+use std::collections::HashMap;
 use std::fmt::Debug;
-use std::{collections::HashMap};
 
 use motoko::shared::Share;
 use motoko::value::ToMotoko;

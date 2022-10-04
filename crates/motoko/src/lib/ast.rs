@@ -1,3 +1,4 @@
+use crate::shared::{Share, Shared};
 use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
@@ -12,7 +13,16 @@ impl<X: std::fmt::Debug> std::fmt::Debug for Loc<X> {
     }
 }
 
-pub type Node<X> = Loc<Box<X>>;
+pub type Node<X> = Shared<NodeData<X>>;
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct NodeData<X>(pub X, pub Source);
+
+impl<X: std::fmt::Debug> std::fmt::Debug for NodeData<X> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{:?}@{:?}>", self.0, self.1)
+    }
+}
 
 impl<X> Loc<X> {
     pub fn map<F: Fn(X) -> T, T>(self, map_fn: F) -> Loc<T> {
@@ -20,17 +30,29 @@ impl<X> Loc<X> {
     }
 }
 
-impl<X> Node<X> {
+impl<X: Clone> Node<X> {
     pub fn without_source(value: X) -> Self {
-        Loc(Box::new(value), Source::Unknown)
+        NodeData(value, Source::Unknown).share()
     }
 
-    pub fn map_node<F: Fn(X) -> T, T>(self, map_fn: F) -> Node<T> {
-        Loc(Box::new(map_fn(*self.0)), self.1)
+    pub fn map_node<F: Fn(&X) -> T, T: Clone>(self, map_fn: F) -> Node<T> {
+        NodeData(map_fn(&self.0), self.1.clone()).share()
     }
 }
 
 pub type Span = Range<usize>;
+
+impl<X: Clone> NodeData<X> {
+    pub fn new(x: X, s: Source) -> Self {
+        NodeData(x, s)
+    }
+    pub fn data_ref<'a>(&'a self) -> &'a X {
+        &self.0
+    }
+    pub fn data_clone(&self) -> X {
+        self.0.clone()
+    }
+}
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(tag = "source_type")]
@@ -106,21 +128,21 @@ impl std::default::Default for Source {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct Delim<X> {
-    pub vec: Vec<X>,
+pub struct Delim<X: Clone> {
+    pub vec: im_rc::Vector<X>,
     pub has_trailing: bool,
 }
 
-impl<X> Delim<X> {
+impl<X: Clone> Delim<X> {
     pub fn new() -> Self {
         Delim {
-            vec: vec![],
+            vec: im_rc::vector![],
             has_trailing: false,
         }
     }
     pub fn from(vec: Vec<X>) -> Self {
         Delim {
-            vec,
+            vec: vec.into(),
             has_trailing: false,
         }
     }
@@ -160,7 +182,7 @@ pub type Dec_ = Node<Dec>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Dec {
-    Exp(Exp),
+    Exp(Exp_),
     Let(Pat_, Exp_),
     LetModule(Option<Id_>, Sugar, DecFields),
     Func(Function),
@@ -443,6 +465,8 @@ pub enum Pat {
     Alt(Delim<Pat_>),
     Annot(Pat_, Type_),
     Paren(Pat_),
+    // used by the VM to pattern-match values.
+    TempVar(u16),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -486,5 +510,5 @@ pub enum RelOp {
     Ge,
 }
 
-pub type Id = String;
+pub type Id = Shared<String>;
 pub type Id_ = Node<Id>;

@@ -1,6 +1,7 @@
 use crate::shared::{Share, Shared};
 use std::ops::Range;
-
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 
 /// A "located `X`" has a source location of type `Source`.
@@ -510,5 +511,30 @@ pub enum RelOp {
     Ge,
 }
 
-pub type Id = Shared<String>;
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Id {
+    string: Shared<String>,
+    hash: u64,
+}
 pub type Id_ = Node<Id>;
+
+impl Id {
+    fn new(s: &str) -> Self {
+        let hash: u64 = {
+            let mut h = DefaultHasher::new();
+            s.hash(&mut h);
+            h.finish()
+        };
+        Id {
+            // to do -- memoize the strings, and avoid duplicate compies.
+            string: Shared::new(s.to_string()),
+            hash,
+        }
+    }
+}
+
+impl Hash for Id {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state);
+    }
+}

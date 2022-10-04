@@ -521,6 +521,20 @@ impl Value {
     pub fn from_rust<T: ToMotoko>(value: T) -> Result {
         value.to_motoko()
     }
+
+    pub fn get_field_or<E>(&self, f: &str, err: E) -> Result<Value_, E> {
+        match self {
+            Value::Object(m) => {
+                // todo -- somehow avoid creating this string just for the lookup.
+                // pushing the allocation to the caller usually doesn't help much.
+                match m.get(&crate::shared::Shared::new(f.to_string())) {
+                    None => Err(err),
+                    Some(v) => Ok(v.val.fast_clone()),
+                }
+            }
+            _ => Err(err),
+        }
+    }
 }
 
 #[cfg(feature = "to-motoko")]

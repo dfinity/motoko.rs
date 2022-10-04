@@ -118,8 +118,12 @@ pub mod stack {
         RelOp2(Value_, RelOp),
         While1(Exp_, Exp_),
         While2(Exp_, Exp_),
-        For1(Pat_, Exp_, Exp_),
-        For2(Pat_, Exp_, Exp_),
+        // For1 is waiting for iterator expression to become a value.
+        For1(Pat_, Exp_),
+        // For2 is waiting for iterator .next() to evaluate.
+        For2(Pat_, Value_, Exp_),
+        // For3 is waiting for for-loop body to evaluate.
+        For3(Pat_, Value_, Exp_),
         And1(Exp_),
         And2,
         Or1(Exp_),

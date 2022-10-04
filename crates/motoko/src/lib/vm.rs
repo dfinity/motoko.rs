@@ -1,6 +1,6 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, PrimType, Prog, RelOp, Source,
-    Type, UnOp,
+    BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, RelOp,
+    Source, Type, UnOp,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{Share, Shared};
@@ -199,6 +199,22 @@ fn string_from_value(v: &Value) -> Result<String, Interruption> {
     Ok(format!("{:?}", v))
 }
 
+fn cont_for_call_dot_next(
+    core: &mut Core,
+    p: &Pat_,
+    v: &Value_,
+    body: &Exp_,
+) -> Result<Step, Interruption> {
+    core.stack.push_front(Frame {
+        env: core.env.clone(),
+        cont: FrameCont::For2(p.fast_clone(), v.fast_clone(), body.fast_clone()),
+        cont_prim_type: None,
+        source: core.cont_source.clone(),
+    });
+    let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
+    call_cont(core, &v_next_func, None, Value::Unit.share())
+}
+
 fn call_prim_function(
     core: &mut Core,
     pf: &PrimFunction,
@@ -330,32 +346,22 @@ fn call_function(
     }
 }
 
-fn call_dot_next(_core: &mut Core, _exp: Exp_) -> Exp_ {
-    //use crate::ast::Literal::Unit;
-    //use crate::ast::Loc;
-    //use Exp::*;
-
-    // To do 20221001 -- specialize the stack for this pattern and
-    // avoid constructing all of these temp expression forms for each
-    // loop iteration.
-
-    /*
-    let s = Source::ExpStep {
-        source: Box::new(core.cont_source.clone()),
-    };
-    Loc(
-        Box::new(Call(
-            Loc(
-                Box::new(Dot(exp, Loc(Box::new("next".to_string()), s.clone()))),
-                s.clone(),
-            ),
-            None,
-            Loc(Box::new(Literal(Unit)), s.clone()),
-        )),
-        s,
-    )
-    */
-    todo!()
+fn call_cont(
+    core: &mut Core,
+    func_value: &Value_,
+    inst: Option<Inst>,
+    args_value: Value_,
+) -> Result<Step, Interruption> {
+    match &**func_value {
+        Value::Function(cf) => call_function(core, func_value.clone(), cf, inst, args_value),
+        Value::PrimFunction(pf) => call_prim_function(core, pf, inst, args_value),
+        Value::Dynamic(d) => {
+            let result = d.dynamic().call(&inst, args_value.fast_clone())?;
+            core.cont = Cont::Value_(result);
+            Ok(Step {})
+        }
+        _ => Err(Interruption::TypeMismatch),
+    }
 }
 
 mod pattern {
@@ -661,14 +667,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
             FrameCont::While1(e1.fast_clone(), e2.fast_clone()),
             e1,
         ),
-        For(p, e1, e2) => {
-            let next = call_dot_next(core, e1.fast_clone());
-            exp_conts(
-                core,
-                FrameCont::For1(p.fast_clone(), next.fast_clone(), e2.fast_clone()),
-                &next,
-            )
-        }
+        For(p, e1, e2) => exp_conts(core, FrameCont::For1(p.fast_clone(), e2.fast_clone()), e1),
         And(e1, e2) => exp_conts(core, FrameCont::And1(e2.fast_clone()), e1),
         Or(e1, e2) => exp_conts(core, FrameCont::Or1(e2.fast_clone()), e1),
         Not(e) => exp_conts(core, FrameCont::Not, e),
@@ -965,8 +964,9 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
             If(_, _) => true,
             While1(_, _) => true,
             While2(_, _) => false,
-            For1(_, _, _) => true,
-            For2(_, _, _) => false,
+            For1(_, _) => false,
+            For2(_, _, _) => true,
+            For3(_, _, _) => false,
             And1(_) => false,
             And2 => true,
             Or1(_) => match v {
@@ -1262,7 +1262,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             While1(e1, e2) => match &*v {
                 Value::Bool(b) => {
                     if *b {
-                        exp_conts(core, FrameCont::While2(e1, e2.clone()), &e2)
+                        exp_conts(core, FrameCont::While2(e1, e2.fast_clone()), &e2)
                     } else {
                         core.cont = cont_value(Value::Unit);
                         Ok(Step {})
@@ -1271,10 +1271,11 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             While2(e1, e2) => match &*v {
-                Value::Unit => exp_conts(core, FrameCont::While1(e1.clone(), e2), &e1),
+                Value::Unit => exp_conts(core, FrameCont::While1(e1.fast_clone(), e2), &e1),
                 _ => Err(Interruption::TypeMismatch),
             },
-            For1(p, e1, e2) => match &*v {
+            For1(p, body) => cont_for_call_dot_next(core, &p, &v, &body),
+            For2(p, v_iter, body) => match &*v {
                 Value::Null => {
                     core.cont = cont_value(Value::Unit);
                     Ok(Step {})
@@ -1282,15 +1283,15 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 Value::Option(v_) => {
                     if let Some(env) = pattern_matches(core.env.clone(), &p.0, v_.fast_clone()) {
                         core.env = env;
-                        exp_conts(core, FrameCont::For2(p, e1, e2.clone()), &e2)
+                        exp_conts(core, FrameCont::For3(p, v_iter, body.fast_clone()), &body)
                     } else {
                         Err(Interruption::TypeMismatch)
                     }
                 }
                 _ => Err(Interruption::TypeMismatch),
             },
-            For2(p, e1, e2) => match &*v {
-                Value::Unit => exp_conts(core, FrameCont::For1(p, e1.clone(), e2), &e1),
+            For3(p, v_iter, body) => match &*v {
+                Value::Unit => cont_for_call_dot_next(core, &p, &v_iter, &body),
                 _ => Err(Interruption::TypeMismatch),
             },
             And1(e2) => match &*v {
@@ -1361,16 +1362,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 //     _ => Err(Interruption::TypeMismatch),
                 // }
             }
-            Call2(f, inst) => match &*f {
-                Value::Function(cf) => call_function(core, f.clone(), cf, inst, v),
-                Value::PrimFunction(pf) => call_prim_function(core, pf, inst, v),
-                Value::Dynamic(d) => {
-                    let result = d.dynamic().call(&inst, v.fast_clone())?;
-                    core.cont = Cont::Value_(result);
-                    Ok(Step {})
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
+            Call2(f, inst) => call_cont(core, &f, inst, v),
             Call3 => {
                 core.cont = Cont::Value_(v);
                 Ok(Step {})

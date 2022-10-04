@@ -1,4 +1,4 @@
-use motoko::shared::{Shared, Share};
+use motoko::shared::{Share, Shared};
 use motoko::value::Value;
 use motoko::vm_types::Interruption;
 use motoko::{dynamic::Dynamic, value::Value_};
@@ -51,8 +51,10 @@ fn dyn_struct() {
     let mut core = motoko::vm_types::Core::empty();
     let pointer = core.alloc(value);
 
-    core.env
-        .insert(Shared::new("value".to_string()), Value::Pointer(pointer).share());
+    core.env.insert(
+        Shared::new("value".to_string()),
+        Value::Pointer(pointer).share(),
+    );
 
     assert_eq!(
         core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())

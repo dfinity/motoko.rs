@@ -4,7 +4,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Shared<T> {
+pub struct Shared<T: ?Sized> {
     rc: Rc<T>,
 }
 
@@ -64,14 +64,46 @@ impl<T> AsRef<T> for Shared<T> {
     }
 }
 
-pub trait Share<T> {
+pub trait Share {
     /// TODO: gradually minimize the number of calls to this function.
-    fn share(self) -> Shared<T>;
+    fn share(self) -> Shared<Self>;
 }
 
-impl<T: Clone> Share<T> for T {
-    fn share(self) -> Shared<T> {
+// impl<T: Clone> Share<T> for T {
+//     fn share(self) -> Shared<T> {
+//         Shared::new(self)
+//     }
+// }
+
+impl<T: Clone> Share for crate::ast::NodeData<T> {
+    fn share(self) -> Shared<Self> {
         Shared::new(self)
+    }
+}
+
+impl Share for String {
+    fn share(self) -> Shared<Self> {
+        // Access point for memoization
+        Shared::new(self)
+    }
+}
+
+impl Share for crate::value::Value {
+    fn share(self) -> Shared<Self> {
+        use crate::value::Value;
+        std::thread_local! {
+            static UNIT: Shared<Value> = Shared::new(Value::Unit);
+            static NULL: Shared<Value> = Shared::new(Value::Null);
+            static TRUE: Shared<Value> = Shared::new(Value::Bool(true));
+            static FALSE: Shared<Value> = Shared::new(Value::Bool(false));
+        };
+        match self {
+            Value::Unit => UNIT.with(|s| s.fast_clone()),
+            Value::Null => NULL.with(|s| s.fast_clone()),
+            Value::Bool(true) => TRUE.with(|s| s.fast_clone()),
+            Value::Bool(false) => FALSE.with(|s| s.fast_clone()),
+            _ => Shared::new(self),
+        }
     }
 }
 

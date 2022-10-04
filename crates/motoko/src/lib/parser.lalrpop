@@ -29,11 +29,11 @@ Delim1<T, S>: Delim<T> = {
     },
     <mut v:(<T> S)+> <e:T?> => match e {
         None => {
-            Delim{ vec:v, has_trailing: true }
+            Delim{ vec:v.into(), has_trailing: true }
         },
         Some(e) => {
             v.push(e);
-            Delim{ vec:v, has_trailing: false }
+            Delim{ vec:v.into(), has_trailing: false }
         }
     }
 };
@@ -43,11 +43,11 @@ Delim0<T, S>: Delim<T> = {
     <mut v:(<T> S)*> <e:T?> => match e {
         None => {
             let has_trailing = v.len() > 0;
-            Delim{ vec:v, has_trailing }
+            Delim{ vec:v.into(), has_trailing }
         },
         Some(e) => {
             v.push(e);
-            Delim{ vec:v, has_trailing: false }
+            Delim{ vec:v.into(), has_trailing: false }
         }
     }
 };

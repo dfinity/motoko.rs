@@ -15,8 +15,14 @@ impl<X: std::fmt::Debug> std::fmt::Debug for Loc<X> {
 
 pub type Node<X> = Shared<NodeData<X>>;
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct NodeData<X>(pub X, pub Source);
+
+impl<X: std::fmt::Debug> std::fmt::Debug for NodeData<X> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{:?}@{:?}>", self.0, self.1)
+    }
+}
 
 impl<X> Loc<X> {
     pub fn map<F: Fn(X) -> T, T>(self, map_fn: F) -> Loc<T> {

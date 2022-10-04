@@ -40,14 +40,8 @@ impl<X: Clone> NodeData<X> {
     pub fn new(x: X, s: Source) -> Self {
         NodeData(x, s)
     }
-    pub fn data_clone(self) -> X {
-        self.0.clone()
-    }
     pub fn data_ref<'a>(&'a self) -> &'a X {
         &self.0
-    }
-    pub fn source_clone(self) -> Source {
-        self.1.clone()
     }
 }
 

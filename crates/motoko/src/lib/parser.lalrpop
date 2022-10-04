@@ -1,10 +1,12 @@
 // use std::str::FromStr;
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
-use crate::parser_utils::{dec_node_into_exp, get_one, node};
-use crate::ast::{Node, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Function, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
+use crate::parser_utils::{dec_node_into_exp, get_one};
+use crate::ast::{Node, NodeData, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Function, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
+use im_rc::vector;
+use crate::shared::{Share, Shared};
 
 grammar(lookup: &LineColLookup<'input>);
 
@@ -15,7 +17,7 @@ Node<T>: Node<T> = {
     // <start:@L> <t:T> <end:@R> => node(t, start.expand(&end)),
     <start:@L> <t:T> <end:@R> => {
         let (line, col) = lookup.get(start);
-        node(t, Source::Known { span: start..end, line, col })
+        NodeData::new(t, Source::Known { span: start..end, line, col }).share()
     },
     // <t:T> => node(t, Source::Unknown),
 }
@@ -23,7 +25,7 @@ Node<T>: Node<T> = {
 /// One or more `T`s, delimited by interposed separator `S`.
 Delim1<T, S>: Delim<T> = {
     T => {
-        Delim{ vec:vec!(<>), has_trailing: false }
+        Delim{ vec:vector!(<>), has_trailing: false }
     },
     <mut v:(<T> S)+> <e:T?> => match e {
         None => {

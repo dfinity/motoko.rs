@@ -295,5 +295,5 @@ fn test_source_comments() {
     println!("{:?}", ast);
 
     // 20221004 this will fail until we fill in "TODO" with the right answer.OA
-    assert_eq!(format!("{:?}", ast.vec[0]), "TODO");
+    assert_eq!(format!("{:?}", ast.vec[0]), "NodeData(Exp(NodeData(Var(\"a\"), 8..9 @ 2:6)), 8..9 @ 2:6)");
 }

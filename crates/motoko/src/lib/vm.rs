@@ -419,8 +419,8 @@ mod collection {
 
         pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value_) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
-                let seed: u32 = assert_value_is_u32(&args[0])?;
-                let size: Option<u32> = assert_value_is_option_u32(&args[1])?;
+                let size: Option<u32> = assert_value_is_option_u32(&args[0])?;
+                let seed: u32 = assert_value_is_u32(&args[1])?;
                 core.cont = cont_value(Value::Collection(Collection::FastRandIter(
                     FastRandIter::new(size, seed),
                 )));
@@ -486,7 +486,7 @@ mod collection {
             }
         }
         pub fn get(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            if let Some(args) = pattern_matches_temps(&pattern::temps(3), v) {
+            if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let hm = &args[0];
                 let k = &args[1];
                 let ret = {
@@ -506,7 +506,7 @@ mod collection {
             }
         }
         pub fn remove(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            if let Some(args) = pattern_matches_temps(&pattern::temps(3), v) {
+            if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let hm = &args[0];
                 let k = &args[1];
                 let (hm, old) = {

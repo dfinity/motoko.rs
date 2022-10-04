@@ -37,7 +37,7 @@ fn expand_static<'de, T: Sized + serde::Serialize + serde::Deserialize<'de>>(
         impl std::ops::Deref for STATIC {
             type Target = #typ;
             fn deref(&self) -> &#typ {
-                struct _AssertSync where #typ: std::marker::Sync;
+                //struct _AssertSync where #typ: std::marker::Sync;
                 struct _AssertSized where #typ: std::marker::Sized;
                 static ONCE: std::sync::Once = std::sync::Once::new();
                 static mut VALUE: *mut #typ = 0 as *mut #typ;

@@ -5,8 +5,8 @@ use num_bigint::{BigInt, BigUint};
 use serde::{serde_if_integer128, Serialize};
 
 use crate::{
-    ast::Mut,
-    shared::Share,
+    ast::{Id, Mut},
+    shared::{Share, Shared},
     value::{FieldValue, Text, Value, ValueError, Value_},
 };
 
@@ -137,7 +137,7 @@ impl serde::Serializer for Serializer {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Value> {
-        Ok(Value::Variant(variant.to_string(), None))
+        Ok(Value::Variant(variant.to_string().share(), None))
     }
 
     #[inline]
@@ -159,7 +159,7 @@ impl serde::Serializer for Serializer {
         T: ?Sized + Serialize,
     {
         Ok(Value::Variant(
-            variant.to_string(),
+            variant.to_string().share(),
             Some(value.serialize(self)?.share()),
         ))
     }
@@ -259,12 +259,12 @@ pub struct SerializeMap {
 }
 
 pub struct SerializeStruct {
-    map: HashMap<String, FieldValue>,
+    map: HashMap<Id, FieldValue>,
 }
 
 pub struct SerializeStructVariant {
     name: String,
-    map: HashMap<String, FieldValue>,
+    map: HashMap<Shared<String>, FieldValue>,
 }
 
 impl serde::ser::SerializeSeq for SerializeVec {
@@ -331,7 +331,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
 
     fn end(self) -> Result<Value> {
         Ok(Value::Variant(
-            self.name,
+            self.name.share(),
             Some(Value::Tuple(self.vec).share()),
         ))
     }
@@ -377,7 +377,7 @@ impl serde::ser::SerializeStruct for SerializeStruct {
         T: ?Sized + Serialize,
     {
         self.map.insert(
-            String::from(key),
+            key.to_string().share(),
             FieldValue {
                 mut_: Mut::Var, // Mutable by default
                 val: value.serialize(Serializer)?.share(),
@@ -400,7 +400,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
         T: ?Sized + Serialize,
     {
         self.map.insert(
-            String::from(key),
+            key.to_string().share(),
             FieldValue {
                 mut_: Mut::Var, // Mutable by default
                 val: value.serialize(Serializer)?.share(),
@@ -411,7 +411,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
 
     fn end(self) -> Result<Value> {
         Ok(Value::Variant(
-            self.name,
+            self.name.share(),
             Some(Value::Object(self.map).share()),
         ))
     }

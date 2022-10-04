@@ -10,7 +10,7 @@ fn literal_123() {
 
     assert_eq!(
         format!("{:?}", prog),
-        "Delim { vec: [<Exp(Literal(Nat(\"123\")))@13..16 @ 2:13>], has_trailing: false }"
+        "Delim { vec: [<Exp(<Literal(Nat(\"123\"))@13..16 @ 2:13>)@13..16 @ 2:13>], has_trailing: false }"
     )
 }
 
@@ -24,6 +24,6 @@ fn forever_while_loop() {
 
     assert_eq!(
         format!("{:?}", prog),
-        "Delim { vec: [<Exp(While(<Literal(Bool(true))@19..23 @ 2:19>, <Block(Delim { vec: [], has_trailing: false })@24..27 @ 2:24>))@13..27 @ 2:13>], has_trailing: false }"
+        "Delim { vec: [<Exp(<While(<Literal(Bool(true))@19..23 @ 2:19>, <Block(Delim { vec: [], has_trailing: false })@24..27 @ 2:24>)@13..27 @ 2:13>)@13..27 @ 2:13>], has_trailing: false }"
     )
 }

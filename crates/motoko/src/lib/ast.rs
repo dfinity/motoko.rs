@@ -43,6 +43,9 @@ impl<X: Clone> NodeData<X> {
     pub fn data_ref<'a>(&'a self) -> &'a X {
         &self.0
     }
+    pub fn data_clone(&self) -> X {
+        self.0.clone()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

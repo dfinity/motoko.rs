@@ -1,5 +1,5 @@
-use logos::Span;
 use crate::shared::Share;
+use logos::Span;
 
 use crate::ast::{
     Case, Class, Dec, DecField, Exp, ExpField, Function, Loc, Node, Pat, PatField, Source, Type,
@@ -312,7 +312,11 @@ impl<'a> Traverse for Loc<&'a Exp> {
 impl<'a> Traverse for Loc<&'a Dec> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         match &self.0 {
-            Dec::Exp(_e) => /*f(e).tree(), */ todo!(),
+            Dec::Exp(_e) =>
+            /*f(e).tree(), */
+            {
+                todo!()
+            }
             Dec::Let(p, e) => {
                 f(&p.tree());
                 f(&e.tree());

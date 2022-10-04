@@ -513,8 +513,8 @@ pub enum RelOp {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Id {
-    string: Shared<String>,
-    hash: u64,
+    pub string: Shared<String>,
+    pub hash: u64,
 }
 pub type Id_ = Node<Id>;
 
@@ -536,5 +536,21 @@ impl Id {
 impl Hash for Id {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash(state);
+    }
+}
+
+pub trait NewId {
+    fn new_id(self) -> Id;
+}
+
+impl NewId for Id {
+    fn new_id(self) -> Id {
+        self
+    }
+}
+
+impl NewId for &str {
+    fn new_id(self) -> Id {
+        Id::new(self)
     }
 }

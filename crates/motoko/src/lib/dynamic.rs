@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use crate::ast::Inst;
-use crate::shared::Shared;
+use crate::ast::{NewId, Inst};
+//use crate::shared::Shared;
 use crate::value::{DynamicValue, Value, Value_};
 use crate::vm_types::Interruption;
 
@@ -28,9 +28,7 @@ pub trait Dynamic: Debug + DynClone + DynHash {
     }
 
     fn get_field(&self, name: &str) -> Result {
-        Err(Interruption::UnboundIdentifer(Shared::new(
-            name.to_string(),
-        )))
+        Err(Interruption::UnboundIdentifer(name.new_id()))
     }
 
     // fn set_field(&mut self, name: &str, _value: Value_) -> Result<()> {

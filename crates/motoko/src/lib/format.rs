@@ -2,7 +2,7 @@
 
 use crate::ast::{
     BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Loc, Mut, NodeData,
-    ObjSort, Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
+    ObjSort, Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis, Id,
 };
 use crate::format_utils::*;
 use crate::lexer::is_keyword;
@@ -201,6 +201,12 @@ impl ToDoc for RelOp {
             Le => "<=",
             Ge => ">=",
         })
+    }
+}
+
+impl ToDoc for Id {
+    fn doc(&self) -> RcDoc {
+        str(&self.string)
     }
 }
 

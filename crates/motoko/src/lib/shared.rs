@@ -96,6 +96,7 @@ impl Share for crate::value::Value {
             static NULL: Shared<Value> = Shared::new(Value::Null);
             static TRUE: Shared<Value> = Shared::new(Value::Bool(true));
             static FALSE: Shared<Value> = Shared::new(Value::Bool(false));
+            // TODO: common literals such as 0, 1, "", etc?
         };
         match self {
             Value::Unit => UNIT.with(|s| s.fast_clone()),

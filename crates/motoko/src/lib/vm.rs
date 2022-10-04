@@ -360,24 +360,22 @@ fn call_dot_next(_core: &mut Core, _exp: Exp_) -> Exp_ {
 
 mod pattern {
     use super::*;
-    use crate::ast::{Delim, Node, NodeData, Pat_};
-    use crate::shared::Shared;
-
-    pub fn node<X: Clone>(core: &Core, x: X) -> Node<X> {
-        let s = Source::ExpStep {
-            source: Box::new(core.cont_source.clone()),
-        };
-        NodeData::new(x, s).share()
-    }
-
-    pub fn var_(core: &Core, id: &str) -> Pat_ {
-        node(core, Pat::Var(node(core, Shared::new(id.to_string()))))
-    }
-
-    pub fn vars(core: &Core, ids: Vec<&str>) -> Pat {
-        let vars: Vec<_> = ids.into_iter().map(|i| var_(core, i)).collect();
-        Pat::Tuple(Delim::from(vars))
-    }
+    use crate::ast::{Delim, NodeData};
+    /*
+        pub fn node<X: Clone>(core: &Core, x: X) -> Node<X> {
+            let s = Source::ExpStep {
+                source: Box::new(core.cont_source.clone()),
+            };
+            NodeData::new(x, s).share()
+        }
+        pub fn var_(core: &Core, id: &str) -> Pat_ {
+            node(core, Pat::Var(node(core, Shared::new(id.to_string()))))
+        }
+        pub fn vars(core: &Core, ids: Vec<&str>) -> Pat {
+            let vars: Vec<_> = ids.into_iter().map(|i| var_(core, i)).collect();
+            Pat::Tuple(Delim::from(vars))
+        }
+    */
 
     pub fn temps(num: u16) -> Pat {
         let mut vars = vec![];
@@ -446,29 +444,21 @@ mod collection {
     pub mod hashmap {
         use super::super::*;
         use crate::value::Collection;
-        // use im_rc::vector;
+        use im_rc::vector;
 
         pub fn new(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            /*
-            if let Some(_) = pattern_matches(core.env.clone(), &Pat::Literal(Literal::Unit), v) {
+            if let Some(_) = pattern_matches_temps(&Pat::Literal(Literal::Unit), v) {
                 core.cont = cont_value(Value::Collection(Collection::HashMap(HashMap::new())));
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
-            */
-            todo!()
         }
         pub fn put(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            /*
-            if let Some(env) = pattern_matches(
-                HashMap::new(),
-                &pattern::vars(core, vector!["hm", "k", "v"]),
-                v,
-            ) {
-                let hm = env.get("hm").unwrap();
-                let k = env.get("k").unwrap();
-                let v = env.get("v").unwrap();
+            if let Some(args) = pattern_matches_temps(&pattern::temps(3), v) {
+                let hm = &args[0];
+                let k = &args[1];
+                let v = &args[2];
                 let (hm, old) = {
                     if let Value::Collection(Collection::HashMap(mut hm)) = hm.get() {
                         match hm.insert(k.fast_clone(), v.fast_clone()) {
@@ -488,19 +478,14 @@ mod collection {
             } else {
                 Err(Interruption::TypeMismatch)
             }
-            */
-            todo!()
         }
         pub fn get(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            /*
-            if let Some(env) =
-                pattern_matches(HashMap::new(), &pattern::vars(core, vector!["hm", "k"]), v)
-            {
-                let hm = env.get("hm").unwrap();
-                let k = env.get("k").unwrap();
+            if let Some(args) = pattern_matches_temps(&pattern::temps(3), v) {
+                let hm = &args[0];
+                let k = &args[1];
                 let ret = {
                     if let Value::Collection(Collection::HashMap(hm)) = hm.get() {
-                        match hm.get(k) {
+                        match hm.get(&k) {
                             None => Value::Null,
                             Some(v) => Value::Option(v.fast_clone()),
                         }
@@ -513,19 +498,14 @@ mod collection {
             } else {
                 Err(Interruption::TypeMismatch)
             }
-            */
-            todo!()
         }
         pub fn remove(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            /*
-            if let Some(env) =
-                pattern_matches(HashMap::new(), &pattern::vars(core, vector!["hm", "k"]), v)
-            {
-                let hm = env.get("hm").unwrap();
-                let k = env.get("k").unwrap();
+            if let Some(args) = pattern_matches_temps(&pattern::temps(3), v) {
+                let hm = &args[0];
+                let k = &args[1];
                 let (hm, old) = {
                     if let Value::Collection(Collection::HashMap(mut hm)) = hm.get() {
-                        match hm.remove(k) {
+                        match hm.remove(&k) {
                             None => (hm, Value::Null),
                             Some(v) => (hm, Value::Option(v)),
                         }
@@ -540,8 +520,6 @@ mod collection {
             } else {
                 Err(Interruption::TypeMismatch)
             }
-            */
-            todo!()
         }
     }
 }
@@ -719,7 +697,7 @@ fn pattern_matches_temps_(pat: &Pat, v: Value_, mut out: Vec<Value_>) -> Option<
         (Pat::Literal(Literal::Unit), Value::Unit) => Some(out),
         (Pat::Paren(p), _) => pattern_matches_temps_(&p.0, v, out),
         (Pat::Annot(p, _), _) => pattern_matches_temps_(&p.0, v, out),
-        (Pat::Var(x), _) => {
+        (Pat::Var(_x), _) => {
             unreachable!()
         }
         (Pat::TempVar(n), _) => {

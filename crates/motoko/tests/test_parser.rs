@@ -289,17 +289,11 @@ fn test_block_comments() {
 
 #[test]
 fn test_source_comments() {
-    use motoko::ast::{Dec, Exp, Loc, Source};
+    //use motoko::ast::{Dec, Exp, Loc, Source};
     use motoko::check::parse;
     let ast = parse("//\n/*a*/a").unwrap();
     println!("{:?}", ast);
-    let expected = Loc(
-        Box::new(Dec::Exp(Exp::Var("a".to_string()))),
-        Source::Known {
-            line: 2,
-            col: 6,
-            span: 8..9,
-        },
-    );
-    assert!(ast.vec[0] == expected, "Location mismatch");
+
+    // 20221004 this will fail until we fill in "TODO" with the right answer.OA
+    assert_eq!(format!("{:?}", ast.vec[0]), "TODO");
 }

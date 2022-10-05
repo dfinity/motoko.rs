@@ -69,6 +69,8 @@ pub trait FastClone: Clone {
 impl<T: Clone> FastClone for Shared<T> {}
 impl<T: Clone> FastClone for Rc<T> {}
 impl<T: FastClone> FastClone for Option<T> {}
+impl<T: Clone> FastClone for im_rc::Vector<T> {}
+impl<K: Clone, V: Clone> FastClone for im_rc::HashMap<K, V> {}
 
 pub trait Share {
     /// TODO: gradually minimize the number of calls to this function.

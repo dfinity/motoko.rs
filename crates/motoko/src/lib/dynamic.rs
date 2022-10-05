@@ -35,7 +35,11 @@ pub trait Dynamic: Debug + DynClone + DynHash {
     //     Err(Interruption::UnboundIdentifer(name.to_string()))
     // }
 
-    fn call(&self, _inst: &Option<Inst>, _args: Value_) -> Result {
+    fn call(&mut self, _inst: &Option<Inst>, _args: Value_) -> Result {
+        Err(Interruption::TypeMismatch)
+    }
+
+    fn next(&self) -> Result {
         Err(Interruption::TypeMismatch)
     }
 }

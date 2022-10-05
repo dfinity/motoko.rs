@@ -6,7 +6,7 @@ use crate::ast::{Node, NodeData, Source, Id, Id_, NewId, Pat, Pat_, Exp, Exp_, E
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
 use im_rc::vector;
-use crate::shared::{Share, Shared};
+use crate::shared::{Share};
 
 grammar(lookup: &LineColLookup<'input>);
 
@@ -142,7 +142,7 @@ Type_: Type_ = Node<Type>;
 
 pub Type: Type = {
     "(" ")" => Type::Prim(PrimType::Unit),
-    <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
+    <id:Id_> => PrimType::from_ident(id.0.clone()).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
     // TODO
 }
 
@@ -173,7 +173,7 @@ ExpNullary<B>: Exp = {
     B,
     ExpPlain,
     Id => Exp::Var(<>),
-    "prim" <sl:StringLiteral> => Exp::Prim(Shared::new(sl)), // to do -- trim '"' '"'
+    "prim" <t:StringLiteral> => Exp::Prim(t.new_id()),
 }
 
 #[inline]
@@ -319,10 +319,6 @@ ExpBin3_<B>: Exp_ = Node<ExpBin3<B>>;
 ExpBin3<B>: Exp = {
     <e1:ExpUn_<B>> "&" <e2:ExpBin3_<B>> => Exp::Bin(e1, BinOp::BitAnd, e2),
     ExpUn<B>,
-}
-
-TextId: Shared<String> = {
-   Id,
 }
 
 Cases: Cases = {

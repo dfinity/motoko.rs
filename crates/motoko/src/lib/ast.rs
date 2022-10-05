@@ -519,7 +519,7 @@ pub struct Id {
 pub type Id_ = Node<Id>;
 
 impl Id {
-    fn new(s: &str) -> Self {
+    pub fn new(s: &str) -> Self {
         let hash: u64 = {
             let mut h = DefaultHasher::new();
             s.hash(&mut h);
@@ -531,11 +531,14 @@ impl Id {
             hash,
         }
     }
+    pub fn to_string(&self) -> String {
+        self.string.to_string()
+    }
 }
 
 impl Hash for Id {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash(state);
+        self.hash.hash(state);
     }
 }
 

@@ -1,9 +1,9 @@
 use crate::ast::{
     BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, RelOp,
-    Source, Type, UnOp,
+    Source, Type, UnOp, NewId,
 };
 //use crate::ast_traversal::ToNode;
-use crate::shared::{Share, Shared};
+use crate::shared::{Share};
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
@@ -677,7 +677,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
         Debug(e) => exp_conts(core, FrameCont::Debug, e),
         Prim(s) => {
-            core.cont = cont_value(prim_value(&s)?);
+            core.cont = cont_value(prim_value(s.string.as_str())?);
             Ok(Step {})
         }
         _ => nyi!(line!()),
@@ -705,13 +705,13 @@ fn pattern_matches_temps_(pat: &Pat, v: Value_, mut out: Vec<Value_>) -> Option<
             Some(out)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if *id1.0 != **id2 {
+            if &id1.0.string != &id2.string {
                 return None;
             };
             Some(out)
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if *id1.0 != **id2 {
+            if &id1.0.string != &id2.string {
                 return None;
             };
             pattern_matches_temps_(&pat_.0, v_.fast_clone(), out)
@@ -753,13 +753,13 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if *id1.0 != **id2 {
+            if &id1.0.string != &id2.string {
                 return None;
             };
             Some(env)
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if *id1.0 != **id2 {
+            if &id1.0.string != &id2.string {
                 return None;
             };
             pattern_matches(env, &pat_.0, v_.fast_clone())
@@ -1089,7 +1089,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             Var(x, cont) => {
                 let ptr = core.alloc(v);
                 core.env.insert(
-                    x.as_ref().data_ref().fast_clone(),
+                    x.as_ref().data_ref().clone(),
                     Value::Pointer(ptr).share(),
                 );
                 core.cont_source = source_from_cont(&cont);
@@ -1101,7 +1101,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 Ok(Step {})
             }
             Variant(i) => {
-                core.cont = cont_value(Value::Variant(i.0.fast_clone(), Some(v)));
+                core.cont = cont_value(Value::Variant(i.0.clone(), Some(v)));
                 Ok(Step {})
             }
             Switch(cases) => switch(core, v, cases),
@@ -1176,7 +1176,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     None => {
                         let mut hm = HashMap::new();
                         for f in done.into_iter() {
-                            let id = f.id.0.fast_clone();
+                            let id = f.id.0.clone();
                             let val = match f.mut_ {
                                 Mut::Const => f.val,
                                 Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
@@ -1232,7 +1232,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     }
                 }
                 Value::Dynamic(d) => {
-                    let f = d.dynamic().get_field(&*f.0)?;
+                    let f = d.dynamic().get_field(&f.0.string.as_str())?;
                     core.cont = Cont::Value_(f);
                     Ok(Step {})
                 }
@@ -1538,7 +1538,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                             Ok(Step {})
                         } else {
                             if let Some(i) = id {
-                                core.env.insert(i.as_ref().data_ref().fast_clone(), v);
+                                core.env.insert(i.as_ref().data_ref().clone(), v);
                             };
                             core.cont = Cont::Decs(decs);
                             Ok(Step {})
@@ -1602,7 +1602,7 @@ impl Core {
             source.clone(),
         )?;
         for (x, v) in value_bindings.into_iter() {
-            let _ = self.env.insert(Shared::new(x.to_string()), v);
+            let _ = self.env.insert(x.new_id(), v);
         }
         self.continue_(&Limits::none())
     }

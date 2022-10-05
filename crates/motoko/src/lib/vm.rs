@@ -677,7 +677,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
         Debug(e) => exp_conts(core, FrameCont::Debug, e),
         Prim(s) => {
-            core.cont = cont_value(prim_value(s.string.as_str())?);
+            core.cont = cont_value(prim_value(s.as_str())?);
             Ok(Step {})
         }
         _ => nyi!(line!()),
@@ -705,13 +705,13 @@ fn pattern_matches_temps_(pat: &Pat, v: Value_, mut out: Vec<Value_>) -> Option<
             Some(out)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if &id1.0.string != &id2.string {
+            if &id1.0 != id2 {
                 return None;
             };
             Some(out)
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if &id1.0.string != &id2.string {
+            if &id1.0 != id2 {
                 return None;
             };
             pattern_matches_temps_(&pat_.0, v_.fast_clone(), out)
@@ -753,13 +753,13 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
             Some(env)
         }
         (Pat::Variant(id1, None), Value::Variant(id2, None)) => {
-            if &id1.0.string != &id2.string {
+            if &id1.0 != id2 {
                 return None;
             };
             Some(env)
         }
         (Pat::Variant(id1, Some(pat_)), Value::Variant(id2, Some(v_))) => {
-            if &id1.0.string != &id2.string {
+            if &id1.0 != id2 {
                 return None;
             };
             pattern_matches(env, &pat_.0, v_.fast_clone())
@@ -1232,7 +1232,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     }
                 }
                 Value::Dynamic(d) => {
-                    let f = d.dynamic().get_field(&f.0.string.as_str())?;
+                    let f = d.dynamic().get_field(&f.0.as_str())?;
                     core.cont = Cont::Value_(f);
                     Ok(Step {})
                 }

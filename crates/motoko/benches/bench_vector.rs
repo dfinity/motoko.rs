@@ -7,6 +7,7 @@ macro_rules! vec_clone_n {
             use motoko::shared::{Share, Shared};
             use test::Bencher;
 
+            use motoko::shared::FastClone;
             use motoko::value::{ToMotoko, Value};
             use std::time::SystemTime;
 

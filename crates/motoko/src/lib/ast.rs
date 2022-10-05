@@ -1,7 +1,8 @@
 use crate::shared::{Share, Shared};
-use std::ops::Range;
-
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::ops::Range;
 
 /// A "located `X`" has a source location of type `Source`.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -338,9 +339,9 @@ pub enum PrimType {
 }
 
 impl PrimType {
-    pub fn from_ident(name: &str) -> Option<PrimType> {
+    pub fn from_ident(i: Id) -> Option<PrimType> {
         use PrimType::*;
-        Some(match name {
+        Some(match i.string.as_str() {
             "Bool" => Bool,
             "Nat" => Nat,
             "Nat8" => Nat8,
@@ -510,5 +511,97 @@ pub enum RelOp {
     Ge,
 }
 
-pub type Id = Shared<String>;
+#[derive(Clone)]
+pub struct Id {
+    pub string: Shared<String>,
+    // todo -- use https://docs.rs/crate/nohash-hasher/latest to avoid
+    // hashing anything (not even the pre-computed hash) and just
+    // *use* the pre-computed hash.
+    pub hash: u64,
+}
 pub type Id_ = Node<Id>;
+
+impl Id {
+    pub fn new(s: String) -> Self {
+        let hash: u64 = {
+            let mut h = DefaultHasher::new();
+            s.hash(&mut h);
+            h.finish()
+        };
+        Id {
+            // to do -- memoize the strings, and avoid duplicate copies.
+            string: Shared::new(s),
+            hash,
+        }
+    }
+    pub fn as_str(&self) -> &str {
+        self.string.as_str()
+    }
+    pub fn to_string(&self) -> String {
+        self.string.to_string()
+    }
+}
+
+impl std::fmt::Debug for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.string)
+    }
+}
+
+// TODO: see whether this is faster than the default `PartialEq` impl
+impl PartialEq for Id {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash && self.string == other.string
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.hash != other.hash || self.string != other.string
+    }
+}
+impl Eq for Id {}
+
+impl Hash for Id {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash.hash(state);
+    }
+}
+
+impl Serialize for Id {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde::Serialize::serialize(&self.string, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Id {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        serde::Deserialize::deserialize(deserializer).map(Id::new)
+    }
+}
+
+pub trait ToId {
+    fn to_id(self) -> Id;
+}
+
+impl ToId for Id {
+    fn to_id(self) -> Id {
+        self
+    }
+}
+
+impl ToId for &str {
+    fn to_id(self) -> Id {
+        Id::new(self.to_string())
+    }
+}
+
+impl ToId for String {
+    fn to_id(self) -> Id {
+        Id::new(self)
+    }
+}

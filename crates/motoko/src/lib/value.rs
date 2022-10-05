@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut};
 use crate::dynamic::Dynamic;
-use crate::shared::Shared;
+use crate::shared::{Shared, FastClone};
 use crate::vm_types::Env;
 
 use im_rc::HashMap;

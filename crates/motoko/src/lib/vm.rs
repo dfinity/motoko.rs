@@ -356,7 +356,7 @@ fn call_cont(
         Value::Function(cf) => call_function(core, func_value.clone(), cf, inst, args_value),
         Value::PrimFunction(pf) => call_prim_function(core, pf, inst, args_value),
         Value::Dynamic(d) => {
-            let result = d.dynamic().call(&inst, args_value.fast_clone())?;
+            let result = d.dynamic_mut().call(&inst, args_value.fast_clone())?;
             core.cont = Cont::Value_(result);
             Ok(Step {})
         }

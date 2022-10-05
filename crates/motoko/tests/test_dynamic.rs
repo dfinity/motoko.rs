@@ -42,7 +42,7 @@ fn dyn_struct() {
         //     }
         // }
 
-        fn call(&self, _inst: &Option<motoko::ast::Inst>, args: Value_) -> motoko::dynamic::Result {
+        fn call(&mut self, _inst: &Option<motoko::ast::Inst>, args: Value_) -> motoko::dynamic::Result {
             Ok(args)
         }
     }

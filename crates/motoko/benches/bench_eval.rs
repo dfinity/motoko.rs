@@ -35,7 +35,7 @@ fn eval_larger(b: &mut Bencher) {
                 x := x_ + 1;
                 ?x_
             }}}}};
-            let i = Iter.range(3);
+            let i = Iter.range(100);
             var sum = 0;
             for (y in i) {
                 sum := sum + 1;

@@ -562,7 +562,7 @@ impl Eq for Id {}
 
 impl Hash for Id {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash.hash(state);
+        state.write_u64(self.hash)
     }
 }
 

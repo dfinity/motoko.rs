@@ -2,11 +2,11 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{Node, NodeData, Source, Id, Id_, Pat, Pat_, Exp, Exp_, ExpField, Function, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
+use crate::ast::{Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, Exp, Exp_, ExpField, Function, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
 use im_rc::vector;
-use crate::shared::{Share, Shared};
+use crate::shared::{Share};
 
 grammar(lookup: &LineColLookup<'input>);
 
@@ -67,7 +67,7 @@ NatIndex: usize = {
 }
 
 Id: Id = {
-    r"[a-zA-Z_][a-zA-Z_0-9]*" => Shared::new(<>.to_string()),
+    r"[a-zA-Z_][a-zA-Z_0-9]*" => <>.to_id(),
 };
 
 #[inline]
@@ -142,7 +142,7 @@ Type_: Type_ = Node<Type>;
 
 pub Type: Type = {
     "(" ")" => Type::Prim(PrimType::Unit),
-    <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
+    <id:Id_> => PrimType::from_ident(id.0.clone()).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
     // TODO
 }
 
@@ -173,7 +173,7 @@ ExpNullary<B>: Exp = {
     B,
     ExpPlain,
     Id => Exp::Var(<>),
-    "prim" <sl:StringLiteral> => Exp::Prim(Shared::new(sl)), // to do -- trim '"' '"'
+    "prim" <t:StringLiteral> => Exp::Prim(t.to_id()),
 }
 
 #[inline]
@@ -319,10 +319,6 @@ ExpBin3_<B>: Exp_ = Node<ExpBin3<B>>;
 ExpBin3<B>: Exp = {
     <e1:ExpUn_<B>> "&" <e2:ExpBin3_<B>> => Exp::Bin(e1, BinOp::BitAnd, e2),
     ExpUn<B>,
-}
-
-TextId: Shared<String> = {
-   Id,
 }
 
 Cases: Cases = {

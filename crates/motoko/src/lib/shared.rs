@@ -38,11 +38,6 @@ impl<T: Clone> Shared<T> {
         Shared { rc: Rc::new(x) }
     }
 
-    /// A more explicit alternative to `clone()` (same use case as calling `Rc::clone(_)`).
-    pub fn fast_clone(&self) -> Self {
-        self.clone()
-    }
-
     #[inline(always)]
     pub fn get(&self) -> T {
         self.rc.deref().clone()
@@ -64,6 +59,17 @@ impl<T> AsRef<T> for Shared<T> {
     }
 }
 
+pub trait FastClone: Clone {
+    /// A more explicit alternative to `clone()` (same use case as calling `Rc::clone(_)`).
+    fn fast_clone(&self) -> Self {
+        self.clone()
+    }
+}
+
+impl<T: Clone> FastClone for Shared<T> {}
+impl<T: Clone> FastClone for Rc<T> {}
+impl<T: FastClone> FastClone for Option<T> {}
+
 pub trait Share {
     /// TODO: gradually minimize the number of calls to this function.
     fn share(self) -> Shared<Self>;
@@ -83,7 +89,6 @@ impl<T: Clone> Share for crate::ast::NodeData<T> {
 
 impl Share for String {
     fn share(self) -> Shared<Self> {
-        // Access point for memoization
         Shared::new(self)
     }
 }
@@ -105,16 +110,5 @@ impl Share for crate::value::Value {
             Value::Bool(false) => FALSE.with(|s| s.fast_clone()),
             _ => Shared::new(self),
         }
-    }
-}
-
-pub fn fast_option<X: Clone>(o: &Option<&Shared<X>>) -> Option<Shared<X>> {
-    o.map(|x| x.fast_clone())
-}
-
-pub fn fast_option_<X: Clone>(o: &Option<Shared<X>>) -> Option<Shared<X>> {
-    match o {
-        None => None,
-        Some(x) => Some(x.fast_clone()),
     }
 }

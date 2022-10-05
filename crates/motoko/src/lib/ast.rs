@@ -514,6 +514,9 @@ pub enum RelOp {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Id {
     pub string: Shared<String>,
+    // todo -- use https://docs.rs/crate/nohash-hasher/latest to avoid
+    // hashing anything (not even the pre-computed hash) and just
+    // *use* the pre-computed hash.
     pub hash: u64,
 }
 pub type Id_ = Node<Id>;

@@ -3,7 +3,7 @@ use crate::ast::{
     Source, Type, UnOp, NewId,
 };
 //use crate::ast_traversal::ToNode;
-use crate::shared::{Share};
+use crate::shared::{FastClone, Share};
 use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
@@ -564,7 +564,6 @@ fn prim_value(name: &str) -> Result<Value, Interruption> {
 fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
-    use crate::shared::fast_option_;
     match &exp.0 {
         Literal(l) => {
             // TODO: partial evaluation would now be highly efficient due to value sharing
@@ -658,7 +657,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2.fast_clone()), e1),
         Proj(e1, i) => exp_conts(core, FrameCont::Proj(*i), e1),
         Dot(e1, f) => exp_conts(core, FrameCont::Dot(f.fast_clone()), e1),
-        If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2.fast_clone(), fast_option_(e3)), e1),
+        If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
         Rel(e1, relop, e2) => {
             exp_conts(core, FrameCont::RelOp1(relop.clone(), e2.fast_clone()), e1)
         }
@@ -1199,7 +1198,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                             FieldContext {
                                 mut_: next.0.mut_.clone(),
                                 id: next.0.id.fast_clone(),
-                                typ: crate::shared::fast_option_(&next.0.typ),
+                                typ: next.0.typ.fast_clone(),
                             },
                             rest,
                         ),

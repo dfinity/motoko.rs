@@ -7,6 +7,7 @@ macro_rules! vec_clone_n {
             use motoko::shared::{Share, Shared};
             use test::Bencher;
 
+            use motoko::shared::FastClone;
             use motoko::value::{ToMotoko, Value};
             use std::time::SystemTime;
 
@@ -22,11 +23,12 @@ macro_rules! vec_clone_n {
 
             #[bench]
             fn shared_vec_clone(b: &mut Bencher) {
-                let vec: Shared<Vec<Shared<Value>>> = (0..$n)
-                    .into_iter()
-                    .map(|_| SystemTime::now().to_motoko().unwrap().share())
-                    .collect::<Vec<_>>()
-                    .share();
+                let vec: Shared<Vec<Shared<Value>>> = Shared::new(
+                    (0..$n)
+                        .into_iter()
+                        .map(|_| SystemTime::now().to_motoko().unwrap().share())
+                        .collect::<Vec<_>>(),
+                );
 
                 b.iter(|| vec.fast_clone())
             }

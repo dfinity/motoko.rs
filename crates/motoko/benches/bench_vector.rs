@@ -2,7 +2,7 @@
 extern crate test;
 
 macro_rules! vec_clone_n {
-    ($n:literal,$id:ident) => {
+    ($n:literal, $id:ident) => {
         mod $id {
             use motoko::shared::{Share, Shared};
             use test::Bencher;

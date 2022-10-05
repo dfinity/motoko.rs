@@ -584,24 +584,24 @@ impl<'de> Deserialize<'de> for Id {
     }
 }
 
-pub trait NewId {
-    fn new_id(self) -> Id;
+pub trait ToId {
+    fn to_id(self) -> Id;
 }
 
-impl NewId for Id {
-    fn new_id(self) -> Id {
+impl ToId for Id {
+    fn to_id(self) -> Id {
         self
     }
 }
 
-impl NewId for &str {
-    fn new_id(self) -> Id {
+impl ToId for &str {
+    fn to_id(self) -> Id {
         Id::new(self.to_string())
     }
 }
 
-impl NewId for String {
-    fn new_id(self) -> Id {
+impl ToId for String {
+    fn to_id(self) -> Id {
         Id::new(self)
     }
 }

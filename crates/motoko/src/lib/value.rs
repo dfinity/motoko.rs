@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::num::Wrapping;
 use std::rc::Rc;
 
-use crate::ast::{Dec, Decs, Exp, Function, Id, NewId, Literal, Mut};
+use crate::ast::{Dec, Decs, Exp, Function, Id, ToId, Literal, Mut};
 use crate::dynamic::Dynamic;
 use crate::shared::{Shared, FastClone};
 use crate::vm_types::Env;
@@ -527,7 +527,7 @@ impl Value {
             Value::Object(m) => {
                 // todo -- somehow avoid creating this string just for the lookup.
                 // pushing the allocation to the caller usually doesn't help much.
-                match m.get(&f.new_id()) {
+                match m.get(&f.to_id()) {
                     None => Err(err),
                     Some(v) => Ok(v.val.fast_clone()),
                 }

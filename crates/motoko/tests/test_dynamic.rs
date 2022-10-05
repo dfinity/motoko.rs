@@ -1,4 +1,4 @@
-use motoko::ast::NewId;
+use motoko::ast::ToId;
 use motoko::shared::{Share};
 use motoko::value::Value;
 use motoko::vm_types::Interruption;
@@ -53,7 +53,7 @@ fn dyn_struct() {
     let pointer = core.alloc(value);
 
     core.env.insert(
-        "value".new_id(),
+        "value".to_id(),
         Value::Pointer(pointer).share(),
     );
 

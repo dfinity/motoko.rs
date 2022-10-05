@@ -1,6 +1,6 @@
 use crate::ast::{
     BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, RelOp,
-    Source, Type, UnOp, NewId,
+    Source, Type, UnOp, ToId,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
@@ -1601,7 +1601,7 @@ impl Core {
             source.clone(),
         )?;
         for (x, v) in value_bindings.into_iter() {
-            let _ = self.env.insert(x.new_id(), v);
+            let _ = self.env.insert(x.to_id(), v);
         }
         self.continue_(&Limits::none())
     }

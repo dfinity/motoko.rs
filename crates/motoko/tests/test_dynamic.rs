@@ -50,7 +50,7 @@ fn dyn_struct() {
             Ok(args)
         }
 
-        fn next(&mut self) -> motoko::dynamic::Result {
+        fn iter_next(&mut self) -> motoko::dynamic::Result {
             Ok(Value::Null.share())
         }
     }

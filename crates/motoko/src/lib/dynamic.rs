@@ -39,7 +39,7 @@ pub trait Dynamic: Debug + DynClone + DynHash {
         Err(Interruption::TypeMismatch)
     }
 
-    fn next(&mut self) -> Result {
+    fn iter_next(&mut self) -> Result {
         Err(Interruption::TypeMismatch)
     }
 }

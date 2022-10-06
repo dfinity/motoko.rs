@@ -5,8 +5,8 @@ use num_bigint::{BigInt, BigUint};
 use serde::{serde_if_integer128, Serialize};
 
 use crate::{
-    ast::{Id, ToId, Mut},
-    shared::{Share},
+    ast::{Id, Mut, ToId},
+    shared::Share,
     value::{FieldValue, Text, Value, ValueError, Value_},
 };
 

@@ -6,7 +6,7 @@ use motoko::{
 #[test]
 fn test_breakpoint_line() {
     let prog = parse("do {\nlet x = 0;\n\n x \n}").unwrap();
-    let ast = prog.vec.into_iter().nth(0).unwrap();
+    let ast = prog.vec.into_iter().next().unwrap();
     let tree = ast.tree();
 
     assert_eq!(get_span(&tree, 0), None, "line 0");

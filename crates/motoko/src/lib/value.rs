@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
 
 /// Permit sharing and fast concats.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug)]
 pub enum Text {
     String(Box<String>),
     Concat(Vector<String>),
@@ -32,6 +32,22 @@ impl Text {
             Text::String(s) => *s,
             Text::Concat(v) => v.into_iter().collect(),
         }
+    }
+}
+
+impl PartialEq for Text {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Text::String(a), Text::String(b)) => a == b,
+            _ => self.to_string() == other.to_string(), // TODO: possibly optimize
+        }
+    }
+}
+impl Eq for Text {}
+
+impl std::hash::Hash for Text {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.to_string().hash(state)
     }
 }
 
@@ -221,6 +237,34 @@ pub enum PrimFunction {
     Collection(CollectionFunction),
 }
 
+impl PrimFunction {
+    pub fn resolve(name: String) -> Result<PrimFunction, String> {
+        use CollectionFunction::*;
+        use PrimFunction::*;
+        Ok(match name.as_str() {
+            "\"debugPrint\"" => DebugPrint,
+            "\"natToText\"" => NatToText,
+            "\"hashMapNew\"" => Collection(HashMap(HashMapFunction::New)),
+            "\"hashMapPut\"" => Collection(HashMap(HashMapFunction::Put)),
+            "\"hashMapGet\"" => Collection(HashMap(HashMapFunction::Get)),
+            "\"hashMapRemove\"" => Collection(HashMap(HashMapFunction::Remove)),
+            "\"fastRandIterNew\"" => Collection(FastRandIter(FastRandIterFunction::New)),
+            "\"fastRandIterNext\"" => Collection(FastRandIter(FastRandIterFunction::Next)),
+            #[cfg(feature = "to-motoko")]
+            #[cfg(feature = "value-reflection")]
+            "\"reifyValue\"" => ReifyValue,
+            #[cfg(feature = "value-reflection")]
+            "\"reflectValue\"" => ReflectValue,
+            #[cfg(feature = "to-motoko")]
+            #[cfg(feature = "core-reflection")]
+            "\"reifyCore\"" => ReifyCore,
+            #[cfg(feature = "core-reflection")]
+            "\"reflectCore\"" => ReflectCore,
+            _ => Err(name.to_string())?,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum CollectionFunction {
     HashMap(HashMapFunction),
@@ -284,13 +328,13 @@ impl Value {
         use Value::*;
         Ok(match l {
             Literal::Null => Null,
-            Literal::Bool(b) => Bool(b.clone()),
+            Literal::Bool(b) => Bool(*b),
             Literal::Unit => Unit,
             Literal::Nat(n) => Nat({
                 let n = n.replace('_', "");
-                if n.starts_with("0x") {
+                if let Some(n) = n.strip_prefix("0x") {
                     use num_traits::Num;
-                    BigUint::from_str_radix(&n[2..], 16).map_err(|_| ValueError::BigInt)?
+                    BigUint::from_str_radix(n, 16).map_err(|_| ValueError::BigInt)?
                 } else {
                     n.parse().map_err(|_| ValueError::BigInt)?
                 }

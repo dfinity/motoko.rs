@@ -76,7 +76,7 @@ pub fn assert_lex(input: &str, expected: &str, width: Option<usize>) -> TokenTre
     let result = width
         .map(|width| format_pretty(&tree, width))
         .unwrap_or_else(|| format_one_line(&tree));
-    let formatted = format!("{}", result);
+    let formatted = result;
     println!(" * formatted:\n{}", formatted);
     assert_eq!(formatted, expected);
     tree

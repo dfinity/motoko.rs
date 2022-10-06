@@ -1,4 +1,5 @@
 use crate::shared::{Share, Shared};
+use crate::value::PrimFunction;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -47,7 +48,7 @@ impl<X: Clone> NodeData<X> {
     pub fn new(x: X, s: Source) -> Self {
         NodeData(x, s)
     }
-    pub fn data_ref<'a>(&'a self) -> &'a X {
+    pub fn data_ref(&self) -> &X {
         &self.0
     }
     pub fn data_clone(&self) -> X {
@@ -59,7 +60,7 @@ impl<X: Clone> NodeData<X> {
 #[serde(tag = "source_type")]
 pub enum Source {
     Known { span: Span, line: usize, col: usize },
-    ExpStep { source: Box<Source> },
+    // ExpStep { source: Shared<Source> },
     Unknown,
     Evaluation,
     CoreInit,
@@ -93,8 +94,8 @@ impl Source {
             (_, CoreInit) => todo!(),
             (Evaluation, _) => todo!(),
             (_, Evaluation) => todo!(),
-            (ExpStep { .. }, _) => todo!(),
-            (_, ExpStep { .. }) => todo!(),
+            // (ExpStep { .. }, _) => todo!(),
+            // (_, ExpStep { .. }) => todo!(),
         }
     }
 }
@@ -106,9 +107,9 @@ impl std::fmt::Display for Source {
             Source::Known { span, line, col } => {
                 write!(f, "{}..{} @ {}:{}", span.start, span.end, line, col)
             }
-            Source::ExpStep { source } => {
-                write!(f, "ExpStep({})", source)
-            }
+            // Source::ExpStep { source } => {
+            //     write!(f, "ExpStep({})", source)
+            // }
             Source::Unknown => write!(f, "(unknown source)"),
             Source::Evaluation => write!(f, "(evaluation)"),
             Source::CoreInit => write!(f, "(full program, via core init)"),
@@ -146,6 +147,11 @@ impl<X: Clone> Delim<X> {
             vec: vec.into(),
             has_trailing: false,
         }
+    }
+}
+impl<X: Clone> Default for Delim<X> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -402,7 +408,7 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {
     Hole,
-    Prim(Id),
+    Prim(Result<PrimFunction, String>),
     Var(Id),
     Literal(Literal),
     ActorUrl(Exp_),

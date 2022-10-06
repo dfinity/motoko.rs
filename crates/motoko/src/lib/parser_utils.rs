@@ -2,7 +2,7 @@ use crate::ast::{Dec, Dec_, Delim, Exp};
 
 pub fn get_one<T: Clone>(d: Delim<T>) -> Result<T, Delim<T>> {
     if d.vec.len() == 1 && !d.has_trailing {
-        Ok(d.vec.into_iter().nth(0).unwrap())
+        Ok(d.vec.into_iter().next().unwrap())
     } else {
         Err(d)
     }

@@ -97,8 +97,7 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn data<'a>(&'a self) -> LexResult<&'a Data> {
-        // it works if it works
+    pub fn data(&self) -> LexResult<&Data> {
         use Token::*;
         match self {
             Error => Err(()),

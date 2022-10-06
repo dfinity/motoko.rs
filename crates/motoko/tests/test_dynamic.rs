@@ -17,7 +17,7 @@ fn dyn_struct() {
             self.map
                 .get(&index)
                 .map(Clone::clone)
-                .ok_or_else(|| Interruption::IndexOutOfBounds)
+                .ok_or(Interruption::IndexOutOfBounds)
         }
 
         fn set_index(&mut self, key: Value_, value: Value_) -> motoko::dynamic::Result<()> {

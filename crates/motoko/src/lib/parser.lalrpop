@@ -3,6 +3,7 @@
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
 use crate::ast::{Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, Exp, Exp_, ExpField, Function, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
+use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
 use im_rc::vector;
@@ -173,7 +174,7 @@ ExpNullary<B>: Exp = {
     B,
     ExpPlain,
     Id => Exp::Var(<>),
-    "prim" <t:StringLiteral> => Exp::Prim(t.to_id()),
+    "prim" <t:StringLiteral> => Exp::Prim(PrimFunction::resolve(t)),
 }
 
 #[inline]

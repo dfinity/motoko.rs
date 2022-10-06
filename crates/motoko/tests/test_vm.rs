@@ -439,6 +439,6 @@ fn test_core_eval() {
     let y = core.eval("y").expect("oops");
     assert_eq!(
         &*y,
-        &motoko::value::Value::Nat(num_bigint::BigUint::from(2 as u32))
+        &motoko::value::Value::Nat(num_bigint::BigUint::from(2_u32))
     )
 }

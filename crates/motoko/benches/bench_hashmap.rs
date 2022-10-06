@@ -31,15 +31,17 @@ macro_rules! hashmap_clone_n {
             #[bench]
             fn shared_hashmap_clone(b: &mut Bencher) {
                 let mut i = 0;
-                let map: Shared<HashMap<Shared<Value>, Shared<Value>>> = Shared::new((0..$n)
-                .into_iter()
-                .map(|_| {
-                    (
-                        (i += 1).to_motoko().unwrap().share(),
-                        SystemTime::now().to_motoko().unwrap().share(),
-                    )
-                })
-                .collect::<HashMap<_, _>>());
+                let map: Shared<HashMap<Shared<Value>, Shared<Value>>> = Shared::new(
+                    (0..$n)
+                        .into_iter()
+                        .map(|_| {
+                            (
+                                (i += 1).to_motoko().unwrap().share(),
+                                SystemTime::now().to_motoko().unwrap().share(),
+                            )
+                        })
+                        .collect::<HashMap<_, _>>(),
+                );
 
                 b.iter(|| map.fast_clone())
             }

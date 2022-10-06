@@ -1,8 +1,8 @@
 // Reference: https://github.com/dfinity/candid/blob/master/rust/candid/src/bindings/candid.rs
 
 use crate::ast::{
-    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Literal, Loc, Mut, NodeData,
-    ObjSort, Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis, Id,
+    BinOp, BindSort, Case, Dec, DecField, Dec_, Delim, Exp, ExpField, Id, Literal, Loc, Mut,
+    NodeData, ObjSort, Pat, PrimType, RelOp, Stab, Type, TypeBind, TypeField, UnOp, Vis,
 };
 use crate::format_utils::*;
 use crate::lexer::is_keyword;

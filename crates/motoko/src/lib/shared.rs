@@ -59,18 +59,24 @@ impl<T> AsRef<T> for Shared<T> {
     }
 }
 
-pub trait FastClone: Clone {
+pub trait FastCloneable: Clone {}
+
+impl<T: Clone> FastCloneable for Shared<T> {}
+impl<T: Clone> FastCloneable for Rc<T> {}
+impl<T: FastCloneable> FastCloneable for Option<T> {}
+impl<T: Clone> FastCloneable for im_rc::Vector<T> {}
+impl<K: Clone, V: Clone> FastCloneable for im_rc::HashMap<K, V> {}
+
+pub trait FastClone<T>: Clone {
     /// A more explicit alternative to `clone()` (same use case as calling `Rc::clone(_)`).
-    fn fast_clone(&self) -> Self {
+    fn fast_clone(self) -> T;
+}
+
+impl<T: FastCloneable> FastClone<T> for &T {
+    fn fast_clone(self) -> T {
         self.clone()
     }
 }
-
-impl<T: Clone> FastClone for Shared<T> {}
-impl<T: Clone> FastClone for Rc<T> {}
-impl<T: FastClone> FastClone for Option<T> {}
-impl<T: Clone> FastClone for im_rc::Vector<T> {}
-impl<K: Clone, V: Clone> FastClone for im_rc::HashMap<K, V> {}
 
 pub trait Share {
     /// TODO: gradually minimize the number of calls to this function.

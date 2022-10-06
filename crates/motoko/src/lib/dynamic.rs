@@ -2,14 +2,14 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use crate::ast::{ToId, Inst};
+use crate::ast::{Inst, ToId};
 //use crate::shared::Shared;
 use crate::value::{DynamicValue, Value, Value_};
 use crate::vm_types::Interruption;
 
 pub use dyn_clone::DynClone;
 
-pub type Result<T = Value_> = std::result::Result<T, Interruption>;
+pub type Result<T = Value_, E = Interruption> = std::result::Result<T, E>;
 
 pub trait Dynamic: Debug + DynClone + DynHash {
     fn into_value(self) -> Value
@@ -39,7 +39,7 @@ pub trait Dynamic: Debug + DynClone + DynHash {
         Err(Interruption::TypeMismatch)
     }
 
-    fn next(&self) -> Result {
+    fn next(&mut self) -> Result {
         Err(Interruption::TypeMismatch)
     }
 }

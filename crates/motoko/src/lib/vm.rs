@@ -214,7 +214,7 @@ fn cont_for_call_dot_next(
                 cont_prim_type: None,
                 source: core.cont_source.clone(),
             });
-            core.cont = Cont::Value_(d.dynamic_mut().next()?);
+            core.cont = Cont::Value_(d.dynamic_mut().iter_next()?);
             Ok(Step {})
         }
         _ => {

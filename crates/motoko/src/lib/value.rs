@@ -294,7 +294,7 @@ impl Value {
         use Value::*;
         Ok(match l {
             Literal::Null => Null,
-            Literal::Bool(b) => Bool(b.clone()),
+            Literal::Bool(b) => Bool(*b),
             Literal::Unit => Unit,
             Literal::Nat(n) => Nat({
                 let n = n.replace('_', "");

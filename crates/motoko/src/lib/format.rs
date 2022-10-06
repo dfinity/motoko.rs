@@ -71,7 +71,7 @@ fn array<'a, T: ToDoc + Clone>(m: &'a Mut, d: &'a Delim<T>) -> RcDoc<'a> {
 }
 
 fn bind<'a, T: ToDoc + Clone>(d: &'a Delim<T>) -> RcDoc<'a> {
-    if d.vec.len() == 0 {
+    if d.vec.is_empty() {
         RcDoc::nil()
     } else {
         enclose("<", delim(d, ","), ">")
@@ -94,7 +94,7 @@ fn bin_op<'a, E: ToDoc + Clone>(e1: &'a E, b: RcDoc<'a>, e2: &'a E) -> RcDoc<'a>
 
 impl ToDoc for String {
     fn doc(&self) -> RcDoc {
-        str(&self)
+        str(self)
     }
 }
 
@@ -524,7 +524,7 @@ fn filter_whitespace(trees: &[TokenTree]) -> Vec<&TokenTree> {
 
 fn filter_whitespace_<'a>(trees: &'a [TokenTree], results: &mut Vec<&'a TokenTree>) {
     let len = trees.len();
-    for (i, tt) in trees.into_iter().enumerate() {
+    for (i, tt) in trees.iter().enumerate() {
         if match tt {
             TokenTree::Token(Loc(Token::Space(_), _))
             | TokenTree::Token(Loc(Token::Line(_), _)) if i == 0 || i + 1 == len
@@ -559,7 +559,7 @@ fn get_space_between<'a>(a: &'a TokenTree, b: &'a TokenTree) -> RcDoc<'a> {
         (Token(Loc(Dot(_), _)), _) => nil(),
         (Token(Loc(Operator(s), _)), _) if s.eq("?") => nil(),
         (_, Token(Loc(Operator(s), _))) if s.eq("!") => nil(),
-        (_, Token(Loc(Operator(s), _))) if s.starts_with(" ") => nil(),
+        (_, Token(Loc(Operator(s), _))) if s.starts_with(' ') => nil(),
         (Token(Loc(Operator(s), _)), Token(Loc(Ident(_), _))) if s.eq("#") => nil(),
         (_, Token(Loc(Dot(_), _))) => wrap_(),
         (Token(Loc(Assign(_), _)), _) => wrap(),

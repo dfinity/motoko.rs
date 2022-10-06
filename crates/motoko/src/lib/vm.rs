@@ -246,7 +246,7 @@ fn call_prim_function(
                 Ok(Step {})
             }
             v => {
-                let txt = string_from_value(&v)?;
+                let txt = string_from_value(v)?;
                 log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
                 core.debug_print_out
                     .push_back(crate::value::Text::from(txt));
@@ -505,7 +505,7 @@ mod collection {
                 let k = &args[1];
                 let ret = {
                     if let Value::Collection(Collection::HashMap(hm)) = hm.get() {
-                        match hm.get(&k) {
+                        match hm.get(k) {
                             None => Value::Null,
                             Some(v) => Value::Option(v.fast_clone()),
                         }
@@ -525,7 +525,7 @@ mod collection {
                 let k = &args[1];
                 let (hm, old) = {
                     if let Value::Collection(Collection::HashMap(mut hm)) = hm.get() {
-                        match hm.remove(&k) {
+                        match hm.remove(k) {
                             None => (hm, Value::Null),
                             Some(v) => (hm, Value::Option(v)),
                         }
@@ -581,7 +581,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     match &exp.0 {
         Literal(l) => {
             // TODO: partial evaluation would now be highly efficient due to value sharing
-            core.cont = cont_value(Value::from_literal(&l).map_err(Interruption::ValueError)?);
+            core.cont = cont_value(Value::from_literal(l).map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         Function(f) => {
@@ -666,7 +666,7 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
                 Type::Prim(pt) => core.cont_prim_type = Some(pt.clone()),
                 _ => {}
             };
-            exp_conts(core, FrameCont::Annot(t.fast_clone()), &e)
+            exp_conts(core, FrameCont::Annot(t.fast_clone()), e)
         }
         Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2.fast_clone()), e1),
         Proj(e1, i) => exp_conts(core, FrameCont::Proj(*i), e1),
@@ -850,7 +850,7 @@ fn return_(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
 }
 
 fn source_from_decs(decs: &Vector<Dec_>) -> Source {
-    if decs.len() == 0 {
+    if decs.is_empty() {
         Source::Unknown
     } else {
         let first = decs.front().unwrap().1.clone();
@@ -869,7 +869,7 @@ fn source_from_cont(cont: &Cont) -> Source {
         }
         Decs(decs) => source_from_decs(decs),
         Exp_(exp_, decs) => {
-            if decs.len() == 0 {
+            if decs.is_empty() {
                 exp_.1.clone()
             } else {
                 exp_.1.expand(&decs.back().unwrap().1)
@@ -904,17 +904,14 @@ mod store {
         v: Value_,
     ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
-        let pointer_ref = core
-            .store
-            .get_mut(&p)
-            .ok_or_else(|| Interruption::Dangling(p))?;
+        let pointer_ref = core.store.get_mut(&p).ok_or(Interruption::Dangling(p))?;
 
         match &**pointer_ref {
             Value::Array(Mut::Var, a) => {
                 let i = match &*i {
-                    Value::Nat(n) => n.to_usize().ok_or_else(|| {
-                        Interruption::ValueError(crate::value::ValueError::BigInt)
-                    })?,
+                    Value::Nat(n) => n
+                        .to_usize()
+                        .ok_or(Interruption::ValueError(crate::value::ValueError::BigInt))?,
                     _ => Err(Interruption::TypeMismatch)?,
                 };
                 let mut a = a.clone();
@@ -938,11 +935,11 @@ mod store {
 #[inline]
 fn usize_from_biguint(n: &BigUint) -> Result<usize, Interruption> {
     n.to_usize()
-        .ok_or_else(|| Interruption::ValueError(ValueError::BigInt))
+        .ok_or(Interruption::ValueError(ValueError::BigInt))
 }
 
 fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
-    if core.stack.len() == 0 {
+    if core.stack.is_empty() {
         Ok(false)
     } else {
         use FrameCont::*;
@@ -983,7 +980,7 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
             And1(_) => false,
             And2 => true,
             Or1(_) => match v {
-                Value::Bool(b) => b.clone(),
+                Value::Bool(b) => *b,
                 _ => true,
             },
             Or2 => true,
@@ -1003,7 +1000,7 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
 
 // continue execution using the top-most stack frame, if any.
 fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-    if core.stack.len() == 0 {
+    if core.stack.is_empty() {
         core.cont = Cont::Value_(v.fast_clone());
         Err(Interruption::Done(v))
     } else {
@@ -1124,7 +1121,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     None => {
                         // return final value from block.
                         core.cont = Cont::Value_(v);
-                        return Ok(Step {});
+                        Ok(Step {})
                     }
                     Some(_) => {
                         core.cont = Cont::Decs(decs);
@@ -1236,7 +1233,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     }
                 }
                 Value::Dynamic(d) => {
-                    let f = d.dynamic().get_field(&f.0.as_str())?;
+                    let f = d.dynamic().get_field(f.0.as_str())?;
                     core.cont = Cont::Value_(f);
                     Ok(Step {})
                 }
@@ -1285,7 +1282,8 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     Ok(Step {})
                 }
                 Value::Option(v_) => {
-                    if let Some(env) = pattern_matches(core.env.fast_clone(), &p.0, v_.fast_clone()) {
+                    if let Some(env) = pattern_matches(core.env.fast_clone(), &p.0, v_.fast_clone())
+                    {
                         core.env = env;
                         exp_conts(core, FrameCont::For3(p, v_iter, body.fast_clone()), &body)
                     } else {
@@ -1431,7 +1429,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
     match cont {
         Cont::Taken => unreachable!("The VM's logic currently has an internal issue."),
         Cont::Exp_(e, decs) => {
-            if decs.len() == 0 {
+            if decs.is_empty() {
                 core.cont_prim_type = core.cont_prim_type.clone();
                 exp_step(core, e)
             } else {
@@ -1483,7 +1481,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                         _ => (),
                     };
                     // Final case: Implicit dereferencing of pointer:
-                    let v = core.deref(&p)?;
+                    let v = core.deref(p)?;
                     core.cont = Cont::Value_(v);
                     Ok(Step {})
                 }
@@ -1491,7 +1489,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
             }
         }
         Cont::Decs(mut decs) => {
-            if decs.len() == 0 {
+            if decs.is_empty() {
                 core.cont = cont_value(Value::Unit);
                 core.cont_source = Source::Evaluation;
                 Ok(Step {})
@@ -1504,7 +1502,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {
-                        if decs.len() == 0 {
+                        if decs.is_empty() {
                             let i = match &p.0 {
                                 Pat::Var(i) => Some(i.fast_clone()),
                                 _ => None,
@@ -1515,10 +1513,10 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                                     p.fast_clone(),
                                     Cont::LetVarRet(core.cont_source.clone(), i),
                                 ),
-                                &e,
+                                e,
                             )
                         } else {
-                            exp_conts(core, FrameCont::Let(p.fast_clone(), Cont::Decs(decs)), &e)
+                            exp_conts(core, FrameCont::Let(p.fast_clone(), Cont::Decs(decs)), e)
                         }
                     }
                     Dec::LetModule(_i, _, _dfs) => {
@@ -1526,7 +1524,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                     }
                     Dec::Var(p, e) => match p.0 {
                         Pat::Var(ref x) => {
-                            exp_conts(core, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), &e)
+                            exp_conts(core, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), e)
                         }
                         _ => nyi!(line!()),
                     },
@@ -1537,7 +1535,7 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                             content: f.clone(),
                         }))
                         .share();
-                        if decs.len() == 0 {
+                        if decs.is_empty() {
                             core.cont = Cont::Value_(v);
                             Ok(Step {})
                         } else {
@@ -1584,7 +1582,7 @@ impl Core {
     /// well-defined "done" state.
     pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
         self.assert_idle().map_err(Interruption::EvalInitError)?;
-        self.cont = Cont::Decs(Vector::from(prog.vec));
+        self.cont = Cont::Decs(prog.vec);
         self.continue_(&Limits::none())
     }
 
@@ -1602,8 +1600,8 @@ impl Core {
             self,
             source.clone(),
             FrameCont::Block,
-            Cont::Decs(prog.vec.into()),
-            source.clone(),
+            Cont::Decs(prog.vec),
+            source,
         )?;
         for (x, v) in value_bindings.into_iter() {
             let _ = self.env.insert(x.to_id(), v);
@@ -1619,7 +1617,7 @@ impl Core {
     }
 
     pub fn assert_idle(&self) -> Result<(), EvalInitError> {
-        if self.stack.len() > 0 {
+        if !self.stack.is_empty() {
             return Err(EvalInitError::NonEmptyStack);
         }
         match self.cont {
@@ -1650,8 +1648,8 @@ impl Core {
     ) -> Result<Value_, Interruption> {
         if let Some(new_prog_frag) = new_prog_frag {
             self.assert_idle().map_err(Interruption::EvalInitError)?;
-            let p = crate::check::parse(&new_prog_frag).map_err(Interruption::SyntaxError)?;
-            self.cont = Cont::Decs(Vector::from(p.vec));
+            let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
+            self.cont = Cont::Decs(p.vec);
         };
         self.continue_(limits)
     }

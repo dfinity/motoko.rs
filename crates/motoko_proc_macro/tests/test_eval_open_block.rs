@@ -12,14 +12,14 @@ fn test_eval_open_block() {
     core.continue_(&Limits::none()).unwrap();
     core.eval_open_block(
         vec![
-            ("x", Value::Nat(BigUint::from(1 as u32)).share()),
-            ("y", Value::Nat(BigUint::from(2 as u32)).share()),
+            ("x", Value::Nat(BigUint::from(1_u32)).share()),
+            ("y", Value::Nat(BigUint::from(2_u32)).share()),
         ],
         parse_static!("var z = x + y").clone(),
     )
     .unwrap();
     let r = core.eval_prog(parse_static!("x + y").clone()).unwrap();
-    assert_eq!(r, Value::Nat(BigUint::from(666 + 777 as u32)).share());
+    assert_eq!(r, Value::Nat(BigUint::from(666 + 777_u32)).share());
 }
 
 #[test]

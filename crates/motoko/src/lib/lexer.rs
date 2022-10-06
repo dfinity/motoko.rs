@@ -130,7 +130,7 @@ fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option
             /* sort!=&GroupType::Comment */
             g == &GroupType::BlockComment {
                 // Skip depth check in block comments
-                if let Some(j) = find_closing(&g, tokens, i) {
+                if let Some(j) = find_closing(g, tokens, i) {
                     i = j;
                 }
             }

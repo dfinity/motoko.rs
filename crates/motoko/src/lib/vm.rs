@@ -1188,7 +1188,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                                 Mut::Const => f.val,
                                 Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
                             };
-                            hm.insert(id.clone(), crate::value::FieldValue { mut_: f.mut_, val });
+                            hm.insert(id, crate::value::FieldValue { mut_: f.mut_, val });
                         }
                         core.cont = cont_value(Value::Object(hm));
                         Ok(Step {})

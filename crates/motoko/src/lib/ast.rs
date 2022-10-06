@@ -47,7 +47,7 @@ impl<X: Clone> NodeData<X> {
     pub fn new(x: X, s: Source) -> Self {
         NodeData(x, s)
     }
-    pub fn data_ref<'a>(&'a self) -> &'a X {
+    pub fn data_ref(&self) -> &X {
         &self.0
     }
     pub fn data_clone(&self) -> X {
@@ -146,6 +146,11 @@ impl<X: Clone> Delim<X> {
             vec: vec.into(),
             has_trailing: false,
         }
+    }
+}
+impl<X: Clone> Default for Delim<X> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

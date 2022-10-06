@@ -5,7 +5,7 @@ use crate::{
 use line_col::LineColLookup;
 use logos::Logos;
 
-pub const KEYWORDS: &'static [&'static str] = &[
+pub const KEYWORDS: &[&str] = &[
     "actor",
     "and",
     "async",
@@ -55,7 +55,7 @@ pub const KEYWORDS: &'static [&'static str] = &[
 ];
 
 pub fn is_keyword(ident: &str) -> bool {
-    return KEYWORDS.contains(&ident);
+    KEYWORDS.contains(&ident)
 }
 
 pub type LexResult<T> = Result<T, ()>;

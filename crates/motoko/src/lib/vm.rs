@@ -1716,7 +1716,7 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
     info!("  - prog = {}", prog);
     info!("  - limits = {:#?}", limits);
     use crate::vm_types::Interruption::SyntaxError;
-    let p = crate::check::parse(&prog).map_err(SyntaxError)?;
+    let p = crate::check::parse(prog).map_err(SyntaxError)?;
     info!("eval_limit: parsed.");
     let mut l = Local::new(Core::new(p));
     let s = l.run(limits).map_err(|_| ())?;

@@ -1,6 +1,6 @@
 use crate::ast::{
     BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, RelOp,
-    Source, Type, UnOp, ToId,
+    Source, ToId, Type, UnOp,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
@@ -201,18 +201,33 @@ fn string_from_value(v: &Value) -> Result<String, Interruption> {
 
 fn cont_for_call_dot_next(
     core: &mut Core,
-    p: &Pat_,
-    v: &Value_,
-    body: &Exp_,
+    p: Pat_,
+    v: Value_,
+    body: Exp_,
 ) -> Result<Step, Interruption> {
-    core.stack.push_front(Frame {
-        env: core.env.clone(),
-        cont: FrameCont::For2(p.fast_clone(), v.fast_clone(), body.fast_clone()),
-        cont_prim_type: None,
-        source: core.cont_source.clone(),
-    });
-    let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
-    call_cont(core, &v_next_func, None, Value::Unit.share())
+    let deref_v = core.deref_value(v.fast_clone())?; // Only used for `Dynamic` case
+    match &*deref_v {
+        Value::Dynamic(d) => {
+            core.stack.push_front(Frame {
+                env: core.env.clone(),
+                cont: FrameCont::For2(p, v, body),
+                cont_prim_type: None,
+                source: core.cont_source.clone(),
+            });
+            core.cont = Cont::Value_(d.dynamic_mut().next()?);
+            Ok(Step {})
+        }
+        _ => {
+            let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
+            core.stack.push_front(Frame {
+                env: core.env.clone(),
+                cont: FrameCont::For2(p, v, body),
+                cont_prim_type: None,
+                source: core.cont_source.clone(),
+            });
+            call_cont(core, v_next_func, None, Value::Unit.share())
+        }
+    }
 }
 
 fn call_prim_function(
@@ -348,19 +363,24 @@ fn call_function(
 
 fn call_cont(
     core: &mut Core,
-    func_value: &Value_,
+    func_value: Value_,
     inst: Option<Inst>,
     args_value: Value_,
 ) -> Result<Step, Interruption> {
-    match &**func_value {
-        Value::Function(cf) => call_function(core, func_value.clone(), cf, inst, args_value),
+    match &*func_value {
+        Value::Function(cf) => call_function(core, func_value.fast_clone(), cf, inst, args_value),
         Value::PrimFunction(pf) => call_prim_function(core, pf, inst, args_value),
-        Value::Dynamic(d) => {
-            let result = d.dynamic_mut().call(&inst, args_value.fast_clone())?;
-            core.cont = Cont::Value_(result);
-            Ok(Step {})
+        _ => {
+            let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
+            match &*func_value {
+                Value::Dynamic(d) => {
+                    let result = d.dynamic_mut().call(&inst, args_value.fast_clone())?;
+                    core.cont = Cont::Value_(result);
+                    Ok(Step {})
+                }
+                _ => Err(Interruption::TypeMismatch),
+            }
         }
-        _ => Err(Interruption::TypeMismatch),
     }
 }
 
@@ -1032,7 +1052,6 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     Ok(Step {})
                 }
                 Value::Index(p, i) => {
-                    println!("Assign2 index {:?}[{:?}] := {:?}", p, i, v); ////
                     store::mutate_index(core, p.clone(), i.fast_clone(), v)?;
                     core.cont = cont_value(Value::Unit);
                     Ok(Step {})
@@ -1087,10 +1106,8 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             }
             Var(x, cont) => {
                 let ptr = core.alloc(v);
-                core.env.insert(
-                    x.as_ref().data_ref().clone(),
-                    Value::Pointer(ptr).share(),
-                );
+                core.env
+                    .insert(x.as_ref().data_ref().clone(), Value::Pointer(ptr).share());
                 core.cont_source = source_from_cont(&cont);
                 core.cont = cont;
                 Ok(Step {})
@@ -1180,13 +1197,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                                 Mut::Const => f.val,
                                 Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
                             };
-                            hm.insert(
-                                id.clone(),
-                                crate::value::FieldValue {
-                                    mut_: f.mut_,
-                                    val: val,
-                                },
-                            );
+                            hm.insert(id.clone(), crate::value::FieldValue { mut_: f.mut_, val });
                         }
                         core.cont = cont_value(Value::Object(hm));
                         Ok(Step {})
@@ -1273,7 +1284,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 Value::Unit => exp_conts(core, FrameCont::While1(e1.fast_clone(), e2), &e1),
                 _ => Err(Interruption::TypeMismatch),
             },
-            For1(p, body) => cont_for_call_dot_next(core, &p, &v, &body),
+            For1(p, body) => cont_for_call_dot_next(core, p, v, body),
             For2(p, v_iter, body) => match &*v {
                 Value::Null => {
                     core.cont = cont_value(Value::Unit);
@@ -1290,7 +1301,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 _ => Err(Interruption::TypeMismatch),
             },
             For3(p, v_iter, body) => match &*v {
-                Value::Unit => cont_for_call_dot_next(core, &p, &v_iter, &body),
+                Value::Unit => cont_for_call_dot_next(core, p, v_iter, body),
                 _ => Err(Interruption::TypeMismatch),
             },
             And1(e2) => match &*v {
@@ -1361,7 +1372,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                 //     _ => Err(Interruption::TypeMismatch),
                 // }
             }
-            Call2(f, inst) => call_cont(core, &f, inst, v),
+            Call2(f, inst) => call_cont(core, f, inst, v),
             Call3 => {
                 core.cont = Cont::Value_(v);
                 Ok(Step {})

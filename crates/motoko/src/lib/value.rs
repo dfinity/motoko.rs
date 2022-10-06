@@ -2,9 +2,9 @@ use std::fmt::Display;
 use std::num::Wrapping;
 use std::rc::Rc;
 
-use crate::ast::{Dec, Decs, Exp, Function, Id, ToId, Literal, Mut};
+use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut, ToId};
 use crate::dynamic::Dynamic;
-use crate::shared::{Shared, FastClone};
+use crate::shared::{FastClone, Shared};
 use crate::vm_types::Env;
 
 use im_rc::HashMap;
@@ -108,9 +108,9 @@ pub enum Value {
     PrimFunction(PrimFunction),
     Collection(Collection),
     Dynamic(DynamicValue),
+    // DynamicRef(DynamicRef),
 }
 
-#[derive(Debug)]
 pub struct DynamicValue(pub Rc<std::cell::RefCell<dyn Dynamic>>);
 
 impl DynamicValue {
@@ -120,6 +120,12 @@ impl DynamicValue {
 
     pub fn dynamic_mut(&self) -> std::cell::RefMut<dyn Dynamic> {
         (*self.0).borrow_mut()
+    }
+}
+
+impl std::fmt::Debug for DynamicValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
     }
 }
 

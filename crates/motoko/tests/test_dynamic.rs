@@ -1,5 +1,5 @@
 use motoko::ast::ToId;
-use motoko::shared::{Share};
+use motoko::shared::Share;
 use motoko::value::Value;
 use motoko::vm_types::Interruption;
 use motoko::{dynamic::Dynamic, value::Value_};
@@ -42,8 +42,16 @@ fn dyn_struct() {
         //     }
         // }
 
-        fn call(&mut self, _inst: &Option<motoko::ast::Inst>, args: Value_) -> motoko::dynamic::Result {
+        fn call(
+            &mut self,
+            _inst: &Option<motoko::ast::Inst>,
+            args: Value_,
+        ) -> motoko::dynamic::Result {
             Ok(args)
+        }
+
+        fn next(&mut self) -> motoko::dynamic::Result {
+            Ok(Value::Null.share())
         }
     }
 
@@ -52,10 +60,8 @@ fn dyn_struct() {
     let mut core = motoko::vm_types::Core::empty();
     let pointer = core.alloc(value);
 
-    core.env.insert(
-        "value".to_id(),
-        Value::Pointer(pointer).share(),
-    );
+    core.env
+        .insert("value".to_id(), Value::Pointer(pointer).share());
 
     assert_eq!(
         core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())
@@ -72,5 +78,13 @@ fn dyn_struct() {
             .unwrap()
             .get(),
         Value::Char('c')
+    );
+    assert_eq!(
+        core.eval_prog(
+            motoko::check::parse("var x = true; for (_ in value) { x := false }; x").unwrap()
+        )
+        .unwrap()
+        .get(),
+        Value::Bool(true)
     );
 }

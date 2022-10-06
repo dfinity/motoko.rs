@@ -544,37 +544,6 @@ mod collection {
     }
 }
 
-fn prim_value(name: &str) -> Result<Value, Interruption> {
-    //use crate::value::{CollectionFunction, HashMapFunction, PrimFunction};
-    use CollectionFunction::*;
-    use PrimFunction::*;
-    if let Some(pf) = match name {
-        "\"debugPrint\"" => Some(DebugPrint),
-        "\"natToText\"" => Some(NatToText),
-        "\"hashMapNew\"" => Some(Collection(HashMap(HashMapFunction::New))),
-        "\"hashMapPut\"" => Some(Collection(HashMap(HashMapFunction::Put))),
-        "\"hashMapGet\"" => Some(Collection(HashMap(HashMapFunction::Get))),
-        "\"hashMapRemove\"" => Some(Collection(HashMap(HashMapFunction::Remove))),
-        "\"fastRandIterNew\"" => Some(Collection(FastRandIter(FastRandIterFunction::New))),
-        "\"fastRandIterNext\"" => Some(Collection(FastRandIter(FastRandIterFunction::Next))),
-        #[cfg(feature = "to-motoko")]
-        #[cfg(feature = "value-reflection")]
-        "\"reifyValue\"" => Some(ReifyValue),
-        #[cfg(feature = "value-reflection")]
-        "\"reflectValue\"" => Some(ReflectValue),
-        #[cfg(feature = "to-motoko")]
-        #[cfg(feature = "core-reflection")]
-        "\"reifyCore\"" => Some(ReifyCore),
-        #[cfg(feature = "core-reflection")]
-        "\"reflectCore\"" => Some(ReflectCore),
-        _ => None,
-    } {
-        Ok(Value::PrimFunction(pf))
-    } else {
-        Err(Interruption::UnrecognizedPrim(name.to_string()))
-    }
-}
-
 fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
@@ -689,8 +658,11 @@ fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
         Bang(e) => exp_conts(core, FrameCont::Bang, e),
         Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
         Debug(e) => exp_conts(core, FrameCont::Debug, e),
-        Prim(s) => {
-            core.cont = cont_value(prim_value(s.as_str())?);
+        Prim(p) => {
+            core.cont = cont_value(Value::PrimFunction(
+                p.clone()
+                    .map_err(|s| Interruption::UnrecognizedPrim(s.to_string()))?,
+            ));
             Ok(Step {})
         }
         _ => nyi!(line!()),

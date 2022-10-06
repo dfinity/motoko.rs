@@ -237,6 +237,34 @@ pub enum PrimFunction {
     Collection(CollectionFunction),
 }
 
+impl PrimFunction {
+    pub fn resolve(name: String) -> Result<PrimFunction, String> {
+        use CollectionFunction::*;
+        use PrimFunction::*;
+        Ok(match name.as_str() {
+            "\"debugPrint\"" => DebugPrint,
+            "\"natToText\"" => NatToText,
+            "\"hashMapNew\"" => Collection(HashMap(HashMapFunction::New)),
+            "\"hashMapPut\"" => Collection(HashMap(HashMapFunction::Put)),
+            "\"hashMapGet\"" => Collection(HashMap(HashMapFunction::Get)),
+            "\"hashMapRemove\"" => Collection(HashMap(HashMapFunction::Remove)),
+            "\"fastRandIterNew\"" => Collection(FastRandIter(FastRandIterFunction::New)),
+            "\"fastRandIterNext\"" => Collection(FastRandIter(FastRandIterFunction::Next)),
+            #[cfg(feature = "to-motoko")]
+            #[cfg(feature = "value-reflection")]
+            "\"reifyValue\"" => ReifyValue,
+            #[cfg(feature = "value-reflection")]
+            "\"reflectValue\"" => ReflectValue,
+            #[cfg(feature = "to-motoko")]
+            #[cfg(feature = "core-reflection")]
+            "\"reifyCore\"" => ReifyCore,
+            #[cfg(feature = "core-reflection")]
+            "\"reflectCore\"" => ReflectCore,
+            _ => Err(name.to_string())?,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum CollectionFunction {
     HashMap(HashMapFunction),

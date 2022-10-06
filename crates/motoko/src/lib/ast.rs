@@ -1,4 +1,5 @@
 use crate::shared::{Share, Shared};
+use crate::value::PrimFunction;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -407,7 +408,7 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {
     Hole,
-    Prim(Id),
+    Prim(Result<PrimFunction, String>),
     Var(Id),
     Literal(Literal),
     ActorUrl(Exp_),

@@ -149,14 +149,14 @@ fn relop(
     Ok(Bool(match relop {
         Eq => match (&*v1, &*v2) {
             (Bool(b1), Bool(b2)) => b1 == b2,
-            (Text(t1), Text(t2)) => t1.to_string() == t2.to_string(),
+            (Text(t1), Text(t2)) => t1 == t2,
             (Nat(n1), Nat(n2)) => n1 == n2,
             (Int(i1), Int(i2)) => i1 == i2,
             _ => nyi!(line!())?,
         },
         Neq => match (&*v1, &*v2) {
             (Bool(b1), Bool(b2)) => b1 != b2,
-            (Text(t1), Text(t2)) => t1.to_string() == t2.to_string(),
+            (Text(t1), Text(t2)) => t1 == t2,
             (Nat(n1), Nat(n2)) => n1 != n2,
             (Int(i1), Int(i2)) => i1 != i2,
             _ => nyi!(line!())?,

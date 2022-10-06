@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
 
 /// Permit sharing and fast concats.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Hash)]
 pub enum Text {
     String(Box<String>),
     Concat(Vector<String>),
@@ -34,6 +34,16 @@ impl Text {
         }
     }
 }
+
+impl PartialEq for Text {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Text::String(a), Text::String(b)) => a == b,
+            _ => self.to_string() == other.to_string(), // TODO: possibly optimize
+        }
+    }
+}
+impl Eq for Text {}
 
 impl ToString for Text {
     fn to_string(&self) -> String {

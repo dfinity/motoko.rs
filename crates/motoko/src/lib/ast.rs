@@ -59,7 +59,7 @@ impl<X: Clone> NodeData<X> {
 #[serde(tag = "source_type")]
 pub enum Source {
     Known { span: Span, line: usize, col: usize },
-    ExpStep { source: Box<Source> },
+    // ExpStep { source: Shared<Source> },
     Unknown,
     Evaluation,
     CoreInit,
@@ -93,8 +93,8 @@ impl Source {
             (_, CoreInit) => todo!(),
             (Evaluation, _) => todo!(),
             (_, Evaluation) => todo!(),
-            (ExpStep { .. }, _) => todo!(),
-            (_, ExpStep { .. }) => todo!(),
+            // (ExpStep { .. }, _) => todo!(),
+            // (_, ExpStep { .. }) => todo!(),
         }
     }
 }
@@ -106,9 +106,9 @@ impl std::fmt::Display for Source {
             Source::Known { span, line, col } => {
                 write!(f, "{}..{} @ {}:{}", span.start, span.end, line, col)
             }
-            Source::ExpStep { source } => {
-                write!(f, "ExpStep({})", source)
-            }
+            // Source::ExpStep { source } => {
+            //     write!(f, "ExpStep({})", source)
+            // }
             Source::Unknown => write!(f, "(unknown source)"),
             Source::Evaluation => write!(f, "(evaluation)"),
             Source::CoreInit => write!(f, "(full program, via core init)"),

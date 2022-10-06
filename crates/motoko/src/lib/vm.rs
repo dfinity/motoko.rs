@@ -1569,7 +1569,7 @@ impl Core {
 
     /// New VM core from a given program string, to be parsed during Core construction.
     #[cfg(feature = "parser")]
-    pub fn from_str(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
+    pub fn parse(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
         Ok(core_init(crate::check::parse(s)?))
     }
 

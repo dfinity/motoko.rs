@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
 
 /// Permit sharing and fast concats.
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub enum Text {
     String(Box<String>),
     Concat(Vector<String>),
@@ -44,6 +44,12 @@ impl PartialEq for Text {
     }
 }
 impl Eq for Text {}
+
+impl std::hash::Hash for Text {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.to_string().hash(state)
+    }
+}
 
 impl ToString for Text {
     fn to_string(&self) -> String {
@@ -298,9 +304,9 @@ impl Value {
             Literal::Unit => Unit,
             Literal::Nat(n) => Nat({
                 let n = n.replace('_', "");
-                if n.starts_with("0x") {
+                if let Some(n) = n.strip_prefix("0x") {
                     use num_traits::Num;
-                    BigUint::from_str_radix(&n[2..], 16).map_err(|_| ValueError::BigInt)?
+                    BigUint::from_str_radix(n, 16).map_err(|_| ValueError::BigInt)?
                 } else {
                     n.parse().map_err(|_| ValueError::BigInt)?
                 }

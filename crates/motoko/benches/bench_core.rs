@@ -6,7 +6,7 @@ extern crate test;
 
 #[bench]
 fn core_clone_smaller(b: &mut Bencher) {
-    let mut core = Core::from_str("let x = 0; x").unwrap();
+    let mut core = Core::parse("let x = 0; x").unwrap();
     core.continue_(&Limits::default()).unwrap();
 
     b.iter(|| core.clone())
@@ -14,7 +14,7 @@ fn core_clone_smaller(b: &mut Bencher) {
 
 #[bench]
 fn core_clone_larger(b: &mut Bencher) {
-    let mut core = Core::from_str(
+    let mut core = Core::parse(
         r#"
         let Debug = { print = prim "debugPrint"};
         var x = 0;

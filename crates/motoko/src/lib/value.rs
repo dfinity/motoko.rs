@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut, ToId};
 use crate::dynamic::Dynamic;
-use crate::shared::{FastClone, Shared};
+use crate::shared::{FastClone, Share, Shared};
 use crate::vm_types::Env;
 
 use im_rc::HashMap;
@@ -590,13 +590,17 @@ impl Value {
 #[cfg(feature = "to-motoko")]
 pub trait ToMotoko {
     fn to_motoko(self) -> Result;
+
+    fn to_shared(self) -> Result<Value_>
+    where
+        Self: Sized,
+    {
+        Ok(self.to_motoko()?.share())
+    }
 }
 
 #[cfg(feature = "to-motoko")]
-impl<T> ToMotoko for T
-where
-    T: Serialize,
-{
+impl<T: Serialize> ToMotoko for T {
     fn to_motoko(self) -> Result {
         // println!("{}",ron::to_string(&self).unwrap());//////
         self.serialize(crate::convert::ser::Serializer)
@@ -622,19 +626,13 @@ impl Display for ValueError {
 impl std::error::Error for ValueError {}
 
 impl serde::ser::Error for ValueError {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: std::fmt::Display,
-    {
+    fn custom<T: std::fmt::Display>(msg: T) -> Self {
         ValueError::ToMotoko(msg.to_string())
     }
 }
 
 impl serde::de::Error for ValueError {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: std::fmt::Display,
-    {
+    fn custom<T: std::fmt::Display>(msg: T) -> Self {
         ValueError::ToRust(msg.to_string())
     }
 }

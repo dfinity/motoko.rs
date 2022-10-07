@@ -1,5 +1,5 @@
 use motoko::ast::ToId;
-use motoko::shared::Share;
+use motoko::shared::{Share, FastClone};
 use motoko::value::Value;
 use motoko::vm_types::Interruption;
 use motoko::{dynamic::Dynamic, value::Value_};
@@ -16,7 +16,7 @@ fn dyn_struct() {
         fn get_index(&self, index: Value_) -> motoko::dynamic::Result {
             self.map
                 .get(&index)
-                .map(Clone::clone)
+                .map(FastClone::fast_clone)
                 .ok_or(Interruption::IndexOutOfBounds)
         }
 

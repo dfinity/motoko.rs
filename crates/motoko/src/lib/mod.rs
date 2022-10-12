@@ -36,4 +36,4 @@ pub use crate::shared::{Share, Shared};
 pub use crate::value::ToMotoko;
 pub use crate::value::{Value, ValueError, Value_};
 pub use crate::vm::{eval, eval_into, eval_limit};
-pub use crate::vm_types::Core;
+pub use crate::vm_types::{Core, Interruption};

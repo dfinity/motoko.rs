@@ -301,6 +301,7 @@ pub enum Interruption {
     #[cfg(feature = "parser")]
     SyntaxError(SyntaxError),
     ValueError(ValueError),
+    EvalInitError(EvalInitError),
     UnboundIdentifer(Identifier),
     UnrecognizedPrim(String),
     BlockedAwaiting,
@@ -314,8 +315,25 @@ pub enum Interruption {
     NotYetImplemented(NYI),
     Unknown,
     Impossible,
-    EvalInitError(EvalInitError),
     Other(String),
+}
+
+impl From<SyntaxError> for Interruption {
+    fn from(err: SyntaxError) -> Self {
+        Interruption::SyntaxError(err)
+    }
+}
+
+impl From<ValueError> for Interruption {
+    fn from(err: ValueError) -> Self {
+        Interruption::ValueError(err)
+    }
+}
+
+impl From<EvalInitError> for Interruption {
+    fn from(err: EvalInitError) -> Self {
+        Interruption::EvalInitError(err)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

@@ -64,10 +64,8 @@ fn dyn_struct() {
     let value = Struct::default().into_value().share();
 
     let mut core = motoko::vm_types::Core::empty();
-    let pointer = core.alloc(value);
 
-    core.env
-        .insert("value".to_id(), Value::Pointer(pointer).share());
+    core.assign_alloc("value".to_id(), value);
 
     assert_eq!(
         core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())

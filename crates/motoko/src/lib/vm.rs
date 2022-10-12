@@ -1653,6 +1653,16 @@ impl Core {
             _ => Ok(value),
         }
     }
+
+    pub fn assign(&mut self, id: impl ToId, value: Value_) {
+        self.env.insert(id.to_id(), value);
+    }
+
+    pub fn assign_alloc(&mut self, id: impl ToId, value: Value_) -> Pointer {
+        let pointer = self.alloc(value);
+        self.assign(id, Value::Pointer(pointer.fast_clone()).share());
+        pointer
+    }
 }
 
 // For core Motoko state initializing local VM state.

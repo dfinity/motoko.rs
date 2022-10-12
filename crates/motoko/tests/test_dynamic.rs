@@ -61,11 +61,9 @@ fn dyn_struct() {
         }
     }
 
-    let value = Struct::default().into_value().share();
-
     let mut core = motoko::vm_types::Core::empty();
 
-    core.assign_alloc("value".to_id(), value);
+    core.assign_alloc("value".to_id(), Struct::default().into_value());
 
     assert_eq!(
         core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())

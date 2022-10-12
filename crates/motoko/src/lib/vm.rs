@@ -1566,7 +1566,7 @@ impl Core {
     /// bound as arguments, and then forgotten after evaluation.
     pub fn eval_open_block(
         &mut self,
-        value_bindings: Vec<(&str, Value_)>,
+        value_bindings: Vec<(&str, impl Into<Value_>)>,
         prog: Prog,
     ) -> Result<Value_, Interruption> {
         let source = self.cont_source.clone(); // to do -- use prog source
@@ -1579,7 +1579,7 @@ impl Core {
             source,
         )?;
         for (x, v) in value_bindings.into_iter() {
-            let _ = self.env.insert(x.to_id(), v);
+            let _ = self.env.insert(x.to_id(), v.into());
         }
         self.continue_(&Limits::none())
     }
@@ -1629,7 +1629,8 @@ impl Core {
         self.continue_(limits)
     }
 
-    pub fn alloc(&mut self, value: Value_) -> Pointer {
+    pub fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
+        let value = value.into();
         let ptr = Pointer(self.next_pointer);
         self.next_pointer = self.next_pointer.checked_add(1).expect("Out of pointers");
         self.store.insert(ptr.clone(), value);
@@ -1647,18 +1648,20 @@ impl Core {
             .map(|v| v.fast_clone())
     }
 
-    pub fn deref_value(&mut self, value: Value_) -> Result<Value_, Interruption> {
+    pub fn deref_value(&mut self, value: impl Into<Value_>) -> Result<Value_, Interruption> {
+        let value = value.into();
         match &*value {
             Value::Pointer(p) => self.deref(p),
             _ => Ok(value),
         }
     }
 
-    pub fn assign(&mut self, id: impl ToId, value: Value_) {
+    pub fn assign(&mut self, id: impl ToId, value: impl Into<Value_>) {
+        let value = value.into();
         self.env.insert(id.to_id(), value);
     }
 
-    pub fn assign_alloc(&mut self, id: impl ToId, value: Value_) -> Pointer {
+    pub fn assign_alloc(&mut self, id: impl ToId, value: impl Into<Value_>) -> Pointer {
         let pointer = self.alloc(value);
         self.assign(id, Value::Pointer(pointer.fast_clone()).share());
         pointer

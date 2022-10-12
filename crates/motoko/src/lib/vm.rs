@@ -374,7 +374,7 @@ fn call_cont(
             let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
             match &*func_value {
                 Value::Dynamic(d) => {
-                    let result = d.dynamic_mut().call(&inst, args_value.fast_clone())?;
+                    let result = d.dynamic_mut().call(core, &inst, args_value.fast_clone())?;
                     core.cont = Cont::Value_(result);
                     Ok(Step {})
                 }
@@ -855,7 +855,10 @@ fn source_from_cont(cont: &Cont) -> Source {
 mod store {
     use num_traits::ToPrimitive;
 
-    use crate::{shared::Share, value::Value_};
+    use crate::{
+        shared::{FastClone, Share},
+        value::Value_,
+    };
 
     use super::{Core, Interruption, Mut, Pointer, Value};
 
@@ -896,7 +899,7 @@ mod store {
                 }
             }
             Value::Dynamic(d) => {
-                d.dynamic_mut().set_index(i, v)?;
+                d.fast_clone().dynamic_mut().set_index(core, i, v)?;
                 Ok(())
             }
             _ => Err(Interruption::TypeMismatch),
@@ -1050,7 +1053,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                         (Value::Dynamic(d), _) => {
-                            core.cont = cont_value((*d.dynamic().get_index(v)?).clone());
+                            core.cont = cont_value((*d.dynamic().get_index(core, v)?).clone());
                             Ok(Step {})
                         }
                         _ => Err(Interruption::TypeMismatch),
@@ -1205,7 +1208,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     }
                 }
                 Value::Dynamic(d) => {
-                    let f = d.dynamic().get_field(f.0.as_str())?;
+                    let f = d.dynamic().get_field(core, f.0.as_str())?;
                     core.cont = Cont::Value_(f);
                     Ok(Step {})
                 }

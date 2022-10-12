@@ -1629,6 +1629,7 @@ impl Core {
         self.continue_(limits)
     }
 
+    #[inline]
     pub fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
         let value = value.into();
         let ptr = Pointer(self.next_pointer);
@@ -1637,10 +1638,12 @@ impl Core {
         ptr
     }
 
+    #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
         self.store.remove(pointer)
     }
 
+    #[inline]
     pub fn deref(&mut self, pointer: &Pointer) -> Result<Value_, Interruption> {
         self.store
             .get(pointer)
@@ -1648,6 +1651,7 @@ impl Core {
             .map(|v| v.fast_clone())
     }
 
+    #[inline]
     pub fn deref_value(&mut self, value: impl Into<Value_>) -> Result<Value_, Interruption> {
         let value = value.into();
         match &*value {
@@ -1656,11 +1660,13 @@ impl Core {
         }
     }
 
+    #[inline]
     pub fn assign(&mut self, id: impl ToId, value: impl Into<Value_>) {
         let value = value.into();
         self.env.insert(id.to_id(), value);
     }
 
+    #[inline]
     pub fn assign_alloc(&mut self, id: impl ToId, value: impl Into<Value_>) -> Pointer {
         let pointer = self.alloc(value);
         self.assign(id, Value::Pointer(pointer.fast_clone()).share());

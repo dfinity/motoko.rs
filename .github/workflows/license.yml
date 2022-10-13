@@ -2,8 +2,7 @@ name: License Check
 
 on:
   push:
-    branches:
-      - master
+    branches: [ "main" ]
   pull_request:
 
 concurrency:

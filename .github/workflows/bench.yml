@@ -1,8 +1,6 @@
 name: Benchmark
 on:
   pull_request:
-    paths:
-    - 'rust/**'
 jobs:
   runBenchMark:
     name: run benchmark
@@ -27,7 +25,6 @@ jobs:
         key: ${{ runner.os }}-bench-${{ hashFiles('**/Cargo.lock') }}
     - uses: boa-dev/criterion-compare-action@master
       with:
-        cwd: rust/candid
         benchName: benchmark
         branchName: ${{ github.base_ref }}
         token: ${{ secrets.GITHUB_TOKEN }}

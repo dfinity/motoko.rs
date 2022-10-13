@@ -1,6 +1,5 @@
 [workspace]
-
 members = [
-        "crates/motoko",
-        "crates/motoko_proc_macro"
+    "crates/motoko",
+    "crates/motoko_proc_macro"
 ]

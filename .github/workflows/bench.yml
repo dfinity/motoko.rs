@@ -1,0 +1,31 @@
+name: Benchmark
+on:
+  pull_request:
+jobs:
+  runBenchMark:
+    name: run benchmark
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Install stable toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - name: Cache cargo build
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-bench-${{ hashFiles('**/Cargo.lock') }}
+    - uses: boa-dev/criterion-compare-action@master
+      with:
+        cwd: crates/motoko
+        benchName: benchmark
+        branchName: ${{ github.base_ref }}
+        token: ${{ secrets.GITHUB_TOKEN }}

@@ -436,7 +436,6 @@ mod collection {
     pub mod fastranditer {
         use super::super::*;
         use crate::{shared::Share, value::Collection};
-        use im_rc::vector;
 
         pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value_) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {

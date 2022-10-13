@@ -42,63 +42,12 @@ fn test_hashmap_performance_steps() {
         parse_static!(
             "
       var i = prim \"fastRandIterNew\" (?size, 1);
-      var j = {
-        next = func () {
-          let (n, i_) = prim \"fastRandIterNext\" i;
-          i := i_;
-          n
-        }
-      };
+      let j = {
+        next = func () { prim \"fastRandIterNext\" i }
+        };
       for (x in j) {
         let s = prim \"natToText\" x;
         let (m, _) = prim \"hashMapPut\" (map, x, s);
-        map := m;
-      }
-    "
-        )
-        .clone(),
-    )
-    .unwrap();
-
-    // batch get.
-    let size = 10;
-    core.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
-        parse_static!(
-            "
-      var i = prim \"fastRandIterNew\" (?size, 1);
-      var j = {
-        next = func () {
-          let (n, i_) = prim \"fastRandIterNext\" i;
-          i := i_;
-          n
-        }
-      };
-      for (x in j) {
-        let _ = prim \"hashMapGet\" (map, x);
-      }
-    "
-        )
-        .clone(),
-    )
-    .unwrap();
-
-    // batch remove.
-    let size = 10;
-    core.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
-        parse_static!(
-            "
-      var i = prim \"fastRandIterNew\" (?size, 1);
-      var j = {
-        next = func () {
-          let (n, i_) = prim \"fastRandIterNext\" i;
-          i := i_;
-          n
-        }
-      };
-      for (x in j) {
-        let (m, _) = prim \"hashMapRemove\" (map, x);
         map := m;
       }
     "

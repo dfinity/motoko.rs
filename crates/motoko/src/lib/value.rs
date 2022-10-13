@@ -118,7 +118,10 @@ pub enum Value {
     Object(HashMap<Id, FieldValue>),
     Option(Value_),
     Variant(Id, Option<Value_>),
+    /// `var` pointers are implicitly dereferenced (as R-values, but not as L-values).
     Pointer(Pointer),
+    /// an opaque pointer is not implicitly dereferenced during evaluation (unlike `var` `Pointer`s).
+    Opaque(Pointer),
     Index(Pointer, Value_),
     Function(ClosedFunction),
     PrimFunction(PrimFunction),
@@ -464,6 +467,7 @@ impl Value {
                 Object(map)
             }
             Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+            Value::Opaque(_) => Err(ValueError::ToRust("Opaque".to_string()))?,
             Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
             Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,

@@ -1,7 +1,7 @@
 use motoko::ast::ToId;
-use motoko::shared::{Share, FastClone};
+use motoko::shared::{FastClone, Share};
 use motoko::value::Value;
-use motoko::vm_types::Interruption;
+use motoko::vm_types::{Core, Interruption};
 use motoko::{dynamic::Dynamic, value::Value_};
 
 #[test]
@@ -13,14 +13,19 @@ fn dyn_struct() {
     }
 
     impl Dynamic for Struct {
-        fn get_index(&self, index: Value_) -> motoko::dynamic::Result {
+        fn get_index(&self, _core: &Core, index: Value_) -> motoko::dynamic::Result {
             self.map
                 .get(&index)
                 .map(FastClone::fast_clone)
                 .ok_or(Interruption::IndexOutOfBounds)
         }
 
-        fn set_index(&mut self, key: Value_, value: Value_) -> motoko::dynamic::Result<()> {
+        fn set_index(
+            &mut self,
+            _core: &mut Core,
+            key: Value_,
+            value: Value_,
+        ) -> motoko::dynamic::Result<()> {
             self.map.insert(key, value);
             Ok(())
         }
@@ -44,6 +49,7 @@ fn dyn_struct() {
 
         fn call(
             &mut self,
+            _core: &mut Core,
             _inst: &Option<motoko::ast::Inst>,
             args: Value_,
         ) -> motoko::dynamic::Result {
@@ -55,13 +61,9 @@ fn dyn_struct() {
         }
     }
 
-    let value = Struct::default().into_value().share();
-
     let mut core = motoko::vm_types::Core::empty();
-    let pointer = core.alloc(value);
 
-    core.env
-        .insert("value".to_id(), Value::Pointer(pointer).share());
+    core.assign_alloc("value".to_id(), Struct::default().into_value());
 
     assert_eq!(
         core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())

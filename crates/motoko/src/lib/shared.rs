@@ -89,6 +89,12 @@ pub trait Share {
 //     }
 // }
 
+impl<T: Share> From<T> for Shared<T> {
+    fn from(value: T) -> Self {
+        value.share()
+    }
+}
+
 impl<T: Clone> Share for crate::ast::NodeData<T> {
     fn share(self) -> Shared<Self> {
         Shared::new(self)

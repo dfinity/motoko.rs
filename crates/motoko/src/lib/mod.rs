@@ -27,3 +27,13 @@ pub mod shared;
 pub mod value;
 pub mod vm;
 pub mod vm_types;
+
+#[cfg(feature = "parser")]
+pub use crate::check::parse;
+pub use crate::dynamic::Dynamic;
+pub use crate::shared::{Share, Shared};
+#[cfg(feature = "to-motoko")]
+pub use crate::value::ToMotoko;
+pub use crate::value::{Value, ValueError, Value_};
+pub use crate::vm::{eval, eval_into, eval_limit};
+pub use crate::vm_types::{Core, Interruption};

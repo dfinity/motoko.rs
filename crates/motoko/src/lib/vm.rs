@@ -374,7 +374,7 @@ fn call_cont(
             let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
             match &*func_value {
                 Value::Dynamic(d) => {
-                    let result = d.dynamic_mut().call(&inst, args_value.fast_clone())?;
+                    let result = d.dynamic_mut().call(core, &inst, args_value.fast_clone())?;
                     core.cont = Cont::Value_(result);
                     Ok(Step {})
                 }
@@ -855,7 +855,10 @@ fn source_from_cont(cont: &Cont) -> Source {
 mod store {
     use num_traits::ToPrimitive;
 
-    use crate::{shared::Share, value::Value_};
+    use crate::{
+        shared::{FastClone, Share},
+        value::Value_,
+    };
 
     use super::{Core, Interruption, Mut, Pointer, Value};
 
@@ -896,7 +899,7 @@ mod store {
                 }
             }
             Value::Dynamic(d) => {
-                d.dynamic_mut().set_index(i, v)?;
+                d.fast_clone().dynamic_mut().set_index(core, i, v)?;
                 Ok(())
             }
             _ => Err(Interruption::TypeMismatch),
@@ -1050,7 +1053,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                         (Value::Dynamic(d), _) => {
-                            core.cont = cont_value((*d.dynamic().get_index(v)?).clone());
+                            core.cont = cont_value((*d.dynamic().get_index(core, v)?).clone());
                             Ok(Step {})
                         }
                         _ => Err(Interruption::TypeMismatch),
@@ -1205,7 +1208,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
                     }
                 }
                 Value::Dynamic(d) => {
-                    let f = d.dynamic().get_field(f.0.as_str())?;
+                    let f = d.dynamic().get_field(core, f.0.as_str())?;
                     core.cont = Cont::Value_(f);
                     Ok(Step {})
                 }
@@ -1563,7 +1566,7 @@ impl Core {
     /// bound as arguments, and then forgotten after evaluation.
     pub fn eval_open_block(
         &mut self,
-        value_bindings: Vec<(&str, Value_)>,
+        value_bindings: Vec<(&str, impl Into<Value_>)>,
         prog: Prog,
     ) -> Result<Value_, Interruption> {
         let source = self.cont_source.clone(); // to do -- use prog source
@@ -1576,7 +1579,7 @@ impl Core {
             source,
         )?;
         for (x, v) in value_bindings.into_iter() {
-            let _ = self.env.insert(x.to_id(), v);
+            let _ = self.env.insert(x.to_id(), v.into());
         }
         self.continue_(&Limits::none())
     }
@@ -1626,17 +1629,21 @@ impl Core {
         self.continue_(limits)
     }
 
-    pub fn alloc(&mut self, value: Value_) -> Pointer {
+    #[inline]
+    pub fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
+        let value = value.into();
         let ptr = Pointer(self.next_pointer);
         self.next_pointer = self.next_pointer.checked_add(1).expect("Out of pointers");
         self.store.insert(ptr.clone(), value);
         ptr
     }
 
+    #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
         self.store.remove(pointer)
     }
 
+    #[inline]
     pub fn deref(&mut self, pointer: &Pointer) -> Result<Value_, Interruption> {
         self.store
             .get(pointer)
@@ -1644,11 +1651,26 @@ impl Core {
             .map(|v| v.fast_clone())
     }
 
-    pub fn deref_value(&mut self, value: Value_) -> Result<Value_, Interruption> {
+    #[inline]
+    pub fn deref_value(&mut self, value: impl Into<Value_>) -> Result<Value_, Interruption> {
+        let value = value.into();
         match &*value {
             Value::Pointer(p) => self.deref(p),
             _ => Ok(value),
         }
+    }
+
+    #[inline]
+    pub fn assign(&mut self, id: impl ToId, value: impl Into<Value_>) {
+        let value = value.into();
+        self.env.insert(id.to_id(), value);
+    }
+
+    #[inline]
+    pub fn assign_alloc(&mut self, id: impl ToId, value: impl Into<Value_>) -> Pointer {
+        let pointer = self.alloc(value);
+        self.assign(id, Value::Pointer(pointer.fast_clone()).share());
+        pointer
     }
 }
 

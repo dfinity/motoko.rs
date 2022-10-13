@@ -139,6 +139,12 @@ impl DynamicValue {
     }
 }
 
+impl<'a> FastClone<DynamicValue> for &'a DynamicValue {
+    fn fast_clone(self) -> DynamicValue {
+        self.clone()
+    }
+}
+
 impl std::fmt::Debug for DynamicValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.0)
@@ -636,3 +642,4 @@ impl serde::de::Error for ValueError {
         ValueError::ToRust(msg.to_string())
     }
 }
+

@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::ast::{Inst, ToId};
 //use crate::shared::Shared;
 use crate::value::{DynamicValue, Value, Value_};
-use crate::vm_types::Interruption;
+use crate::vm_types::{Core, Interruption};
 
 pub use dyn_clone::DynClone;
 
@@ -19,15 +19,15 @@ pub trait Dynamic: Debug + DynClone + DynHash {
         Value::Dynamic(DynamicValue(Rc::new(RefCell::new(self))))
     }
 
-    fn get_index(&self, _index: Value_) -> Result {
+    fn get_index(&self, _core: &Core, _index: Value_) -> Result {
         Err(Interruption::IndexOutOfBounds)
     }
 
-    fn set_index(&mut self, _index: Value_, _value: Value_) -> Result<()> {
+    fn set_index(&mut self, _core: &mut Core, _index: Value_, _value: Value_) -> Result<()> {
         Err(Interruption::IndexOutOfBounds)
     }
 
-    fn get_field(&self, name: &str) -> Result {
+    fn get_field(&self, _core: &Core, name: &str) -> Result {
         Err(Interruption::UnboundIdentifer(name.to_id()))
     }
 
@@ -35,7 +35,7 @@ pub trait Dynamic: Debug + DynClone + DynHash {
     //     Err(Interruption::UnboundIdentifer(name.to_string()))
     // }
 
-    fn call(&mut self, _inst: &Option<Inst>, _args: Value_) -> Result {
+    fn call(&mut self, _core: &mut Core, _inst: &Option<Inst>, _args: Value_) -> Result {
         Err(Interruption::TypeMismatch)
     }
 

@@ -66,3 +66,8 @@ parser = []
 to-motoko = []
 value-reflection = []
 core-reflection = []
+
+[[bench]]
+name = "benchmark"
+harness = false
+path = "benches/benchmark.rs"

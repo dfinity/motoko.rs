@@ -25,6 +25,6 @@ jobs:
         key: ${{ runner.os }}-bench-${{ hashFiles('**/Cargo.lock') }}
     - uses: boa-dev/criterion-compare-action@master
       with:
-        benchName: bench_criterion
+        benchName: benchmark
         branchName: ${{ github.base_ref }}
         token: ${{ secrets.GITHUB_TOKEN }}

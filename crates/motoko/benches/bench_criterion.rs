@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use motoko::{vm_types::Limits, Core, Share, Value};
 
 fn bench_example(c: &mut Criterion) {

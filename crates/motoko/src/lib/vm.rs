@@ -425,6 +425,13 @@ fn assert_value_is_option_u32<'a>(v: &'a Value) -> Result<Option<u32>, Interrupt
     }
 }
 
+fn assert_value_is_opaque_pointer(v: &Value) -> Result<Pointer, Interruption> {
+    match v {
+        Value::Opaque(p) => Ok(p.clone()),
+        _ => Err(Interruption::TypeMismatch),
+    }
+}
+
 mod collection {
     pub mod fastranditer {
         use super::super::*;
@@ -435,9 +442,11 @@ mod collection {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let size: Option<u32> = assert_value_is_option_u32(&args[0])?;
                 let seed: u32 = assert_value_is_u32(&args[1])?;
-                core.cont = cont_value(Value::Collection(Collection::FastRandIter(
-                    FastRandIter::new(size, seed),
-                )));
+                let ptr = core.alloc(
+                    Value::Collection(Collection::FastRandIter(FastRandIter::new(size, seed)))
+                        .share(),
+                );
+                core.cont = cont_value(Value::Opaque(ptr));
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -445,15 +454,17 @@ mod collection {
         }
 
         pub fn next(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-            match v.get() {
-                Value::Collection(Collection::FastRandIter(mut fri)) => {
+            let ptr = assert_value_is_opaque_pointer(&v)?;
+            match &*core.deref(&ptr)? {
+                Value::Collection(Collection::FastRandIter(fri)) => {
+                    let mut fri = fri.clone();
                     let n = match fri.next() {
-                        // to do -- systematic Option<_> ~> ?<_> conversion.
                         Some(n) => Value::Option(n.share()),
                         None => Value::Null,
                     };
                     let i = Value::Collection(Collection::FastRandIter(fri));
-                    core.cont = cont_value(Value::Tuple(vector![n.share(), i.share()]));
+                    store::mutate(core, ptr, i.share())?;
+                    core.cont = cont_value(n);
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),

@@ -1,5 +1,5 @@
 use motoko::ast::ToId;
-use motoko::shared::{Share, FastClone};
+use motoko::shared::{FastClone, Share};
 use motoko::value::Value;
 use motoko::vm_types::Interruption;
 use motoko::{dynamic::Dynamic, value::Value_};

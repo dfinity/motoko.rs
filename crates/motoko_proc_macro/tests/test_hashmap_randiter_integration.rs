@@ -21,9 +21,7 @@ fn test_hashmap_randiter_intergration() {
                    null
                  } else {
                    c := c + 1;
-                   let (n, i) = prim \"fastRandIterNext\" rand_;
-                   rand_ := i;
-                   n
+                   prim \"fastRandIterNext\" rand_;
                  }
                 }
               }

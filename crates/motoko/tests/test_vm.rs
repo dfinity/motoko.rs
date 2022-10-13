@@ -343,7 +343,7 @@ fn prim_collection_hashmap() {
 #[test]
 fn fastranditer() {
     assert_(
-        "var i = prim \"fastRandIterNew\" (null, 33); let (x, i) = (prim \"fastRandIterNext\" i); (x, (prim \"fastRandIterNext\" i).0)",
+        "var i = prim \"fastRandIterNew\" (null, 33); let x = (prim \"fastRandIterNext\" i); (x, (prim \"fastRandIterNext\" i))",
         "(?1592943, ?1731023874)",
     );
 }

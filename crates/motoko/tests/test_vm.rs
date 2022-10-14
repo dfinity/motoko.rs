@@ -349,6 +349,14 @@ fn fastranditer() {
 }
 
 #[test]
+fn fastranditer_fastfor() {
+    assert_(
+        "for (x in prim \"fastRandIterNew\" (?3, 3)) { }",
+        "()",
+    );
+}
+
+#[test]
 fn function_call_return_restores_env() {
     assert_("func f() { }; let x = 0; x", "0");
     assert_("func f() { }; let x = 0; f(); x", "0");

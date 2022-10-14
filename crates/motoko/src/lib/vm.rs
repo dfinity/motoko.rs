@@ -1034,6 +1034,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
         };
         match opaque_iter_next(core, &ptr)? {
             None => {
+                core.stack.pop_front();
                 core.cont = cont_value(Value::Unit);
                 Ok(Step {})
             }

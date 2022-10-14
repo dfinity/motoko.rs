@@ -183,6 +183,7 @@ fn exp_conts_(
     Ok(Step {})
 }
 
+/* continuation separates into stack frame cont and immediate cont. */
 fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: &Exp_) -> Result<Step, Interruption> {
     let cont_source = cont.1.clone();
     exp_conts_(
@@ -194,9 +195,37 @@ fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: &Exp_) -> Result<Step
     )
 }
 
+/* continuation uses same stack frame. */
+fn exp_cont(core: &mut Core, cont: &Exp_) -> Result<Step, Interruption> {
+    core.cont_source = cont.1.clone();
+    core.cont = Cont::Exp_(cont.fast_clone(), Vector::new());
+    Ok(Step {})
+}
+
 fn string_from_value(v: &Value) -> Result<String, Interruption> {
     //Ok(crate::format::format_one_line(v))
     Ok(format!("{:?}", v))
+}
+
+fn opaque_iter_next(core: &mut Core, p: &Pointer) -> Result<Option<Value_>, Interruption> {
+    use crate::value::Collection;
+    let iter_value = core.deref(p)?;
+    // dispatch based on iterator value (as opposed to primitive function being given in source).
+    // one case for each inbuilt iterator value.
+    // to do -- integrate "dynamic" iterators too
+    match &*iter_value {
+        Value::Collection(Collection::FastRandIter(fri)) => {
+            let mut fri = fri.clone();
+            let n = fri.next();
+            store::mutate(
+                core,
+                p.clone(),
+                Value::Collection(Collection::FastRandIter(fri)).share(),
+            )?;
+            Ok(n.map(|v| v.share()))
+        }
+        _ => Err(Interruption::TypeMismatch),
+    }
 }
 
 fn cont_for_call_dot_next(
@@ -962,6 +991,7 @@ fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
             For1(_, _) => false,
             For2(_, _, _) => true,
             For3(_, _, _) => false,
+            ForOpaqueIter(_, _, _) => true,
             And1(_) => false,
             And2 => true,
             Or1(_) => match v {
@@ -988,374 +1018,409 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
     if core.stack.is_empty() {
         core.cont = Cont::Value_(v.fast_clone());
         Err(Interruption::Done(v))
-    } else {
-        use FrameCont::*;
-        let frame = core.stack.pop_front().unwrap();
-        match &frame.cont {
-            Decs(_) => { /* decs in same block share an environment. */ }
-            _ => {
-                core.env = frame.env;
+    } else if let Some(&Frame {
+        cont: FrameCont::ForOpaqueIter(ref pat, ref ptr, ref body),
+        ..
+    }) = core.stack.front()
+    {
+        let pat = pat.fast_clone();
+        let ptr = ptr.fast_clone();
+        let body = body.fast_clone();
+        let env = core.stack.front().unwrap().env.fast_clone();
+        /* fast-path: avoid popping top stack frame. */
+        match &*v {
+            Value::Unit => (),
+            _ => return Err(Interruption::TypeMismatch),
+        };
+        match opaque_iter_next(core, &ptr)? {
+            None => {
+                core.cont = cont_value(Value::Unit);
+                Ok(Step {})
+            }
+            Some(v_) => {
+                if let Some(env) = pattern_matches(env, &pat.0, v_.fast_clone()) {
+                    core.env = env;
+                    exp_cont(core, &body)
+                } else {
+                    Err(Interruption::TypeMismatch)
+                }
             }
         }
-        core.cont_prim_type = frame.cont_prim_type;
-        core.cont_source = frame.source;
-        match frame.cont {
-            UnOp(un) => {
-                core.cont = cont_value(unop(un, v)?);
+    } else {
+        // common cases: need to pop top stack frame, then pattern-match it.
+        nonempty_stack_cont(core, v)
+    }
+}
+
+fn nonempty_stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+    use FrameCont::*;
+    let frame = core.stack.pop_front().unwrap();
+    match &frame.cont {
+        Decs(_) => { /* decs in same block share an environment. */ }
+        _ => {
+            core.env = frame.env;
+        }
+    }
+    core.cont_prim_type = frame.cont_prim_type;
+    core.cont_source = frame.source;
+    match frame.cont {
+        ForOpaqueIter(..) => unreachable!(),
+        UnOp(un) => {
+            core.cont = cont_value(unop(un, v)?);
+            Ok(Step {})
+        }
+        RelOp1(relop, e2) => exp_conts(core, RelOp2(v, relop), &e2),
+        RelOp2(v1, rel) => {
+            core.cont = cont_value(relop(&core.cont_prim_type, rel, v1, v)?);
+            Ok(Step {})
+        }
+        BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), &e2),
+        BinOp2(v1, bop) => {
+            core.cont = cont_value(binop(&core.cont_prim_type, bop, v1, v)?);
+            Ok(Step {})
+        }
+        Assign1(e2) => exp_conts(core, Assign2(v), &e2),
+        Assign2(v1) => match &*v1 {
+            Value::Pointer(p) => {
+                store::mutate(core, p.clone(), v)?;
+                core.cont = cont_value(Value::Unit);
                 Ok(Step {})
             }
-            RelOp1(relop, e2) => exp_conts(core, RelOp2(v, relop), &e2),
-            RelOp2(v1, rel) => {
-                core.cont = cont_value(relop(&core.cont_prim_type, rel, v1, v)?);
+            Value::Index(p, i) => {
+                store::mutate_index(core, p.clone(), i.fast_clone(), v)?;
+                core.cont = cont_value(Value::Unit);
                 Ok(Step {})
             }
-            BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), &e2),
-            BinOp2(v1, bop) => {
-                core.cont = cont_value(binop(&core.cont_prim_type, bop, v1, v)?);
-                Ok(Step {})
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Idx1(e2) => exp_conts(core, Idx2(v), &e2),
+        Idx2(v1) => {
+            if let Some(Frame {
+                cont: FrameCont::Assign1(_), // still need to evaluate RHS of assignment.
+                ..
+            }) = core.stack.get(0)
+            {
+                match &*v1 {
+                    Value::Pointer(p) => {
+                        // save array pointer and offset until after RHS is evaluated.
+                        core.cont = cont_value(Value::Index(p.clone(), v.fast_clone()));
+                        Ok(Step {})
+                    }
+                    Value::Dynamic(_) => Err(Interruption::Other(
+                        "Dynamic Rust value without a pointer".to_string(),
+                    )),
+                    _ => Err(Interruption::TypeMismatch),
+                }
+            } else {
+                let v1 = core.deref_value(v1)?;
+                match (&*v1, &*v) {
+                    (Value::Array(_mut, a), Value::Nat(i)) => {
+                        let i = usize_from_biguint(i)?;
+                        core.cont =
+                            cont_value((**a.get(i).ok_or(Interruption::IndexOutOfBounds)?).clone());
+                        Ok(Step {})
+                    }
+                    (Value::Dynamic(d), _) => {
+                        core.cont = cont_value((*d.dynamic().get_index(core, v)?).clone());
+                        Ok(Step {})
+                    }
+                    _ => Err(Interruption::TypeMismatch),
+                }
             }
-            // Updating for consistency with the `Call1` / `Call2` optimization
-            // Assign1(e2) => match &*v {
-            //     Value::Pointer(p) => exp_conts(core, Assign2(v), e2),
-            //     Value::Index(p, i) => exp_conts(core, Assign2(v), e2),
-            //     _ => Err(Interruption::TypeMismatch),
-            // },
-            Assign1(e2) => exp_conts(core, Assign2(v), &e2),
-            Assign2(v1) => match &*v1 {
-                Value::Pointer(p) => {
-                    store::mutate(core, p.clone(), v)?;
-                    core.cont = cont_value(Value::Unit);
+        }
+        Let(p, cont) => {
+            if let Some(env) = pattern_matches(core.env.clone(), p.as_ref().data_ref(), v) {
+                core.env = env;
+                core.cont_source = source_from_cont(&cont);
+                core.cont = cont;
+                Ok(Step {})
+            } else {
+                Err(Interruption::TypeMismatch)
+            }
+        }
+        Var(x, cont) => {
+            let ptr = core.alloc(v);
+            core.env
+                .insert(x.as_ref().data_ref().clone(), Value::Pointer(ptr).share());
+            core.cont_source = source_from_cont(&cont);
+            core.cont = cont;
+            Ok(Step {})
+        }
+        Paren => {
+            core.cont = Cont::Value_(v);
+            Ok(Step {})
+        }
+        Variant(i) => {
+            core.cont = cont_value(Value::Variant(i.0.clone(), Some(v)));
+            Ok(Step {})
+        }
+        Switch(cases) => switch(core, v, cases),
+        Block => {
+            core.cont = Cont::Value_(v);
+            Ok(Step {})
+        }
+        Decs(decs) => {
+            match decs.front() {
+                None => {
+                    // return final value from block.
+                    core.cont = Cont::Value_(v);
                     Ok(Step {})
                 }
-                Value::Index(p, i) => {
-                    store::mutate_index(core, p.clone(), i.fast_clone(), v)?;
-                    core.cont = cont_value(Value::Unit);
+                Some(_) => {
+                    core.cont = Cont::Decs(decs);
                     Ok(Step {})
                 }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Idx1(e2) => exp_conts(core, Idx2(v), &e2),
-            Idx2(v1) => {
-                if let Some(Frame {
-                    cont: FrameCont::Assign1(_), // still need to evaluate RHS of assignment.
-                    ..
-                }) = core.stack.get(0)
-                {
-                    match &*v1 {
-                        Value::Pointer(p) => {
-                            // save array pointer and offset until after RHS is evaluated.
-                            core.cont = cont_value(Value::Index(p.clone(), v.fast_clone()));
-                            Ok(Step {})
-                        }
-                        Value::Dynamic(_) => Err(Interruption::Other(
-                            "Dynamic Rust value without a pointer".to_string(),
-                        )),
-                        _ => Err(Interruption::TypeMismatch),
-                    }
-                } else {
-                    let v1 = core.deref_value(v1)?;
-                    match (&*v1, &*v) {
-                        (Value::Array(_mut, a), Value::Nat(i)) => {
-                            let i = usize_from_biguint(i)?;
-                            core.cont = cont_value(
-                                (**a.get(i).ok_or(Interruption::IndexOutOfBounds)?).clone(),
-                            );
-                            Ok(Step {})
-                        }
-                        (Value::Dynamic(d), _) => {
-                            core.cont = cont_value((*d.dynamic().get_index(core, v)?).clone());
-                            Ok(Step {})
-                        }
-                        _ => Err(Interruption::TypeMismatch),
+            }
+        }
+        Do => {
+            core.cont = Cont::Value_(v);
+            Ok(Step {})
+        }
+        Assert => match &*v {
+            Value::Bool(true) => {
+                core.cont = cont_value(Value::Unit);
+                Ok(Step {})
+            }
+            Value::Bool(false) => Err(Interruption::AssertionFailure),
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Ignore => {
+            core.cont = cont_value(Value::Unit);
+            Ok(Step {})
+        }
+        Tuple(mut done, mut rest) => {
+            done.push_back(v);
+            match rest.pop_front() {
+                None => {
+                    core.cont = cont_value(Value::Tuple(done));
+                    Ok(Step {})
+                }
+                Some(next) => exp_conts(core, Tuple(done, rest), &next),
+            }
+        }
+        Array(mut_, mut done, mut rest) => {
+            done.push_back(v);
+            match rest.pop_front() {
+                None => {
+                    if let Mut::Const = mut_ {
+                        core.cont = cont_value(Value::Array(mut_, done));
+                        Ok(Step {})
+                    } else {
+                        let arr = Value::Array(mut_, done);
+                        let ptr = core.alloc(arr.share());
+                        core.cont = cont_value(Value::Pointer(ptr));
+                        Ok(Step {})
                     }
                 }
+                Some(next) => exp_conts(core, Array(mut_, done, rest), &next),
             }
-            Let(p, cont) => {
-                if let Some(env) = pattern_matches(core.env.clone(), p.as_ref().data_ref(), v) {
-                    core.env = env;
-                    core.cont_source = source_from_cont(&cont);
-                    core.cont = cont;
+        }
+        Object(mut done, ctx, mut rest) => {
+            done.push_back(FieldValue {
+                mut_: ctx.mut_,
+                id: ctx.id,
+                typ: ctx.typ,
+                val: v,
+            });
+            match rest.pop_front() {
+                None => {
+                    let mut hm = HashMap::new();
+                    for f in done.into_iter() {
+                        let id = f.id.0.clone();
+                        let val = match f.mut_ {
+                            Mut::Const => f.val,
+                            Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
+                        };
+                        hm.insert(id, crate::value::FieldValue { mut_: f.mut_, val });
+                    }
+                    core.cont = cont_value(Value::Object(hm));
+                    Ok(Step {})
+                }
+                Some(next) => exp_conts(
+                    core,
+                    Object(
+                        done,
+                        FieldContext {
+                            mut_: next.0.mut_.clone(),
+                            id: next.0.id.fast_clone(),
+                            typ: next.0.typ.fast_clone(),
+                        },
+                        rest,
+                    ),
+                    &next.0.exp,
+                ),
+            }
+        }
+        Annot(_t) => {
+            core.cont = Cont::Value_(v);
+            Ok(Step {})
+        }
+        Proj(i) => match &*v {
+            Value::Tuple(vs) => {
+                if let Some(vi) = vs.get(i) {
+                    core.cont = Cont::Value_(vi.fast_clone());
                     Ok(Step {})
                 } else {
                     Err(Interruption::TypeMismatch)
                 }
             }
-            Var(x, cont) => {
-                let ptr = core.alloc(v);
-                core.env
-                    .insert(x.as_ref().data_ref().clone(), Value::Pointer(ptr).share());
-                core.cont_source = source_from_cont(&cont);
-                core.cont = cont;
-                Ok(Step {})
-            }
-            Paren => {
-                core.cont = Cont::Value_(v);
-                Ok(Step {})
-            }
-            Variant(i) => {
-                core.cont = cont_value(Value::Variant(i.0.clone(), Some(v)));
-                Ok(Step {})
-            }
-            Switch(cases) => switch(core, v, cases),
-            Block => {
-                core.cont = Cont::Value_(v);
-                Ok(Step {})
-            }
-            Decs(decs) => {
-                match decs.front() {
-                    None => {
-                        // return final value from block.
-                        core.cont = Cont::Value_(v);
-                        Ok(Step {})
-                    }
-                    Some(_) => {
-                        core.cont = Cont::Decs(decs);
-                        Ok(Step {})
-                    }
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Dot(f) => match &*v {
+            Value::Object(fs) => {
+                if let Some(f) = fs.get(&f.0) {
+                    core.cont = Cont::Value_(f.val.fast_clone());
+                    Ok(Step {})
+                } else {
+                    Err(Interruption::TypeMismatch)
                 }
             }
-            Do => {
+            Value::Dynamic(d) => {
+                let f = d.dynamic().get_field(core, f.0.as_str())?;
+                core.cont = Cont::Value_(f);
+                Ok(Step {})
+            }
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Debug => match &*v {
+            Value::Unit => {
                 core.cont = Cont::Value_(v);
                 Ok(Step {})
             }
-            Assert => match &*v {
-                Value::Bool(true) => {
+            _ => Err(Interruption::TypeMismatch),
+        },
+        If(e2, e3) => match &*v {
+            Value::Bool(b) => {
+                core.cont = if *b {
+                    Cont::Exp_(e2, Vector::new())
+                } else {
+                    match e3 {
+                        Some(e3) => Cont::Exp_(e3, Vector::new()),
+                        None => cont_value(Value::Unit),
+                    }
+                };
+                Ok(Step {})
+            }
+            _ => Err(Interruption::TypeMismatch),
+        },
+        While1(e1, e2) => match &*v {
+            Value::Bool(b) => {
+                if *b {
+                    exp_conts(core, FrameCont::While2(e1, e2.fast_clone()), &e2)
+                } else {
                     core.cont = cont_value(Value::Unit);
                     Ok(Step {})
                 }
-                Value::Bool(false) => Err(Interruption::AssertionFailure),
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Ignore => {
+            }
+            _ => Err(Interruption::TypeMismatch),
+        },
+        While2(e1, e2) => match &*v {
+            Value::Unit => exp_conts(core, FrameCont::While1(e1.fast_clone(), e2), &e1),
+            _ => Err(Interruption::TypeMismatch),
+        },
+        For1(p, body) => {
+            /* for-loop state: iterator object is value v */
+            match &*v {
+                Value::Opaque(ptr) => {
+                    /* enter ForOpaqueIter loop (a "fast path"):
+                    no need to evaluate general Motoko code for iterator. */
+                    core.stack.push_front(Frame {
+                        env: core.env.fast_clone(),
+                        cont: FrameCont::ForOpaqueIter(p, ptr.clone(), body),
+                        cont_prim_type: None,
+                        source: core.cont_source.clone(),
+                    });
+                    core.cont = cont_value(Value::Unit);
+                    Ok(Step {})
+                }
+                _ => cont_for_call_dot_next(core, p, v, body),
+            }
+        }
+        For2(p, v_iter, body) => match &*v {
+            Value::Null => {
                 core.cont = cont_value(Value::Unit);
                 Ok(Step {})
             }
-            Tuple(mut done, mut rest) => {
-                done.push_back(v);
-                match rest.pop_front() {
-                    None => {
-                        core.cont = cont_value(Value::Tuple(done));
-                        Ok(Step {})
-                    }
-                    Some(next) => exp_conts(core, Tuple(done, rest), &next),
+            Value::Option(v_) => {
+                if let Some(env) = pattern_matches(core.env.fast_clone(), &p.0, v_.fast_clone()) {
+                    core.env = env;
+                    exp_conts(core, FrameCont::For3(p, v_iter, body.fast_clone()), &body)
+                } else {
+                    Err(Interruption::TypeMismatch)
                 }
             }
-            Array(mut_, mut done, mut rest) => {
-                done.push_back(v);
-                match rest.pop_front() {
-                    None => {
-                        if let Mut::Const = mut_ {
-                            core.cont = cont_value(Value::Array(mut_, done));
-                            Ok(Step {})
-                        } else {
-                            let arr = Value::Array(mut_, done);
-                            let ptr = core.alloc(arr.share());
-                            core.cont = cont_value(Value::Pointer(ptr));
-                            Ok(Step {})
-                        }
-                    }
-                    Some(next) => exp_conts(core, Array(mut_, done, rest), &next),
+            _ => Err(Interruption::TypeMismatch),
+        },
+        For3(p, v_iter, body) => match &*v {
+            Value::Unit => cont_for_call_dot_next(core, p, v_iter, body),
+            _ => Err(Interruption::TypeMismatch),
+        },
+        And1(e2) => match &*v {
+            Value::Bool(b) => {
+                if *b {
+                    exp_conts(core, FrameCont::And2, &e2)
+                } else {
+                    core.cont = cont_value(Value::Bool(false));
+                    Ok(Step {})
                 }
             }
-            Object(mut done, ctx, mut rest) => {
-                done.push_back(FieldValue {
-                    mut_: ctx.mut_,
-                    id: ctx.id,
-                    typ: ctx.typ,
-                    val: v,
-                });
-                match rest.pop_front() {
-                    None => {
-                        let mut hm = HashMap::new();
-                        for f in done.into_iter() {
-                            let id = f.id.0.clone();
-                            let val = match f.mut_ {
-                                Mut::Const => f.val,
-                                Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
-                            };
-                            hm.insert(id, crate::value::FieldValue { mut_: f.mut_, val });
-                        }
-                        core.cont = cont_value(Value::Object(hm));
-                        Ok(Step {})
-                    }
-                    Some(next) => exp_conts(
-                        core,
-                        Object(
-                            done,
-                            FieldContext {
-                                mut_: next.0.mut_.clone(),
-                                id: next.0.id.fast_clone(),
-                                typ: next.0.typ.fast_clone(),
-                            },
-                            rest,
-                        ),
-                        &next.0.exp,
-                    ),
-                }
-            }
-            Annot(_t) => {
-                core.cont = Cont::Value_(v);
+            _ => Err(Interruption::TypeMismatch),
+        },
+        And2 => match &*v {
+            Value::Bool(b) => {
+                core.cont = cont_value(Value::Bool(*b));
                 Ok(Step {})
             }
-            Proj(i) => match &*v {
-                Value::Tuple(vs) => {
-                    if let Some(vi) = vs.get(i) {
-                        core.cont = Cont::Value_(vi.fast_clone());
-                        Ok(Step {})
-                    } else {
-                        Err(Interruption::TypeMismatch)
-                    }
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Dot(f) => match &*v {
-                Value::Object(fs) => {
-                    if let Some(f) = fs.get(&f.0) {
-                        core.cont = Cont::Value_(f.val.fast_clone());
-                        Ok(Step {})
-                    } else {
-                        Err(Interruption::TypeMismatch)
-                    }
-                }
-                Value::Dynamic(d) => {
-                    let f = d.dynamic().get_field(core, f.0.as_str())?;
-                    core.cont = Cont::Value_(f);
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Or1(e2) => match &*v {
+            Value::Bool(b) => {
+                if *b {
+                    core.cont = cont_value(Value::Bool(true));
                     Ok(Step {})
+                } else {
+                    exp_conts(core, FrameCont::Or2, &e2)
                 }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Debug => match &*v {
-                Value::Unit => {
-                    core.cont = Cont::Value_(v);
-                    Ok(Step {})
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            If(e2, e3) => match &*v {
-                Value::Bool(b) => {
-                    core.cont = if *b {
-                        Cont::Exp_(e2, Vector::new())
-                    } else {
-                        match e3 {
-                            Some(e3) => Cont::Exp_(e3, Vector::new()),
-                            None => cont_value(Value::Unit),
-                        }
-                    };
-                    Ok(Step {})
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            While1(e1, e2) => match &*v {
-                Value::Bool(b) => {
-                    if *b {
-                        exp_conts(core, FrameCont::While2(e1, e2.fast_clone()), &e2)
-                    } else {
-                        core.cont = cont_value(Value::Unit);
-                        Ok(Step {})
-                    }
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            While2(e1, e2) => match &*v {
-                Value::Unit => exp_conts(core, FrameCont::While1(e1.fast_clone(), e2), &e1),
-                _ => Err(Interruption::TypeMismatch),
-            },
-            For1(p, body) => cont_for_call_dot_next(core, p, v, body),
-            For2(p, v_iter, body) => match &*v {
-                Value::Null => {
-                    core.cont = cont_value(Value::Unit);
-                    Ok(Step {})
-                }
-                Value::Option(v_) => {
-                    if let Some(env) = pattern_matches(core.env.fast_clone(), &p.0, v_.fast_clone())
-                    {
-                        core.env = env;
-                        exp_conts(core, FrameCont::For3(p, v_iter, body.fast_clone()), &body)
-                    } else {
-                        Err(Interruption::TypeMismatch)
-                    }
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            For3(p, v_iter, body) => match &*v {
-                Value::Unit => cont_for_call_dot_next(core, p, v_iter, body),
-                _ => Err(Interruption::TypeMismatch),
-            },
-            And1(e2) => match &*v {
-                Value::Bool(b) => {
-                    if *b {
-                        exp_conts(core, FrameCont::And2, &e2)
-                    } else {
-                        core.cont = cont_value(Value::Bool(false));
-                        Ok(Step {})
-                    }
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            And2 => match &*v {
-                Value::Bool(b) => {
-                    core.cont = cont_value(Value::Bool(*b));
-                    Ok(Step {})
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Or1(e2) => match &*v {
-                Value::Bool(b) => {
-                    if *b {
-                        core.cont = cont_value(Value::Bool(true));
-                        Ok(Step {})
-                    } else {
-                        exp_conts(core, FrameCont::Or2, &e2)
-                    }
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Or2 => match &*v {
-                Value::Bool(b) => {
-                    core.cont = cont_value(Value::Bool(*b));
-                    Ok(Step {})
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Not => match &*v {
-                Value::Bool(b) => {
-                    core.cont = cont_value(Value::Bool(!b));
-                    Ok(Step {})
-                }
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Opt => {
-                core.cont = cont_value(Value::Option(v));
+            }
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Or2 => match &*v {
+            Value::Bool(b) => {
+                core.cont = cont_value(Value::Bool(*b));
                 Ok(Step {})
             }
-            DoOpt => {
-                core.cont = cont_value(Value::Option(v));
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Not => match &*v {
+            Value::Bool(b) => {
+                core.cont = cont_value(Value::Bool(!b));
                 Ok(Step {})
             }
-            Bang => match &*v {
-                Value::Option(v) => {
-                    core.cont = Cont::Value_(v.fast_clone());
-                    Ok(Step {})
-                }
-                Value::Null => bang_null(core),
-                _ => Err(Interruption::TypeMismatch),
-            },
-            Call1(inst, e2) => {
-                exp_conts(core, FrameCont::Call2(v, inst), &e2)
-                // match v {
-                //     Value::Function(cf) => exp_conts(core, FrameCont::Call2(cf, inst), e2),
-                //     Value::PrimFunction(pf) => exp_conts(core, FrameCont::Call2Prim(pf, inst), e2),
-                //     Value::Dynamic(d) => exp_conts(core, FrameCont::Call2Dyn(d, inst), e2),
-                //     _ => Err(Interruption::TypeMismatch),
-                // }
-            }
-            Call2(f, inst) => call_cont(core, f, inst, v),
-            Call3 => {
-                core.cont = Cont::Value_(v);
-                Ok(Step {})
-            }
-            Return => return_(core, v),
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Opt => {
+            core.cont = cont_value(Value::Option(v));
+            Ok(Step {})
         }
+        DoOpt => {
+            core.cont = cont_value(Value::Option(v));
+            Ok(Step {})
+        }
+        Bang => match &*v {
+            Value::Option(v) => {
+                core.cont = Cont::Value_(v.fast_clone());
+                Ok(Step {})
+            }
+            Value::Null => bang_null(core),
+            _ => Err(Interruption::TypeMismatch),
+        },
+        Call1(inst, e2) => exp_conts(core, FrameCont::Call2(v, inst), &e2),
+        Call2(f, inst) => call_cont(core, f, inst, v),
+        Call3 => {
+            core.cont = Cont::Value_(v);
+            Ok(Step {})
+        }
+        Return => return_(core, v),
     }
 }
 

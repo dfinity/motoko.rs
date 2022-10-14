@@ -83,7 +83,7 @@ pub enum Cont {
 }
 
 pub mod stack {
-    use super::{Cont, Env, Vector};
+    use super::{Cont, Env, Pointer, Vector};
     use crate::ast::{
         BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, RelOp, Source, Type_,
         UnOp,
@@ -130,6 +130,8 @@ pub mod stack {
         For2(Pat_, Value_, Exp_),
         // For3 is waiting for for-loop body to evaluate.
         For3(Pat_, Value_, Exp_),
+        // For-loop iterator is an opaque object in store.
+        ForOpaqueIter(Pat_, Pointer, Exp_),
         And1(Exp_),
         And2,
         Or1(Exp_),

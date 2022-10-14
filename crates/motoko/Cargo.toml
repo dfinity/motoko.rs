@@ -13,9 +13,6 @@ categories = ["wasm"]
 keywords = ["internet-computer", "motoko", "wasm"]
 include = ["src", "build.rs", "Cargo.toml", "LICENSE", "README.md"]
 
-[build-dependencies]
-lalrpop = "0.19.7"
-
 [dependencies]
 lalrpop-util = "0.19.8"
 regex = "1.6.0"
@@ -35,7 +32,12 @@ serde_path_to_error = { version = "0.1.8", optional = true }
 # serde_with = "2.0.1"
 test-log = "0.2.11"
 dyn-clone = "1.0.9"
+
+[dev-dependencies]
 criterion = "0.4.0"
+
+[build-dependencies]
+lalrpop = "0.19.7"
 
 [lib]
 name = "motoko"

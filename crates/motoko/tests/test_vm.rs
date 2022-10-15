@@ -261,8 +261,8 @@ fn actor() {
 fn actor_counter_inc() {
     let p = "actor Counter {
                var x = 0;
-               public get() /*: async Nat*/ { x };
-               public inc() { x := x + 1 };
+               public func get() /*: async Nat*/ { x };
+               public func inc() { x := x + 1 };
              }";
     assert_(p, p);
 }

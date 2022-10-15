@@ -253,7 +253,17 @@ fn module() {
 
 #[test]
 fn actor() {
-    let p = "actor A { public let x = 5; let y = (1, 2); func f () { } }";
+    let p = "actor A { public func f () { } }";
+    assert_(p, p);
+}
+
+#[test]
+fn actor_counter_inc() {
+    let p = "actor Counter {
+               var x = 0;
+               public get() /*: async Nat*/ { x };
+               public inc() { x := x + 1 };
+             }";
     assert_(p, p);
 }
 

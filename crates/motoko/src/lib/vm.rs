@@ -823,14 +823,14 @@ fn switch(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption
     Err(Interruption::NoMatchingCase)
 }
 
-fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
-    let mut stack = core.stack.clone();
+fn bang_null<Core: Active>(core: &mut Core) -> Result<Step, Interruption> {
+    let mut stack = core.stack().clone();
     loop {
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
                 FrameCont::DoOpt => {
-                    core.stack = stack;
-                    core.cont = cont_value(Value::Null);
+                    *core.stack() = stack;
+                    *core.cont() = cont_value(Value::Null);
                     return Ok(Step {});
                 }
                 _ => {}

@@ -350,10 +350,7 @@ fn fastranditer() {
 
 #[test]
 fn fastranditer_fastfor() {
-    assert_(
-        "for (x in prim \"fastRandIterNew\" (?3, 3)) { }",
-        "()",
-    );
+    assert_("for (x in prim \"fastRandIterNew\" (?3, 3)) { }", "()");
 }
 
 #[test]

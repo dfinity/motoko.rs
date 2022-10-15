@@ -237,6 +237,49 @@ pub struct Core {
     pub counts: Counts,
 }
 
+/// An active evaluation context provides mutable access to several components.
+pub trait Active {
+    fn cont<'a>(&'a mut self) -> &'a mut Cont;
+    fn cont_source<'a>(&'a mut self) -> &'a mut Source;
+    fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType>;
+    fn env<'a>(&'a mut self) -> &'a mut Env;
+    fn stack<'a>(&'a mut self) -> &'a mut Stack;
+    fn store<'a>(&'a mut self) -> &'a mut Store;
+    fn next_pointer<'a>(&'a mut self) -> &'a mut usize;
+    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text>;
+    fn counts<'a>(&'a mut self) -> &'a mut Counts;
+}
+
+impl Active for Core {
+    fn cont<'a>(&'a mut self) -> &'a mut Cont {
+        &mut self.cont
+    }
+    fn cont_source<'a>(&'a mut self) -> &'a mut Source {
+        &mut self.cont_source
+    }
+    fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType> {
+        &mut self.cont_prim_type
+    }
+    fn env<'a>(&'a mut self) -> &'a mut Env {
+        &mut self.env
+    }
+    fn stack<'a>(&'a mut self) -> &'a mut Stack {
+        &mut self.stack
+    }
+    fn store<'a>(&'a mut self) -> &'a mut Store {
+        &mut self.store
+    }
+    fn next_pointer<'a>(&'a mut self) -> &'a mut usize {
+        &mut self.next_pointer
+    }
+    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text> {
+        &mut self.debug_print_out
+    }
+    fn counts<'a>(&'a mut self) -> &'a mut Counts {
+        &mut self.counts
+    }
+}
+
 /// Encapsulates the VM state running Motoko code locally,
 /// as a script interacting with the internet computer from the
 /// outside of the IC.

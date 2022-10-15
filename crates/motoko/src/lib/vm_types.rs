@@ -33,6 +33,7 @@ pub mod def {
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     pub enum Def {
         Module(Module),
+        Actor(Actor),
         Function(Function),
         Value(crate::value::Value_),
     }
@@ -40,6 +41,12 @@ pub mod def {
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Module {
         parent: CtxId,
+        fields: CtxId,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Actor {
+        context: CtxId,
         fields: CtxId,
     }
 

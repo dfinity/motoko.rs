@@ -1570,6 +1570,9 @@ fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
                             exp_conts(core, FrameCont::Let(p.fast_clone(), Cont::Decs(decs)), e)
                         }
                     }
+                    Dec::LetActor(_i, _, _dfs) => {
+                        nyi!(line!())
+                    }
                     Dec::LetModule(_i, _, _dfs) => {
                         nyi!(line!())
                     }

@@ -11,8 +11,8 @@ use crate::value::{
 use crate::vm_types::EvalInitError;
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local, Pointer,
-    Signal, Step, NYI,
+    Active, Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local,
+    Pointer, Signal, Step, NYI,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigUint, ToBigInt};
@@ -841,15 +841,15 @@ fn bang_null(core: &mut Core) -> Result<Step, Interruption> {
     }
 }
 
-fn return_(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-    let mut stack = core.stack.fast_clone();
+fn return_<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+    let mut stack = core.stack().fast_clone();
     loop {
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
                 FrameCont::Call3 => {
-                    core.env = fr.env;
-                    core.stack = stack;
-                    core.cont = Cont::Value_(v);
+                    *core.env() = fr.env;
+                    *core.stack() = stack;
+                    *core.cont() = Cont::Value_(v);
                     return Ok(Step {});
                 }
                 _ => {}

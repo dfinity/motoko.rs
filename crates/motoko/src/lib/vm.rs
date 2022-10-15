@@ -1053,6 +1053,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
     }
 }
 
+#[inline]
 fn nonempty_stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
     use FrameCont::*;
     let frame = core.stack.pop_front().unwrap();

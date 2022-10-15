@@ -332,6 +332,7 @@ impl ToDoc for Dec {
                 .append(str(" = "))
                 .append(e.doc()),
             LetModule(_, _, _) => todo!(),
+            LetActor(..) => todo!(),
             Func(_) => todo!(),
             Var(p, e) => kwd("var")
                 .append(p.doc())

@@ -247,12 +247,14 @@ fn for_() {
 
 #[test]
 fn module() {
-    if false {
-        assert_(
-            "module X { public let x = 5; let y = (1, 2); func f () { } }",
-            "module X { public let x = 5; let y = (1, 2); func f () { } }",
-        );
-    }
+    let p = "module X { public let x = 5; let y = (1, 2); func f () { } }";
+    assert_(p, p)
+}
+
+#[test]
+fn actor() {
+    let p = "actor A { public let x = 5; let y = (1, 2); func f () { } }";
+    assert_(p, p);
 }
 
 #[test]

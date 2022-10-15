@@ -192,6 +192,7 @@ pub enum Dec {
     Exp(Exp_),
     Let(Pat_, Exp_),
     LetModule(Option<Id_>, Sugar, DecFields),
+    LetActor(Option<Id_>, Sugar, DecFields),
     Func(Function),
     Var(Pat_, Exp_),
     Type(TypId_, TypeBinds, Type_),

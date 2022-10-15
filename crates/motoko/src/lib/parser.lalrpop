@@ -356,6 +356,7 @@ DecNonVar_: Dec_ = Node<DecNonVar>;
 DecNonVar: Dec = {
     "let" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Let(p, e),
     "module" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetModule(i, Sugar(s.is_some()), ob),
+    "actor" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetActor(i, Sugar(s.is_some()), ob),
     <sp:SortPatOpt> "func" <i:(Id_)?> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func(Function {
         name: i, shared: sp, binds: None, input: p, output: t.map(|t|{t.1}), sugar: Sugar(false), exp: b,
     }),

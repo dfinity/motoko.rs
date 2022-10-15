@@ -466,7 +466,11 @@ mod collection {
         use super::super::*;
         use crate::{shared::Share, value::Collection};
 
-        pub fn new(core: &mut Core, _targs: Option<Inst>, v: Value_) -> Result<Step, Interruption> {
+        pub fn new<Core: Active>(
+            core: &mut Core,
+            _targs: Option<Inst>,
+            v: Value_,
+        ) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let size: Option<u32> = assert_value_is_option_u32(&args[0])?;
                 let seed: u32 = assert_value_is_u32(&args[1])?;
@@ -474,7 +478,7 @@ mod collection {
                     Value::Collection(Collection::FastRandIter(FastRandIter::new(size, seed)))
                         .share(),
                 );
-                core.cont = cont_value(Value::Opaque(ptr));
+                *core.cont() = cont_value(Value::Opaque(ptr));
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -811,12 +815,12 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
     }
 }
 
-fn switch(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption> {
+fn switch<Core: Active>(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
-        if let Some(env) = pattern_matches(core.env.fast_clone(), &case.0.pat.0, v.fast_clone()) {
-            core.env = env;
-            core.cont_source = case.0.exp.1.clone();
-            core.cont = Cont::Exp_(case.0.exp.fast_clone(), Vector::new());
+        if let Some(env) = pattern_matches(core.env().fast_clone(), &case.0.pat.0, v.fast_clone()) {
+            *core.env() = env;
+            *core.cont_source() = case.0.exp.1.clone();
+            *core.cont() = Cont::Exp_(case.0.exp.fast_clone(), Vector::new());
             return Ok(Step {});
         }
     }
@@ -1703,15 +1707,6 @@ impl Core {
             self.cont = Cont::Decs(p.vec);
         };
         self.continue_(limits)
-    }
-
-    #[inline]
-    pub fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
-        let value = value.into();
-        let ptr = Pointer(self.next_pointer);
-        self.next_pointer = self.next_pointer.checked_add(1).expect("Out of pointers");
-        self.store.insert(ptr.clone(), value);
-        ptr
     }
 
     #[inline]

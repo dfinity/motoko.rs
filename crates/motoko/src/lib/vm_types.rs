@@ -248,6 +248,8 @@ pub trait Active {
     fn next_pointer<'a>(&'a mut self) -> &'a mut usize;
     fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text>;
     fn counts<'a>(&'a mut self) -> &'a mut Counts;
+
+    fn alloc(&mut self, value: impl Into<Value_>) -> Pointer;
 }
 
 impl Active for Core {
@@ -277,6 +279,13 @@ impl Active for Core {
     }
     fn counts<'a>(&'a mut self) -> &'a mut Counts {
         &mut self.counts
+    }
+    fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
+        let value = value.into();
+        let ptr = Pointer(self.next_pointer);
+        self.next_pointer = self.next_pointer.checked_add(1).expect("Out of pointers");
+        self.store.insert(ptr.clone(), value);
+        ptr
     }
 }
 

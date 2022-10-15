@@ -11,6 +11,7 @@ pub use dyn_clone::DynClone;
 
 pub type Result<T = Value_, E = Interruption> = std::result::Result<T, E>;
 
+// todo 20221015 -- generalize uses of Core struct into uses of Active trait.
 pub trait Dynamic: Debug + DynClone + DynHash {
     fn into_value(self) -> Value
     where

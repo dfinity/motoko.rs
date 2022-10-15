@@ -237,7 +237,7 @@ pub struct Core {
     pub counts: Counts,
 }
 
-/// An active evaluation context provides mutable access to several components.
+/// Exclusive write access to the "active" components of the VM.
 pub trait Active {
     fn cont<'a>(&'a mut self) -> &'a mut Cont;
     fn cont_source<'a>(&'a mut self) -> &'a mut Source;
@@ -265,6 +265,27 @@ pub trait Active {
     }
 }
 
+/// Non-exclusive read access to the "active" components of the VM.
+pub trait ActiveBorrow {
+    fn cont<'a>(&'a self) -> &'a Cont;
+    fn cont_source<'a>(&'a self) -> &'a Source;
+    fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType>;
+    fn env<'a>(&'a self) -> &'a Env;
+    fn stack<'a>(&'a self) -> &'a Stack;
+    fn store<'a>(&'a self) -> &'a Store;
+    fn next_pointer<'a>(&'a self) -> &'a usize;
+    fn debug_print_out<'a>(&'a self) -> &'a Vector<crate::value::Text>;
+    fn counts<'a>(&'a self) -> &'a Counts;
+    fn deref(&self, pointer: &Pointer) -> Result<Value_, Interruption> {
+        use crate::shared::FastClone;
+        self.store()
+            .get(pointer)
+            .ok_or_else(|| Interruption::Dangling(pointer.clone()))
+            .map(|v| v.fast_clone())
+    }
+}
+
+/// Exclusive write access to the "active" components of the VM.
 impl Active for Core {
     fn cont<'a>(&'a mut self) -> &'a mut Cont {
         &mut self.cont
@@ -292,6 +313,37 @@ impl Active for Core {
     }
     fn counts<'a>(&'a mut self) -> &'a mut Counts {
         &mut self.counts
+    }
+}
+
+/// Non-exclusive read access to the "active" components of the VM.
+impl ActiveBorrow for Core {
+    fn cont<'a>(&'a self) -> &'a Cont {
+        &self.cont
+    }
+    fn cont_source<'a>(&'a self) -> &'a Source {
+        &self.cont_source
+    }
+    fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType> {
+        &self.cont_prim_type
+    }
+    fn env<'a>(&'a self) -> &'a Env {
+        &self.env
+    }
+    fn stack<'a>(&'a self) -> &'a Stack {
+        &self.stack
+    }
+    fn store<'a>(&'a self) -> &'a Store {
+        &self.store
+    }
+    fn next_pointer<'a>(&'a self) -> &'a usize {
+        &self.next_pointer
+    }
+    fn debug_print_out<'a>(&'a self) -> &'a Vector<crate::value::Text> {
+        &self.debug_print_out
+    }
+    fn counts<'a>(&'a self) -> &'a Counts {
+        &self.counts
     }
 }
 

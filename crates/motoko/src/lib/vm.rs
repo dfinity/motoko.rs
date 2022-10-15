@@ -11,8 +11,8 @@ use crate::value::{
 use crate::vm_types::EvalInitError;
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Active, Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits, Local,
-    Pointer, Signal, Step, NYI,
+    Active, ActiveBorrow, Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits,
+    Local, Pointer, Signal, Step, NYI,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigUint, ToBigInt};
@@ -898,12 +898,9 @@ fn source_from_cont(cont: &Cont) -> Source {
 mod store {
     use num_traits::ToPrimitive;
 
-    use crate::{
-        shared::{FastClone, Share},
-        value::Value_,
-    };
+    use crate::{shared::Share, value::Value_};
 
-    use super::{Active, Core, Interruption, Mut, Pointer, Value};
+    use super::{Active, Interruption, Mut, Pointer, Value};
 
     pub fn mutate<Core: Active>(
         core: &mut Core,
@@ -919,14 +916,14 @@ mod store {
         Ok(())
     }
 
-    pub fn mutate_index(
+    pub fn mutate_index<Core: Active>(
         core: &mut Core,
         p: Pointer,
         i: Value_,
         v: Value_,
     ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
-        let pointer_ref = core.store.get_mut(&p).ok_or(Interruption::Dangling(p))?;
+        let pointer_ref = core.store().get_mut(&p).ok_or(Interruption::Dangling(p))?;
 
         match &**pointer_ref {
             Value::Array(Mut::Var, a) => {
@@ -945,9 +942,10 @@ mod store {
                     Err(Interruption::IndexOutOfBounds)
                 }
             }
-            Value::Dynamic(d) => {
-                d.fast_clone().dynamic_mut().set_index(core, i, v)?;
-                Ok(())
+            Value::Dynamic(_d) => {
+                /* d.fast_clone().dynamic_mut().set_index(core, i, v)?; */
+                todo!();
+                /* Ok(()) */
             }
             _ => Err(Interruption::TypeMismatch),
         }
@@ -960,12 +958,12 @@ fn usize_from_biguint(n: &BigUint) -> Result<usize, Interruption> {
         .ok_or(Interruption::ValueError(ValueError::BigInt))
 }
 
-fn stack_cont_has_redex(core: &Core, v: &Value) -> Result<bool, Interruption> {
-    if core.stack.is_empty() {
+fn stack_cont_has_redex<Core: ActiveBorrow>(core: &Core, v: &Value) -> Result<bool, Interruption> {
+    if core.stack().is_empty() {
         Ok(false)
     } else {
         use FrameCont::*;
-        let frame = core.stack.front().unwrap();
+        let frame = core.stack().front().unwrap();
         let r = match &frame.cont {
             UnOp(_) => true,
             RelOp1(_, _) => false,

@@ -485,7 +485,7 @@ mod collection {
             }
         }
 
-        pub fn next(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn next<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             let ptr = assert_value_is_opaque_pointer(&v)?;
             match &*core.deref(&ptr)? {
                 Value::Collection(Collection::FastRandIter(fri)) => {
@@ -496,7 +496,7 @@ mod collection {
                     };
                     let i = Value::Collection(Collection::FastRandIter(fri));
                     store::mutate(core, ptr, i.share())?;
-                    core.cont = cont_value(n);
+                    *core.cont() = cont_value(n);
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
@@ -903,15 +903,19 @@ mod store {
         value::Value_,
     };
 
-    use super::{Core, Interruption, Mut, Pointer, Value};
+    use super::{Active, Core, Interruption, Mut, Pointer, Value};
 
-    pub fn mutate(core: &mut Core, p: Pointer, v: Value_) -> Result<(), Interruption> {
+    pub fn mutate<Core: Active>(
+        core: &mut Core,
+        p: Pointer,
+        v: Value_,
+    ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
-        match core.store.get(&p) {
+        match core.store().get(&p) {
             None => return Err(Interruption::Dangling(p)),
             Some(_) => (),
         };
-        core.store.insert(p, v);
+        core.store().insert(p, v);
         Ok(())
     }
 
@@ -1712,14 +1716,6 @@ impl Core {
     #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
         self.store.remove(pointer)
-    }
-
-    #[inline]
-    pub fn deref(&mut self, pointer: &Pointer) -> Result<Value_, Interruption> {
-        self.store
-            .get(pointer)
-            .ok_or_else(|| Interruption::Dangling(pointer.clone()))
-            .map(|v| v.fast_clone())
     }
 
     #[inline]

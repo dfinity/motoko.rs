@@ -166,7 +166,7 @@ fn relop(
 }
 
 fn exp_conts_(
-    core: &mut Core,
+    core: &mut Core, /* xxx */
     source: Source,
     frame_cont: FrameCont,
     cont: Cont,
@@ -184,7 +184,11 @@ fn exp_conts_(
 }
 
 /* continuation separates into stack frame cont and immediate cont. */
-fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: &Exp_) -> Result<Step, Interruption> {
+fn exp_conts(
+    core: &mut Core, /* xxx */
+    frame_cont: FrameCont,
+    cont: &Exp_,
+) -> Result<Step, Interruption> {
     let cont_source = cont.1.clone();
     exp_conts_(
         core,
@@ -196,7 +200,7 @@ fn exp_conts(core: &mut Core, frame_cont: FrameCont, cont: &Exp_) -> Result<Step
 }
 
 /* continuation uses same stack frame. */
-fn exp_cont(core: &mut Core, cont: &Exp_) -> Result<Step, Interruption> {
+fn exp_cont(core: &mut Core /* xxx */, cont: &Exp_) -> Result<Step, Interruption> {
     core.cont_source = cont.1.clone();
     core.cont = Cont::Exp_(cont.fast_clone(), Vector::new());
     Ok(Step {})
@@ -207,7 +211,10 @@ fn string_from_value(v: &Value) -> Result<String, Interruption> {
     Ok(format!("{:?}", v))
 }
 
-fn opaque_iter_next(core: &mut Core, p: &Pointer) -> Result<Option<Value_>, Interruption> {
+fn opaque_iter_next(
+    core: &mut Core, /* xxx */
+    p: &Pointer,
+) -> Result<Option<Value_>, Interruption> {
     use crate::value::Collection;
     let iter_value = core.deref(p)?;
     // dispatch based on iterator value (as opposed to primitive function being given in source).
@@ -229,7 +236,7 @@ fn opaque_iter_next(core: &mut Core, p: &Pointer) -> Result<Option<Value_>, Inte
 }
 
 fn cont_for_call_dot_next(
-    core: &mut Core,
+    core: &mut Core, /* xxx */
     p: Pat_,
     v: Value_,
     body: Exp_,
@@ -260,7 +267,7 @@ fn cont_for_call_dot_next(
 }
 
 fn call_prim_function(
-    core: &mut Core,
+    core: &mut Core, /* xxx */
     pf: &PrimFunction,
     targs: Option<Inst>,
     args: Value_,
@@ -322,7 +329,7 @@ fn call_prim_function(
 }
 
 fn call_collection_function(
-    core: &mut Core,
+    core: &mut Core, /* xxx */
     cf: &CollectionFunction,
     targs: Option<Inst>,
     args: Value_,
@@ -335,7 +342,7 @@ fn call_collection_function(
 }
 
 fn call_fastranditer_function(
-    core: &mut Core,
+    core: &mut Core, /* xxx */
     frif: &FastRandIterFunction,
     targs: Option<Inst>,
     args: Value_,
@@ -348,7 +355,7 @@ fn call_fastranditer_function(
 }
 
 fn call_hashmap_function(
-    core: &mut Core,
+    core: &mut Core, /* xxx */
     hmf: &HashMapFunction,
     _targs: Option<Inst>,
     args: Value_,
@@ -363,7 +370,7 @@ fn call_hashmap_function(
 }
 
 fn call_function(
-    core: &mut Core,
+    core: &mut Core, /* xxx */
     value: Value_,
     cf: &ClosedFunction,
     _targs: Option<Inst>,
@@ -391,7 +398,7 @@ fn call_function(
 }
 
 fn call_cont(
-    core: &mut Core,
+    core: &mut Core, /* xxx */
     func_value: Value_,
     inst: Option<Inst>,
     args_value: Value_,
@@ -509,15 +516,15 @@ mod collection {
         use crate::value::Collection;
         use im_rc::vector;
 
-        pub fn new(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn new<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(_) = pattern_matches_temps(&Pat::Literal(Literal::Unit), v) {
-                core.cont = cont_value(Value::Collection(Collection::HashMap(HashMap::new())));
+                *core.cont() = cont_value(Value::Collection(Collection::HashMap(HashMap::new())));
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn put(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn put<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(3), v) {
                 let hm = &args[0];
                 let k = &args[1];
@@ -536,13 +543,13 @@ mod collection {
                 // We could probably just tolerate this and use `Dynamic` values for performance-critical situations
                 let hm = Value::Collection(Collection::HashMap(hm));
                 let ret = Value::Tuple(vector![hm.share(), old.share()]);
-                core.cont = cont_value(ret);
+                *core.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn get(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn get<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let hm = &args[0];
                 let k = &args[1];
@@ -556,13 +563,13 @@ mod collection {
                         return Err(Interruption::TypeMismatch);
                     }
                 };
-                core.cont = cont_value(ret);
+                *core.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn remove(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn remove<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let hm = &args[0];
                 let k = &args[1];
@@ -578,7 +585,7 @@ mod collection {
                 };
                 let hm = Value::Collection(Collection::HashMap(hm));
                 let ret = Value::Tuple(vector![hm.share(), old.share()]);
-                core.cont = cont_value(ret);
+                *core.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -587,7 +594,7 @@ mod collection {
     }
 }
 
-fn exp_step(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
+fn exp_step(core: &mut Core /* xxx */, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
     match &exp.0 {
@@ -1020,7 +1027,7 @@ fn stack_cont_has_redex<Core: ActiveBorrow>(core: &Core, v: &Value) -> Result<bo
 }
 
 // continue execution using the top-most stack frame, if any.
-fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+fn stack_cont(core: &mut Core /* xxx */, v: Value_) -> Result<Step, Interruption> {
     if core.stack.is_empty() {
         core.cont = Cont::Value_(v.fast_clone());
         Err(Interruption::Done(v))
@@ -1059,7 +1066,7 @@ fn stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
     }
 }
 
-fn nonempty_stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+fn nonempty_stack_cont(core: &mut Core /* xxx */, v: Value_) -> Result<Step, Interruption> {
     use FrameCont::*;
     let frame = core.stack.pop_front().unwrap();
     match &frame.cont {
@@ -1432,8 +1439,8 @@ fn nonempty_stack_cont(core: &mut Core, v: Value_) -> Result<Step, Interruption>
 }
 
 // Returns `Some(span)` if the limits include the breakpoint.
-fn check_for_breakpoint(core: &Core, limits: &Limits) -> Option<Breakpoint> {
-    let cont_span = &core.cont_source.span();
+fn check_for_breakpoint<Core: ActiveBorrow>(core: &Core, limits: &Limits) -> Option<Breakpoint> {
+    let cont_span = &core.cont_source().span();
     if let Some(span) = cont_span {
         if limits.breakpoints.contains(span) {
             Some(span.clone())
@@ -1445,7 +1452,7 @@ fn check_for_breakpoint(core: &Core, limits: &Limits) -> Option<Breakpoint> {
     }
 }
 
-fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
+fn core_step(core: &mut Core /* xxx */, limits: &Limits) -> Result<Step, Interruption> {
     if let Some(break_span) = check_for_breakpoint(core, limits) {
         return Err(Interruption::Breakpoint(break_span));
     }
@@ -1473,7 +1480,7 @@ fn core_step(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
 }
 
 // To advance the core Motoko state by a single step, after all limits are checked.
-fn core_step_(core: &mut Core) -> Result<Step, Interruption> {
+fn core_step_(core: &mut Core /* xxx */) -> Result<Step, Interruption> {
     use log::trace;
     trace!("# step {} (redex {})", core.counts.step, core.counts.redex);
     trace!(" - cont = {:?}", core.cont);

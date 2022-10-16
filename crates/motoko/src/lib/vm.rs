@@ -903,7 +903,10 @@ fn source_from_cont(cont: &Cont) -> Source {
 mod store {
     use num_traits::ToPrimitive;
 
-    use crate::{shared::Share, value::Value_};
+    use crate::{
+        shared::{FastClone, Share},
+        value::Value_,
+    };
 
     use super::{Active, Interruption, Mut, Pointer, Value};
 
@@ -947,10 +950,9 @@ mod store {
                     Err(Interruption::IndexOutOfBounds)
                 }
             }
-            Value::Dynamic(_d) => {
-                /* d.fast_clone().dynamic_mut().set_index(core, i, v)?; */
-                todo!();
-                /* Ok(()) */
+            Value::Dynamic(d) => {
+                d.fast_clone().dynamic_mut().set_index(i, v)?;
+                Ok(())
             }
             _ => Err(Interruption::TypeMismatch),
         }
@@ -1134,12 +1136,9 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                             cont_value((**a.get(i).ok_or(Interruption::IndexOutOfBounds)?).clone());
                         Ok(Step {})
                     }
-                    (Value::Dynamic(_d), _) => {
-                        todo!()
-                        /*
-                        *core.cont() =  cont_value((*d.dynamic().get_index(core, v)?).clone());
+                    (Value::Dynamic(d), _) => {
+                        *core.cont() = cont_value((*d.dynamic().get_index(v)?).clone());
                         Ok(Step {})
-                        */
                     }
                     _ => Err(Interruption::TypeMismatch),
                 }
@@ -1292,13 +1291,10 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                     Err(Interruption::TypeMismatch)
                 }
             }
-            Value::Dynamic(_d) => {
-                todo!()
-                /*
-                let f = d.dynamic().get_field(core, f.0.as_str())?;
-                *core.cont() =  Cont::Value_(f);
+            Value::Dynamic(d) => {
+                let f = d.dynamic().get_field(f.0.as_str())?;
+                *core.cont() = Cont::Value_(f);
                 Ok(Step {})
-                 */
             }
             _ => Err(Interruption::TypeMismatch),
         },

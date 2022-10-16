@@ -1,10 +1,9 @@
 use motoko::ast::ToId;
 use motoko::shared::{FastClone, Share};
 use motoko::value::Value;
-use motoko::vm_types::{Active, Interruption};
+use motoko::vm_types::Interruption;
 use motoko::{dynamic::Dynamic, value::Value_};
 
-#[ignore]
 #[test]
 fn dyn_struct() {
     #[derive(Clone, Debug, Hash, Default)]
@@ -14,19 +13,14 @@ fn dyn_struct() {
     }
 
     impl Dynamic for Struct {
-        fn get_index<Core: Active>(&self, _core: &Core, index: Value_) -> motoko::dynamic::Result {
+        fn get_index(&self, index: Value_) -> motoko::dynamic::Result {
             self.map
                 .get(&index)
                 .map(FastClone::fast_clone)
                 .ok_or(Interruption::IndexOutOfBounds)
         }
 
-        fn set_index<Core: Active>(
-            &mut self,
-            _core: &mut Core,
-            key: Value_,
-            value: Value_,
-        ) -> motoko::dynamic::Result<()> {
+        fn set_index(&mut self, key: Value_, value: Value_) -> motoko::dynamic::Result<()> {
             self.map.insert(key, value);
             Ok(())
         }
@@ -48,9 +42,8 @@ fn dyn_struct() {
         //     }
         // }
 
-        fn call<Core: Active>(
+        fn call(
             &mut self,
-            _core: &mut Core,
             _inst: &Option<motoko::ast::Inst>,
             args: Value_,
         ) -> motoko::dynamic::Result {

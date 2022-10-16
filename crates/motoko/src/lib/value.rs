@@ -130,10 +130,9 @@ pub enum Value {
     // DynamicRef(DynamicRef),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct DynamicValue(); // to do --
+// #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+// pub struct DynamicValue(); // to do --
 
-/*
 pub struct DynamicValue(pub Rc<std::cell::RefCell<dyn Dynamic>>);
 
 impl DynamicValue {
@@ -195,7 +194,6 @@ impl std::hash::Hash for DynamicValue {
         self.0.borrow().dyn_hash(state)
     }
 }
-*/
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Collection {

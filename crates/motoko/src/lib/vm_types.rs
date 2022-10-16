@@ -1,13 +1,17 @@
 use im_rc::{HashMap, Vector};
+use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
+use crate::ast::Mut;
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
+use crate::shared::FastClone;
 use crate::value::ValueError;
 use crate::{
     ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},
     value::Value_,
 };
+use crate::{Share, Value};
 
 pub mod def {
     use crate::ast::{Stab_, Vis_};
@@ -198,9 +202,83 @@ pub type Stack = stack::Frames;
 /// This HashMap permits sharing.
 pub type Env = HashMap<Identifier, Value_>;
 
-/// Store holds mutable variables, mutable arrays and mutable
-/// records.
-pub type Store = HashMap<Pointer, Value_>;
+/// Store holds mutable variables, mutable arrays and mutable records.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct Store {
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
+    map: HashMap<Pointer, Value_>,
+    next_pointer: usize,
+}
+impl Store {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
+        let value = value.into();
+        let ptr = Pointer(self.next_pointer);
+        self.next_pointer = self.next_pointer.checked_add(1).expect("Out of pointers");
+        self.map.insert(ptr.clone(), value);
+        ptr
+    }
+
+    pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
+        self.map.remove(pointer)
+    }
+
+    pub fn get(&self, pointer: &Pointer) -> Option<&Value_> {
+        self.map.get(pointer)
+    }
+
+    pub fn get_mut(&mut self, pointer: &Pointer) -> Option<&mut Value_> {
+        self.map.get_mut(pointer)
+    }
+
+    pub fn mutate(&mut self, pointer: Pointer, value: Value_) -> Result<(), Interruption> {
+        // it is an error to mutate an unallocated pointer.
+        match self.map.get_mut(&pointer) {
+            None => return Err(Interruption::Dangling(pointer)),
+            Some(v) => *v = value,
+        };
+        Ok(())
+    }
+
+    pub fn mutate_index(
+        &mut self,
+        pointer: Pointer,
+        index: Value_,
+        value: Value_,
+    ) -> Result<(), Interruption> {
+        // it is an error to mutate an unallocated pointer.
+        let pointer_ref = self
+            .get_mut(&pointer)
+            .ok_or(Interruption::Dangling(pointer))?;
+
+        match &**pointer_ref {
+            Value::Array(Mut::Var, a) => {
+                let i = match &*index {
+                    Value::Nat(n) => n
+                        .to_usize()
+                        .ok_or(Interruption::ValueError(crate::value::ValueError::BigInt))?,
+                    _ => Err(Interruption::TypeMismatch)?,
+                };
+                let mut a = a.clone();
+                if i < a.len() {
+                    a.set(i, value);
+                    *pointer_ref = Value::Array(Mut::Var, a).share();
+                    Ok(())
+                } else {
+                    Err(Interruption::IndexOutOfBounds)
+                }
+            }
+            Value::Dynamic(d) => {
+                d.fast_clone().dynamic_mut().set_index(self, index, value)?;
+                Ok(())
+            }
+            _ => Err(Interruption::TypeMismatch),
+        }
+    }
+}
 
 /// Counts. Some ideas of how we could count and limit what the VM
 /// does, to interject some "slow interactivity" into its execution.
@@ -230,9 +308,7 @@ pub struct Core {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub env: Env,
     pub stack: Stack,
-    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub store: Store,
-    pub next_pointer: usize,
     pub debug_print_out: Vector<crate::value::Text>,
     pub counts: Counts,
 }
@@ -245,16 +321,11 @@ pub trait Active: ActiveBorrow {
     fn env<'a>(&'a mut self) -> &'a mut Env;
     fn stack<'a>(&'a mut self) -> &'a mut Stack;
     fn store<'a>(&'a mut self) -> &'a mut Store;
-    fn next_pointer<'a>(&'a mut self) -> &'a mut usize;
     fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text>;
     fn counts<'a>(&'a mut self) -> &'a mut Counts;
 
     fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
-        let value = value.into();
-        let ptr = Pointer(*self.next_pointer());
-        *self.next_pointer() = self.next_pointer().checked_add(1).expect("Out of pointers");
-        self.store().insert(ptr.clone(), value);
-        ptr
+        self.store().alloc(value)
     }
 }
 
@@ -266,11 +337,9 @@ pub trait ActiveBorrow {
     fn env<'a>(&'a self) -> &'a Env;
     fn stack<'a>(&'a self) -> &'a Stack;
     fn store<'a>(&'a self) -> &'a Store;
-    fn next_pointer<'a>(&'a self) -> &'a usize;
     fn debug_print_out<'a>(&'a self) -> &'a Vector<crate::value::Text>;
     fn counts<'a>(&'a self) -> &'a Counts;
     fn deref(&self, pointer: &Pointer) -> Result<Value_, Interruption> {
-        use crate::shared::FastClone;
         self.store()
             .get(pointer)
             .ok_or_else(|| Interruption::Dangling(pointer.clone()))
@@ -305,9 +374,6 @@ impl Active for Core {
     fn store<'a>(&'a mut self) -> &'a mut Store {
         &mut self.store
     }
-    fn next_pointer<'a>(&'a mut self) -> &'a mut usize {
-        &mut self.next_pointer
-    }
     fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text> {
         &mut self.debug_print_out
     }
@@ -335,9 +401,6 @@ impl ActiveBorrow for Core {
     }
     fn store<'a>(&'a self) -> &'a Store {
         &self.store
-    }
-    fn next_pointer<'a>(&'a self) -> &'a usize {
-        &self.next_pointer
     }
     fn debug_print_out<'a>(&'a self) -> &'a Vector<crate::value::Text> {
         &self.debug_print_out

@@ -8,12 +8,12 @@ use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
-use crate::vm_types::EvalInitError;
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Active, ActiveBorrow, Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits,
     Local, Pointer, Signal, Step, NYI,
 };
+use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigUint, ToBigInt};
 use num_traits::ToPrimitive;
@@ -63,13 +63,12 @@ macro_rules! nyi {
 fn core_init(prog: Prog) -> Core {
     let cont_prim_type: Option<PrimType> = None;
     Core {
-        store: HashMap::new(),
+        store: Store::new(),
         stack: Vector::new(),
         env: HashMap::new(),
         cont: Cont::Decs(prog.vec),
         cont_source: Source::CoreInit, // special source -- or get the "full span" (but then what line or column number would be helpful here?  line 1 column 0?)
         cont_prim_type,
-        next_pointer: 0,
         debug_print_out: Vector::new(),
         counts: Counts::default(),
     }
@@ -226,8 +225,7 @@ fn opaque_iter_next<Core: Active>(
         Value::Collection(Collection::FastRandIter(fri)) => {
             let mut fri = fri.clone();
             let n = fri.next();
-            store::mutate(
-                core,
+            core.store().mutate(
                 p.clone(),
                 Value::Collection(Collection::FastRandIter(fri)).share(),
             )?;
@@ -243,33 +241,33 @@ fn cont_for_call_dot_next<Core: Active>(
     v: Value_,
     body: Exp_,
 ) -> Result<Step, Interruption> {
-    /*
-        let deref_v = core.deref_value(v.fast_clone())?; // Only used for `Dynamic` case
-        match &*deref_v {
-            Value::Dynamic(d) => {
-                let env = core.env().fast_clone();
-                let source = core.cont_source().clone();
-                core.stack().push_front(Frame {
-                    env,
-                    cont: FrameCont::For2(p, v, body),
-                    cont_prim_type: None,
-                    source,
-                });
-                *core.cont() = Cont::Value_(d.dynamic_mut().iter_next()?);
-                Ok(Step {})
-            }
-            _ => {
-    */
-    let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
-    let env = core.env().fast_clone();
-    let source = core.cont_source().clone();
-    core.stack().push_front(Frame {
-        env,
-        cont: FrameCont::For2(p, v, body),
-        cont_prim_type: None,
-        source,
-    });
-    call_cont(core, v_next_func, None, Value::Unit.share())
+    let deref_v = core.deref_value(v.fast_clone())?; // Only used for `Dynamic` case
+    match &*deref_v {
+        Value::Dynamic(d) => {
+            let env = core.env().fast_clone();
+            let source = core.cont_source().clone();
+            core.stack().push_front(Frame {
+                env,
+                cont: FrameCont::For2(p, v, body),
+                cont_prim_type: None,
+                source,
+            });
+            *core.cont() = Cont::Value_(d.dynamic_mut().iter_next(core.store())?);
+            Ok(Step {})
+        }
+        _ => {
+            let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
+            let env = core.env().fast_clone();
+            let source = core.cont_source().clone();
+            core.stack().push_front(Frame {
+                env,
+                cont: FrameCont::For2(p, v, body),
+                cont_prim_type: None,
+                source,
+            });
+            call_cont(core, v_next_func, None, Value::Unit.share())
+        }
+    }
 }
 
 fn call_prim_function<Core: Active>(
@@ -412,17 +410,19 @@ fn call_cont<Core: Active>(
     match &*func_value {
         Value::Function(cf) => call_function(core, func_value.fast_clone(), cf, inst, args_value),
         Value::PrimFunction(pf) => call_prim_function(core, pf, inst, args_value),
-        /*
-                _ => {
-                    let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
-                    match &*func_value {
-                        Value::Dynamic(d) => {
-                            let result = d.dynamic_mut().call(core, &inst, args_value.fast_clone())?;
-                            *core.cont() = Cont::Value_(result);
-                            Ok(Step {})
-                        }
-        */
-        _ => Err(Interruption::TypeMismatch),
+        _ => {
+            let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
+            match &*func_value {
+                Value::Dynamic(d) => {
+                    let result =
+                        d.dynamic_mut()
+                            .call(core.store(), &inst, args_value.fast_clone())?;
+                    *core.cont() = Cont::Value_(result);
+                    Ok(Step {})
+                }
+                _ => Err(Interruption::TypeMismatch),
+            }
+        }
     }
 }
 
@@ -499,7 +499,7 @@ mod collection {
                         None => Value::Null,
                     };
                     let i = Value::Collection(Collection::FastRandIter(fri));
-                    store::mutate(core, ptr, i.share())?;
+                    core.store().mutate(ptr, i.share())?;
                     *core.cont() = cont_value(n);
                     Ok(Step {})
                 }
@@ -900,63 +900,6 @@ fn source_from_cont(cont: &Cont) -> Source {
     }
 }
 
-mod store {
-    use num_traits::ToPrimitive;
-
-    use crate::{shared::Share, value::Value_};
-
-    use super::{Active, Interruption, Mut, Pointer, Value};
-
-    pub fn mutate<Core: Active>(
-        core: &mut Core,
-        p: Pointer,
-        v: Value_,
-    ) -> Result<(), Interruption> {
-        // it is an error to mutate an unallocated pointer.
-        match core.store().get(&p) {
-            None => return Err(Interruption::Dangling(p)),
-            Some(_) => (),
-        };
-        core.store().insert(p, v);
-        Ok(())
-    }
-
-    pub fn mutate_index<Core: Active>(
-        core: &mut Core,
-        p: Pointer,
-        i: Value_,
-        v: Value_,
-    ) -> Result<(), Interruption> {
-        // it is an error to mutate an unallocated pointer.
-        let pointer_ref = core.store().get_mut(&p).ok_or(Interruption::Dangling(p))?;
-
-        match &**pointer_ref {
-            Value::Array(Mut::Var, a) => {
-                let i = match &*i {
-                    Value::Nat(n) => n
-                        .to_usize()
-                        .ok_or(Interruption::ValueError(crate::value::ValueError::BigInt))?,
-                    _ => Err(Interruption::TypeMismatch)?,
-                };
-                let mut a = a.clone();
-                if i < a.len() {
-                    a.set(i, v);
-                    *pointer_ref = Value::Array(Mut::Var, a).share();
-                    Ok(())
-                } else {
-                    Err(Interruption::IndexOutOfBounds)
-                }
-            }
-            Value::Dynamic(_d) => {
-                /* d.fast_clone().dynamic_mut().set_index(core, i, v)?; */
-                todo!();
-                /* Ok(()) */
-            }
-            _ => Err(Interruption::TypeMismatch),
-        }
-    }
-}
-
 #[inline]
 fn usize_from_biguint(n: &BigUint) -> Result<usize, Interruption> {
     n.to_usize()
@@ -1096,12 +1039,12 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
         Assign1(e2) => exp_conts(core, Assign2(v), &e2),
         Assign2(v1) => match &*v1 {
             Value::Pointer(p) => {
-                store::mutate(core, p.clone(), v)?;
+                core.store().mutate(p.clone(), v)?;
                 *core.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             Value::Index(p, i) => {
-                store::mutate_index(core, p.clone(), i.fast_clone(), v)?;
+                core.store().mutate_index(p.clone(), i.fast_clone(), v)?;
                 *core.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
@@ -1134,12 +1077,10 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                             cont_value((**a.get(i).ok_or(Interruption::IndexOutOfBounds)?).clone());
                         Ok(Step {})
                     }
-                    (Value::Dynamic(_d), _) => {
-                        todo!()
-                        /*
-                        *core.cont() =  cont_value((*d.dynamic().get_index(core, v)?).clone());
+                    (Value::Dynamic(d), _) => {
+                        *core.cont() =
+                            cont_value((*d.dynamic().get_index(core.store(), v)?).clone());
                         Ok(Step {})
-                        */
                     }
                     _ => Err(Interruption::TypeMismatch),
                 }
@@ -1292,13 +1233,10 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                     Err(Interruption::TypeMismatch)
                 }
             }
-            Value::Dynamic(_d) => {
-                todo!()
-                /*
-                let f = d.dynamic().get_field(core, f.0.as_str())?;
-                *core.cont() =  Cont::Value_(f);
+            Value::Dynamic(d) => {
+                let f = d.dynamic().get_field(core.store(), f.0.as_str())?;
+                *core.cont() = Cont::Value_(f);
                 Ok(Step {})
-                 */
             }
             _ => Err(Interruption::TypeMismatch),
         },
@@ -1742,7 +1680,7 @@ impl Core {
 
     #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
-        self.store.remove(pointer)
+        self.store.dealloc(pointer)
     }
 
     #[inline]

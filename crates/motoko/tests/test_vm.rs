@@ -301,22 +301,22 @@ fn prim_reflect_value() {
 
 #[test]
 #[cfg(feature = "to-motoko")]
-#[cfg(feature = "core-reflection")]
-fn prim_reify_core() {
-    // assert_("let x = 0; prim \"hashMapGet\" ((prim \"reifyCore\" ()).env, \"x\")", "?#Nat(0)");
+#[cfg(feature = "agent-reflection")]
+fn prim_reify_agent() {
+    // assert_("let x = 0; prim \"hashMapGet\" ((prim \"reifyAgent\" ()).env, \"x\")", "?#Nat(0)");
     assert_(
-        "let x = 0; let core = (prim \"reifyCore\" ()); core.env",
+        "let x = 0; let agent = (prim \"reifyAgent\" ()); agent.env",
         "[var (\"x\", #Nat(0))]",
     );
 }
 
 #[test]
-#[cfg(feature = "core-reflection")]
-fn prim_reflect_core() {
-    // assert_("var x = 0; let core = prim \"reifyCore\" (); x := 1; prim \"reflectCore\" (core); x", "0");
+#[cfg(feature = "agent-reflection")]
+fn prim_reflect_agent() {
+    // assert_("var x = 0; let agent = prim \"reifyAgent\" (); x := 1; prim \"reflectAgent\" (agent); x", "0");
     assert_(
         r#"
-            prim "reflectCore" ({
+            prim "reflectAgent" ({
                 cont_source = { source_type = "Unknown" };
                 cont = { cont_type = "Value"; value = #Nat(123) };
                 env = [("x", #Nat(0))];
@@ -449,11 +449,11 @@ f()
 }
 
 #[test]
-fn test_core_eval() {
-    let mut core = motoko::vm_types::Core::empty();
-    core.eval("var x = 1").expect("oops");
-    core.eval("var y = x + 1").expect("oops");
-    let y = core.eval("y").expect("oops");
+fn test_agent_eval() {
+    let mut agent = motoko::vm_types::Agent::empty();
+    agent.eval("var x = 1").expect("oops");
+    agent.eval("var y = x + 1").expect("oops");
+    let y = agent.eval("y").expect("oops");
     assert_eq!(
         &*y,
         &motoko::value::Value::Nat(num_bigint::BigUint::from(2_u32))

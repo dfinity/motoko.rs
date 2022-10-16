@@ -238,7 +238,7 @@ pub struct Core {
 }
 
 /// Exclusive write access to the "active" components of the VM.
-pub trait Active {
+pub trait Active: ActiveBorrow {
     fn cont<'a>(&'a mut self) -> &'a mut Cont;
     fn cont_source<'a>(&'a mut self) -> &'a mut Source;
     fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType>;
@@ -255,13 +255,6 @@ pub trait Active {
         *self.next_pointer() = self.next_pointer().checked_add(1).expect("Out of pointers");
         self.store().insert(ptr.clone(), value);
         ptr
-    }
-    fn deref(&mut self, pointer: &Pointer) -> Result<Value_, Interruption> {
-        use crate::shared::FastClone;
-        self.store()
-            .get(pointer)
-            .ok_or_else(|| Interruption::Dangling(pointer.clone()))
-            .map(|v| v.fast_clone())
     }
 }
 
@@ -282,6 +275,13 @@ pub trait ActiveBorrow {
             .get(pointer)
             .ok_or_else(|| Interruption::Dangling(pointer.clone()))
             .map(|v| v.fast_clone())
+    }
+    fn deref_value(&mut self, value: impl Into<Value_>) -> Result<Value_, Interruption> {
+        let value = value.into();
+        match &*value {
+            crate::value::Value::Pointer(p) => self.deref(p),
+            _ => Ok(value),
+        }
     }
 }
 

@@ -165,34 +165,36 @@ fn relop(
     }))
 }
 
-fn exp_conts_(
-    core: &mut Core, /* xxx */
+fn exp_conts_<Core: Active>(
+    core: &mut Core,
     source: Source,
     frame_cont: FrameCont,
     cont: Cont,
     cont_source: Source,
 ) -> Result<Step, Interruption> {
-    core.stack.push_front(Frame {
-        env: core.env.fast_clone(),
+    let env = core.env().fast_clone();
+    let cont_prim_type = core.cont_prim_type().clone();
+    core.stack().push_front(Frame {
+        env,
         cont: frame_cont,
-        cont_prim_type: core.cont_prim_type.clone(),
+        cont_prim_type,
         source,
     });
-    core.cont = cont;
-    core.cont_source = cont_source;
+    *core.cont() = cont;
+    *core.cont_source() = cont_source;
     Ok(Step {})
 }
 
 /* continuation separates into stack frame cont and immediate cont. */
-fn exp_conts(
-    core: &mut Core, /* xxx */
+fn exp_conts<Core: Active>(
+    core: &mut Core,
     frame_cont: FrameCont,
     cont: &Exp_,
 ) -> Result<Step, Interruption> {
     let cont_source = cont.1.clone();
     exp_conts_(
         core,
-        core.cont_source.clone(),
+        cont_source.clone(),
         frame_cont,
         Cont::Exp_(cont.fast_clone(), Vector::new()),
         cont_source,
@@ -200,9 +202,9 @@ fn exp_conts(
 }
 
 /* continuation uses same stack frame. */
-fn exp_cont(core: &mut Core /* xxx */, cont: &Exp_) -> Result<Step, Interruption> {
-    core.cont_source = cont.1.clone();
-    core.cont = Cont::Exp_(cont.fast_clone(), Vector::new());
+fn exp_cont<Core: Active>(core: &mut Core, cont: &Exp_) -> Result<Step, Interruption> {
+    *core.cont_source() = cont.1.clone();
+    *core.cont() = Cont::Exp_(cont.fast_clone(), Vector::new());
     Ok(Step {})
 }
 
@@ -211,8 +213,8 @@ fn string_from_value(v: &Value) -> Result<String, Interruption> {
     Ok(format!("{:?}", v))
 }
 
-fn opaque_iter_next(
-    core: &mut Core, /* xxx */
+fn opaque_iter_next<Core: Active>(
+    core: &mut Core,
     p: &Pointer,
 ) -> Result<Option<Value_>, Interruption> {
     use crate::value::Collection;
@@ -235,8 +237,8 @@ fn opaque_iter_next(
     }
 }
 
-fn cont_for_call_dot_next(
-    core: &mut Core, /* xxx */
+fn cont_for_call_dot_next<Core: Active>(
+    core: &mut Core,
     p: Pat_,
     v: Value_,
     body: Exp_,
@@ -244,30 +246,34 @@ fn cont_for_call_dot_next(
     let deref_v = core.deref_value(v.fast_clone())?; // Only used for `Dynamic` case
     match &*deref_v {
         Value::Dynamic(d) => {
-            core.stack.push_front(Frame {
-                env: core.env.fast_clone(),
+            let env = core.env().fast_clone();
+            let source = core.cont_source().clone();
+            core.stack().push_front(Frame {
+                env,
                 cont: FrameCont::For2(p, v, body),
                 cont_prim_type: None,
-                source: core.cont_source.clone(),
+                source,
             });
-            core.cont = Cont::Value_(d.dynamic_mut().iter_next()?);
+            *core.cont() = Cont::Value_(d.dynamic_mut().iter_next()?);
             Ok(Step {})
         }
         _ => {
             let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
-            core.stack.push_front(Frame {
-                env: core.env.fast_clone(),
+            let env = core.env().fast_clone();
+            let source = core.cont_source().clone();
+            core.stack().push_front(Frame {
+                env,
                 cont: FrameCont::For2(p, v, body),
                 cont_prim_type: None,
-                source: core.cont_source.clone(),
+                source,
             });
             call_cont(core, v_next_func, None, Value::Unit.share())
         }
     }
 }
 
-fn call_prim_function(
-    core: &mut Core, /* xxx */
+fn call_prim_function<Core: Active>(
+    core: &mut Core,
     pf: &PrimFunction,
     targs: Option<Inst>,
     args: Value_,
@@ -276,27 +282,27 @@ fn call_prim_function(
     match pf {
         DebugPrint => match &*args {
             Value::Text(s) => {
-                log::info!("DebugPrint: {}: {:?}", core.cont_source, s);
-                core.debug_print_out.push_back(s.clone()); // TODO: store debug output as `Value_`?
-                core.cont = cont_value(Value::Unit);
+                log::info!("DebugPrint: {}: {:?}", core.cont_source(), s);
+                core.debug_print_out().push_back(s.clone()); // TODO: store debug output as `Value_`?
+                *core.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             v => {
                 let txt = string_from_value(v)?;
-                log::info!("DebugPrint: {}: {:?}", core.cont_source, txt);
-                core.debug_print_out
+                log::info!("DebugPrint: {}: {:?}", core.cont_source(), txt);
+                core.debug_print_out()
                     .push_back(crate::value::Text::from(txt));
-                core.cont = cont_value(Value::Unit);
+                *core.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
         },
         NatToText => match &*args {
             Value::Nat(n) => {
-                core.cont = cont_value(Value::Text(format!("{}", n).into()));
+                *core.cont() = cont_value(Value::Text(format!("{}", n).into()));
                 Ok(Step {})
             }
             v => {
-                core.cont = cont_value(Value::Text(format!("{:?}", v).into()));
+                *core.cont() = cont_value(Value::Text(format!("{:?}", v).into()));
                 Ok(Step {})
             }
         },
@@ -304,7 +310,7 @@ fn call_prim_function(
         #[cfg(feature = "value-reflection")]
         ReifyValue => {
             use crate::value::ToMotoko;
-            core.cont = cont_value(args.to_motoko().map_err(Interruption::ValueError)?);
+            *core.cont() = cont_value(args.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         #[cfg(feature = "value-reflection")]
@@ -316,7 +322,7 @@ fn call_prim_function(
         #[cfg(feature = "core-reflection")]
         ReifyCore => {
             use crate::value::ToMotoko;
-            core.cont = cont_value(core.to_motoko().map_err(Interruption::ValueError)?);
+            *core.cont() = cont_value(core.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         #[cfg(feature = "core-reflection")]
@@ -328,8 +334,8 @@ fn call_prim_function(
     }
 }
 
-fn call_collection_function(
-    core: &mut Core, /* xxx */
+fn call_collection_function<Core: Active>(
+    core: &mut Core,
     cf: &CollectionFunction,
     targs: Option<Inst>,
     args: Value_,
@@ -341,8 +347,8 @@ fn call_collection_function(
     }
 }
 
-fn call_fastranditer_function(
-    core: &mut Core, /* xxx */
+fn call_fastranditer_function<Core: Active>(
+    core: &mut Core,
     frif: &FastRandIterFunction,
     targs: Option<Inst>,
     args: Value_,
@@ -354,8 +360,8 @@ fn call_fastranditer_function(
     }
 }
 
-fn call_hashmap_function(
-    core: &mut Core, /* xxx */
+fn call_hashmap_function<Core: Active>(
+    core: &mut Core,
     hmf: &HashMapFunction,
     _targs: Option<Inst>,
     args: Value_,
@@ -369,23 +375,23 @@ fn call_hashmap_function(
     }
 }
 
-fn call_function(
-    core: &mut Core, /* xxx */
+fn call_function<Core: Active>(
+    core: &mut Core,
     value: Value_,
     cf: &ClosedFunction,
     _targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
     if let Some(env_) = pattern_matches(cf.0.env.fast_clone(), &cf.0.content.input.0, args) {
-        let source = core.cont_source.clone();
-        let env_saved = core.env.fast_clone();
-        core.env = env_;
+        let source = core.cont_source().clone();
+        let env_saved = core.env().fast_clone();
+        *core.env() = env_;
         cf.0.content
             .name
             .fast_clone()
-            .map(|f| core.env.insert(f.0.clone(), value));
-        core.cont = Cont::Exp_(cf.0.content.exp.fast_clone(), Vector::new());
-        core.stack.push_front(Frame {
+            .map(|f| core.env().insert(f.0.clone(), value));
+        *core.cont() = Cont::Exp_(cf.0.content.exp.fast_clone(), Vector::new());
+        core.stack().push_front(Frame {
             source,
             env: env_saved,
             cont: FrameCont::Call3,
@@ -397,8 +403,8 @@ fn call_function(
     }
 }
 
-fn call_cont(
-    core: &mut Core, /* xxx */
+fn call_cont<Core: Active>(
+    core: &mut Core,
     func_value: Value_,
     inst: Option<Inst>,
     args_value: Value_,
@@ -409,10 +415,13 @@ fn call_cont(
         _ => {
             let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
             match &*func_value {
-                Value::Dynamic(d) => {
-                    let result = d.dynamic_mut().call(core, &inst, args_value.fast_clone())?;
-                    core.cont = Cont::Value_(result);
-                    Ok(Step {})
+                Value::Dynamic(_d) => {
+                    todo!()
+                    /*
+                                        let result = d.dynamic_mut().call(vm.core, &inst, args_value.fast_clone())?;
+                                        *core.cont() = Cont::Value_(result);
+                                        Ok(Step {})
+                    */
                 }
                 _ => Err(Interruption::TypeMismatch),
             }
@@ -1721,15 +1730,6 @@ impl Core {
     #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
         self.store.remove(pointer)
-    }
-
-    #[inline]
-    pub fn deref_value(&mut self, value: impl Into<Value_>) -> Result<Value_, Interruption> {
-        let value = value.into();
-        match &*value {
-            Value::Pointer(p) => self.deref(p),
-            _ => Ok(value),
-        }
     }
 
     #[inline]

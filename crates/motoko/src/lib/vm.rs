@@ -243,33 +243,33 @@ fn cont_for_call_dot_next<Core: Active>(
     v: Value_,
     body: Exp_,
 ) -> Result<Step, Interruption> {
-    let deref_v = core.deref_value(v.fast_clone())?; // Only used for `Dynamic` case
-    match &*deref_v {
-        Value::Dynamic(d) => {
-            let env = core.env().fast_clone();
-            let source = core.cont_source().clone();
-            core.stack().push_front(Frame {
-                env,
-                cont: FrameCont::For2(p, v, body),
-                cont_prim_type: None,
-                source,
-            });
-            *core.cont() = Cont::Value_(d.dynamic_mut().iter_next()?);
-            Ok(Step {})
-        }
-        _ => {
-            let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
-            let env = core.env().fast_clone();
-            let source = core.cont_source().clone();
-            core.stack().push_front(Frame {
-                env,
-                cont: FrameCont::For2(p, v, body),
-                cont_prim_type: None,
-                source,
-            });
-            call_cont(core, v_next_func, None, Value::Unit.share())
-        }
-    }
+    /*
+        let deref_v = core.deref_value(v.fast_clone())?; // Only used for `Dynamic` case
+        match &*deref_v {
+            Value::Dynamic(d) => {
+                let env = core.env().fast_clone();
+                let source = core.cont_source().clone();
+                core.stack().push_front(Frame {
+                    env,
+                    cont: FrameCont::For2(p, v, body),
+                    cont_prim_type: None,
+                    source,
+                });
+                *core.cont() = Cont::Value_(d.dynamic_mut().iter_next()?);
+                Ok(Step {})
+            }
+            _ => {
+    */
+    let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
+    let env = core.env().fast_clone();
+    let source = core.cont_source().clone();
+    core.stack().push_front(Frame {
+        env,
+        cont: FrameCont::For2(p, v, body),
+        cont_prim_type: None,
+        source,
+    });
+    call_cont(core, v_next_func, None, Value::Unit.share())
 }
 
 fn call_prim_function<Core: Active>(
@@ -412,35 +412,23 @@ fn call_cont<Core: Active>(
     match &*func_value {
         Value::Function(cf) => call_function(core, func_value.fast_clone(), cf, inst, args_value),
         Value::PrimFunction(pf) => call_prim_function(core, pf, inst, args_value),
-        _ => {
-            let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
-            match &*func_value {
-                Value::Dynamic(_d) => {
-                    todo!()
-                    /*
-                                        let result = d.dynamic_mut().call(vm.core, &inst, args_value.fast_clone())?;
-                                        *core.cont() = Cont::Value_(result);
-                                        Ok(Step {})
-                    */
-                }
-                _ => Err(Interruption::TypeMismatch),
-            }
-        }
+        /*
+                _ => {
+                    let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
+                    match &*func_value {
+                        Value::Dynamic(d) => {
+                            let result = d.dynamic_mut().call(core, &inst, args_value.fast_clone())?;
+                            *core.cont() = Cont::Value_(result);
+                            Ok(Step {})
+                        }
+        */
+        _ => Err(Interruption::TypeMismatch),
     }
 }
 
 mod pattern {
     use super::*;
     use crate::ast::{Delim, NodeData};
-    /*
-        pub fn var_(core: &Core, id: &str) -> Pat_ {
-            node(core, Pat::Var(node(core, Shared::new(id.to_string()))))
-        }
-        pub fn vars(core: &Core, ids: Vec<&str>) -> Pat {
-            let vars: Vec<_> = ids.into_iter().map(|i| var_(core, i)).collect();
-            Pat::Tuple(Delim::from(vars))
-        }
-    */
 
     pub fn temps(num: u16) -> Pat {
         let mut vars = vec![];

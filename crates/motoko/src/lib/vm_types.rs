@@ -327,6 +327,30 @@ pub struct Agent {
     pub counts: Counts,
 }
 
+/// A Motoko Actor.
+///
+/// The cost of copying this state is O(1), permitting us to
+/// eventually version it and generate a DAG of relationships.
+///
+/// Actors have a public API, and can be awaiting many responses as
+/// they service one.  In these ways, they are more complex than a
+/// simple Motoko 'Agent'.
+///
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Actor {
+    pub cont: Cont,
+    pub cont_source: Source,
+    /// `Some(t)` when evaluating under an annotation of type `t`.
+    /// (`e : Nat8`  makes `Nat8` the `cont_prim_type` for `e`)
+    pub cont_prim_type: Option<PrimType>,
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
+    pub env: Env,
+    pub stack: Stack,
+    pub store: Store,
+    pub debug_print_out: Vector<crate::value::Text>,
+    pub counts: Counts,
+}
+
 /// Exclusive write access to the "active" components of the VM.
 pub trait Active: ActiveBorrow {
     fn cont<'a>(&'a mut self) -> &'a mut Cont;
@@ -368,7 +392,6 @@ pub trait ActiveBorrow {
     }
 }
 
-/// Exclusive write access to the "active" components of the VM.
 impl Active for Agent {
     fn cont<'a>(&'a mut self) -> &'a mut Cont {
         &mut self.cont
@@ -396,8 +419,61 @@ impl Active for Agent {
     }
 }
 
-/// Non-exclusive read access to the "active" components of the VM.
 impl ActiveBorrow for Agent {
+    fn cont<'a>(&'a self) -> &'a Cont {
+        &self.cont
+    }
+    fn cont_source<'a>(&'a self) -> &'a Source {
+        &self.cont_source
+    }
+    fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType> {
+        &self.cont_prim_type
+    }
+    fn env<'a>(&'a self) -> &'a Env {
+        &self.env
+    }
+    fn stack<'a>(&'a self) -> &'a Stack {
+        &self.stack
+    }
+    fn store<'a>(&'a self) -> &'a Store {
+        &self.store
+    }
+    fn debug_print_out<'a>(&'a self) -> &'a Vector<crate::value::Text> {
+        &self.debug_print_out
+    }
+    fn counts<'a>(&'a self) -> &'a Counts {
+        &self.counts
+    }
+}
+
+impl Active for Actor {
+    fn cont<'a>(&'a mut self) -> &'a mut Cont {
+        &mut self.cont
+    }
+    fn cont_source<'a>(&'a mut self) -> &'a mut Source {
+        &mut self.cont_source
+    }
+    fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType> {
+        &mut self.cont_prim_type
+    }
+    fn env<'a>(&'a mut self) -> &'a mut Env {
+        &mut self.env
+    }
+    fn stack<'a>(&'a mut self) -> &'a mut Stack {
+        &mut self.stack
+    }
+    fn store<'a>(&'a mut self) -> &'a mut Store {
+        &mut self.store
+    }
+    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text> {
+        &mut self.debug_print_out
+    }
+    fn counts<'a>(&'a mut self) -> &'a mut Counts {
+        &mut self.counts
+    }
+}
+
+impl ActiveBorrow for Actor {
     fn cont<'a>(&'a self) -> &'a Cont {
         &self.cont
     }

@@ -259,15 +259,19 @@ fn actor() {
     assert_(p, p);
 }
 
-#[ignore]
 #[test]
 fn actor_counter_inc() {
     let p = "actor Counter {
                var x = 0;
                public func get() /*: async Nat*/ { x };
                public func inc() { x := x + 1 };
-             }";
-    assert_(p, p);
+             };
+             assert (Counter.get() == 0);
+             Counter.inc();
+             assert (Counter.get() == 1);
+             #ok
+";
+    assert_(p, "#ok");
 }
 
 #[test]

@@ -37,6 +37,7 @@ pub mod def {
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     pub enum Def {
         Module(Module),
+        Actor(Actor),
         Function(Function),
         Value(crate::value::Value_),
     }
@@ -44,6 +45,12 @@ pub mod def {
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Module {
         parent: CtxId,
+        fields: CtxId,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Actor {
+        context: CtxId,
         fields: CtxId,
     }
 
@@ -293,13 +300,20 @@ pub struct Counts {
      */
 }
 
-/// Encapsulates VM state for "core Motoko code",
-/// excluding message and actor operations.
+/// A Motoko Agent interacts with actors.
 ///
 /// The cost of copying this state is O(1), permitting us to
 /// eventually version it and generate a DAG of relationships.
+///
+/// An agent removes some aspects of an Actor, but can still execute
+/// Motoko code.  Unlike an actor, an agent lacks a public API with
+/// entry points. Hence, it has no way to be activated, and it awaits
+/// at most one response at a time.  Actors are more complex, in that
+/// they have a public API, and can be awaiting many responses as they
+/// service one.
+///
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Core {
+pub struct Agent {
     pub cont: Cont,
     pub cont_source: Source,
     /// `Some(t)` when evaluating under an annotation of type `t`.
@@ -355,7 +369,7 @@ pub trait ActiveBorrow {
 }
 
 /// Exclusive write access to the "active" components of the VM.
-impl Active for Core {
+impl Active for Agent {
     fn cont<'a>(&'a mut self) -> &'a mut Cont {
         &mut self.cont
     }
@@ -383,7 +397,7 @@ impl Active for Core {
 }
 
 /// Non-exclusive read access to the "active" components of the VM.
-impl ActiveBorrow for Core {
+impl ActiveBorrow for Agent {
     fn cont<'a>(&'a self) -> &'a Cont {
         &self.cont
     }
@@ -408,30 +422,6 @@ impl ActiveBorrow for Core {
     fn counts<'a>(&'a self) -> &'a Counts {
         &self.counts
     }
-}
-
-/// Encapsulates the VM state running Motoko code locally,
-/// as a script interacting with the internet computer from the
-/// outside of the IC.
-///
-/// Ideally, permits multiple "actors" to run locally and send
-/// messages to IC canisters and get responses, as well as
-/// interact with each other, within an interpreted context that
-/// additionall permits meta-level VM-like operations (suspension,
-/// inspection, resumption, switch active Core contex, etc.).
-pub struct Local {
-    // to do
-    // - one "active" Core.
-    pub active: Core,
-    // - a DAG of inactive Cores, related to the active one.
-    // - DAG is initially empty.
-}
-
-/// Like Local, except within the IC itself.
-pub struct Canister {
-    // Maybe a Core plus some extra stuff we may need?
-    // Q: Unclear how the use of the ic-agent is affected.
-    // Unclear how these changes affect the state we need.
 }
 
 // Some ideas of how we could count and limit what the VM does,

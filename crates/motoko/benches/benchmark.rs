@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use motoko::{vm_types::Limits, Core, Share, Value};
+use motoko::{vm_types::Limits, Agent, Share, Value};
 
 fn bench_example(c: &mut Criterion) {
     let mut group = c.benchmark_group("Examples");
@@ -30,7 +30,7 @@ fn bench_example(c: &mut Criterion) {
         .unwrap();
         b.iter(|| {
             assert_eq!(
-                Core::new(prog.clone()).continue_(&Limits::default()),
+                Agent::new(prog.clone()).continue_(&Limits::default()),
                 Ok(Value::Unit.share())
             )
         })

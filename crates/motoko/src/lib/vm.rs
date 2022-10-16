@@ -225,8 +225,7 @@ fn opaque_iter_next<Core: Active>(
         Value::Collection(Collection::FastRandIter(fri)) => {
             let mut fri = fri.clone();
             let n = fri.next();
-            store::mutate(
-                core,
+            core.store().mutate(
                 p.clone(),
                 Value::Collection(Collection::FastRandIter(fri)).share(),
             )?;
@@ -500,7 +499,7 @@ mod collection {
                         None => Value::Null,
                     };
                     let i = Value::Collection(Collection::FastRandIter(fri));
-                    store::mutate(core, ptr, i.share())?;
+                    core.store().mutate(ptr, i.share())?;
                     *core.cont() = cont_value(n);
                     Ok(Step {})
                 }
@@ -901,64 +900,6 @@ fn source_from_cont(cont: &Cont) -> Source {
     }
 }
 
-mod store {
-    use num_traits::ToPrimitive;
-
-    use crate::{
-        shared::{FastClone, Share},
-        value::Value_,
-    };
-
-    use super::{Active, Interruption, Mut, Pointer, Value};
-
-    pub fn mutate<Core: Active>(
-        core: &mut Core,
-        p: Pointer,
-        v: Value_,
-    ) -> Result<(), Interruption> {
-        // it is an error to mutate an unallocated pointer.
-        match core.store().get_mut(&p) {
-            None => return Err(Interruption::Dangling(p)),
-            Some(&mut v_) => v_ = v,
-        };
-        Ok(())
-    }
-
-    pub fn mutate_index<Core: Active>(
-        core: &mut Core,
-        p: Pointer,
-        i: Value_,
-        v: Value_,
-    ) -> Result<(), Interruption> {
-        // it is an error to mutate an unallocated pointer.
-        let pointer_ref = core.store().get_mut(&p).ok_or(Interruption::Dangling(p))?;
-
-        match &**pointer_ref {
-            Value::Array(Mut::Var, a) => {
-                let i = match &*i {
-                    Value::Nat(n) => n
-                        .to_usize()
-                        .ok_or(Interruption::ValueError(crate::value::ValueError::BigInt))?,
-                    _ => Err(Interruption::TypeMismatch)?,
-                };
-                let mut a = a.clone();
-                if i < a.len() {
-                    a.set(i, v);
-                    *pointer_ref = Value::Array(Mut::Var, a).share();
-                    Ok(())
-                } else {
-                    Err(Interruption::IndexOutOfBounds)
-                }
-            }
-            Value::Dynamic(d) => {
-                d.fast_clone().dynamic_mut().set_index(core.store(), i, v)?;
-                Ok(())
-            }
-            _ => Err(Interruption::TypeMismatch),
-        }
-    }
-}
-
 #[inline]
 fn usize_from_biguint(n: &BigUint) -> Result<usize, Interruption> {
     n.to_usize()
@@ -1098,12 +1039,12 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
         Assign1(e2) => exp_conts(core, Assign2(v), &e2),
         Assign2(v1) => match &*v1 {
             Value::Pointer(p) => {
-                store::mutate(core, p.clone(), v)?;
+                core.store().mutate(p.clone(), v)?;
                 *core.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             Value::Index(p, i) => {
-                store::mutate_index(core, p.clone(), i.fast_clone(), v)?;
+                core.store().mutate_index(p.clone(), i.fast_clone(), v)?;
                 *core.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }

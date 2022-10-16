@@ -1,6 +1,8 @@
 use im_rc::{HashMap, Vector};
+use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
+use crate::ast::Mut;
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
 use crate::shared::FastClone;
@@ -9,6 +11,7 @@ use crate::{
     ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},
     value::Value_,
 };
+use crate::{Share, Value};
 
 pub mod def {
     use crate::ast::{Stab_, Vis_};
@@ -202,6 +205,7 @@ pub type Env = HashMap<Identifier, Value_>;
 /// Store holds mutable variables, mutable arrays and mutable records.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Store {
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     map: HashMap<Pointer, Value_>,
     next_pointer: usize,
 }
@@ -228,6 +232,51 @@ impl Store {
 
     pub fn get_mut(&mut self, pointer: &Pointer) -> Option<&mut Value_> {
         self.map.get_mut(pointer)
+    }
+
+    pub fn mutate(&mut self, pointer: Pointer, value: Value_) -> Result<(), Interruption> {
+        // it is an error to mutate an unallocated pointer.
+        match self.map.get_mut(&pointer) {
+            None => return Err(Interruption::Dangling(pointer)),
+            Some(v) => *v = value,
+        };
+        Ok(())
+    }
+
+    pub fn mutate_index(
+        &mut self,
+        pointer: Pointer,
+        index: Value_,
+        value: Value_,
+    ) -> Result<(), Interruption> {
+        // it is an error to mutate an unallocated pointer.
+        let pointer_ref = self
+            .get_mut(&pointer)
+            .ok_or(Interruption::Dangling(pointer))?;
+
+        match &**pointer_ref {
+            Value::Array(Mut::Var, a) => {
+                let i = match &*index {
+                    Value::Nat(n) => n
+                        .to_usize()
+                        .ok_or(Interruption::ValueError(crate::value::ValueError::BigInt))?,
+                    _ => Err(Interruption::TypeMismatch)?,
+                };
+                let mut a = a.clone();
+                if i < a.len() {
+                    a.set(i, value);
+                    *pointer_ref = Value::Array(Mut::Var, a).share();
+                    Ok(())
+                } else {
+                    Err(Interruption::IndexOutOfBounds)
+                }
+            }
+            Value::Dynamic(d) => {
+                d.fast_clone().dynamic_mut().set_index(self, index, value)?;
+                Ok(())
+            }
+            _ => Err(Interruption::TypeMismatch),
+        }
     }
 }
 
@@ -259,7 +308,6 @@ pub struct Core {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub env: Env,
     pub stack: Stack,
-    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub store: Store,
     pub debug_print_out: Vector<crate::value::Text>,
     pub counts: Counts,

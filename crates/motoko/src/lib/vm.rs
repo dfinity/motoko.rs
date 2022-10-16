@@ -11,8 +11,8 @@ use crate::value::{
 use crate::vm_types::EvalInitError;
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Active, ActiveBorrow, Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits,
-    Local, Pointer, Signal, Step, NYI,
+    Active, ActiveBorrow, Agent, Breakpoint, Cont, Counts, Env, Error, Interruption, Limit, Limits,
+    Pointer, Signal, Step, NYI,
 };
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigUint, ToBigInt};
@@ -60,9 +60,9 @@ macro_rules! nyi {
     };
 }
 
-fn core_init(prog: Prog) -> Core {
+fn agent_init(prog: Prog) -> Agent {
     let cont_prim_type: Option<PrimType> = None;
-    Core {
+    Agent {
         store: HashMap::new(),
         stack: Vector::new(),
         env: HashMap::new(),
@@ -165,35 +165,35 @@ fn relop(
     }))
 }
 
-fn exp_conts_<Core: Active>(
-    core: &mut Core,
+fn exp_conts_<Agent: Active>(
+    agent: &mut Agent,
     source: Source,
     frame_cont: FrameCont,
     cont: Cont,
     cont_source: Source,
 ) -> Result<Step, Interruption> {
-    let env = core.env().fast_clone();
-    let cont_prim_type = core.cont_prim_type().clone();
-    core.stack().push_front(Frame {
+    let env = agent.env().fast_clone();
+    let cont_prim_type = agent.cont_prim_type().clone();
+    agent.stack().push_front(Frame {
         env,
         cont: frame_cont,
         cont_prim_type,
         source,
     });
-    *core.cont() = cont;
-    *core.cont_source() = cont_source;
+    *agent.cont() = cont;
+    *agent.cont_source() = cont_source;
     Ok(Step {})
 }
 
 /* continuation separates into stack frame cont and immediate cont. */
-fn exp_conts<Core: Active>(
-    core: &mut Core,
+fn exp_conts<Agent: Active>(
+    agent: &mut Agent,
     frame_cont: FrameCont,
     cont: &Exp_,
 ) -> Result<Step, Interruption> {
     let cont_source = cont.1.clone();
     exp_conts_(
-        core,
+        agent,
         cont_source.clone(),
         frame_cont,
         Cont::Exp_(cont.fast_clone(), Vector::new()),
@@ -202,9 +202,9 @@ fn exp_conts<Core: Active>(
 }
 
 /* continuation uses same stack frame. */
-fn exp_cont<Core: Active>(core: &mut Core, cont: &Exp_) -> Result<Step, Interruption> {
-    *core.cont_source() = cont.1.clone();
-    *core.cont() = Cont::Exp_(cont.fast_clone(), Vector::new());
+fn exp_cont<Agent: Active>(agent: &mut Agent, cont: &Exp_) -> Result<Step, Interruption> {
+    *agent.cont_source() = cont.1.clone();
+    *agent.cont() = Cont::Exp_(cont.fast_clone(), Vector::new());
     Ok(Step {})
 }
 
@@ -213,12 +213,12 @@ fn string_from_value(v: &Value) -> Result<String, Interruption> {
     Ok(format!("{:?}", v))
 }
 
-fn opaque_iter_next<Core: Active>(
-    core: &mut Core,
+fn opaque_iter_next<Agent: Active>(
+    agent: &mut Agent,
     p: &Pointer,
 ) -> Result<Option<Value_>, Interruption> {
     use crate::value::Collection;
-    let iter_value = core.deref(p)?;
+    let iter_value = agent.deref(p)?;
     // dispatch based on iterator value (as opposed to primitive function being given in source).
     // one case for each inbuilt iterator value.
     // to do -- integrate "dynamic" iterators too
@@ -227,7 +227,7 @@ fn opaque_iter_next<Core: Active>(
             let mut fri = fri.clone();
             let n = fri.next();
             store::mutate(
-                core,
+                agent,
                 p.clone(),
                 Value::Collection(Collection::FastRandIter(fri)).share(),
             )?;
@@ -237,43 +237,43 @@ fn opaque_iter_next<Core: Active>(
     }
 }
 
-fn cont_for_call_dot_next<Core: Active>(
-    core: &mut Core,
+fn cont_for_call_dot_next<Agent: Active>(
+    agent: &mut Agent,
     p: Pat_,
     v: Value_,
     body: Exp_,
 ) -> Result<Step, Interruption> {
     /*
-        let deref_v = core.deref_value(v.fast_clone())?; // Only used for `Dynamic` case
+        let deref_v = agent.deref_value(v.fast_clone())?; // Only used for `Dynamic` case
         match &*deref_v {
             Value::Dynamic(d) => {
-                let env = core.env().fast_clone();
-                let source = core.cont_source().clone();
-                core.stack().push_front(Frame {
+                let env = agent.env().fast_clone();
+                let source = agent.cont_source().clone();
+                agent.stack().push_front(Frame {
                     env,
                     cont: FrameCont::For2(p, v, body),
                     cont_prim_type: None,
                     source,
                 });
-                *core.cont() = Cont::Value_(d.dynamic_mut().iter_next()?);
+                *agent.cont() = Cont::Value_(d.dynamic_mut().iter_next()?);
                 Ok(Step {})
             }
             _ => {
     */
     let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
-    let env = core.env().fast_clone();
-    let source = core.cont_source().clone();
-    core.stack().push_front(Frame {
+    let env = agent.env().fast_clone();
+    let source = agent.cont_source().clone();
+    agent.stack().push_front(Frame {
         env,
         cont: FrameCont::For2(p, v, body),
         cont_prim_type: None,
         source,
     });
-    call_cont(core, v_next_func, None, Value::Unit.share())
+    call_cont(agent, v_next_func, None, Value::Unit.share())
 }
 
-fn call_prim_function<Core: Active>(
-    core: &mut Core,
+fn call_prim_function<Agent: Active>(
+    agent: &mut Agent,
     pf: &PrimFunction,
     targs: Option<Inst>,
     args: Value_,
@@ -282,27 +282,28 @@ fn call_prim_function<Core: Active>(
     match pf {
         DebugPrint => match &*args {
             Value::Text(s) => {
-                log::info!("DebugPrint: {}: {:?}", core.cont_source(), s);
-                core.debug_print_out().push_back(s.clone()); // TODO: store debug output as `Value_`?
-                *core.cont() = cont_value(Value::Unit);
+                log::info!("DebugPrint: {}: {:?}", agent.cont_source(), s);
+                agent.debug_print_out().push_back(s.clone()); // TODO: store debug output as `Value_`?
+                *agent.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             v => {
                 let txt = string_from_value(v)?;
-                log::info!("DebugPrint: {}: {:?}", core.cont_source(), txt);
-                core.debug_print_out()
+                log::info!("DebugPrint: {}: {:?}", agent.cont_source(), txt);
+                agent
+                    .debug_print_out()
                     .push_back(crate::value::Text::from(txt));
-                *core.cont() = cont_value(Value::Unit);
+                *agent.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
         },
         NatToText => match &*args {
             Value::Nat(n) => {
-                *core.cont() = cont_value(Value::Text(format!("{}", n).into()));
+                *agent.cont() = cont_value(Value::Text(format!("{}", n).into()));
                 Ok(Step {})
             }
             v => {
-                *core.cont() = cont_value(Value::Text(format!("{:?}", v).into()));
+                *agent.cont() = cont_value(Value::Text(format!("{:?}", v).into()));
                 Ok(Step {})
             }
         },
@@ -310,88 +311,88 @@ fn call_prim_function<Core: Active>(
         #[cfg(feature = "value-reflection")]
         ReifyValue => {
             use crate::value::ToMotoko;
-            *core.cont() = cont_value(args.to_motoko().map_err(Interruption::ValueError)?);
+            *agent.cont() = cont_value(args.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         #[cfg(feature = "value-reflection")]
         ReflectValue => {
-            // core.cont = cont_value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
+            // agent.cont = cont_value(args.to_rust::<Value>().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         #[cfg(feature = "to-motoko")]
-        #[cfg(feature = "core-reflection")]
-        ReifyCore => {
+        #[cfg(feature = "agent-reflection")]
+        ReifyAgent => {
             use crate::value::ToMotoko;
-            *core.cont() = cont_value(core.to_motoko().map_err(Interruption::ValueError)?);
+            *agent.cont() = cont_value(agent.to_motoko().map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
-        #[cfg(feature = "core-reflection")]
-        ReflectCore => {
-            *core = args.to_rust::<Core>().map_err(Interruption::ValueError)?;
+        #[cfg(feature = "agent-reflection")]
+        ReflectAgent => {
+            *agent = args.to_rust::<Agent>().map_err(Interruption::ValueError)?;
             Ok(Step {})
         }
-        Collection(cf) => call_collection_function(core, cf, targs, args),
+        Collection(cf) => call_collection_function(agent, cf, targs, args),
     }
 }
 
-fn call_collection_function<Core: Active>(
-    core: &mut Core,
+fn call_collection_function<Agent: Active>(
+    agent: &mut Agent,
     cf: &CollectionFunction,
     targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
     use CollectionFunction::*;
     match cf {
-        HashMap(hmf) => call_hashmap_function(core, hmf, targs, args),
-        FastRandIter(frif) => call_fastranditer_function(core, frif, targs, args),
+        HashMap(hmf) => call_hashmap_function(agent, hmf, targs, args),
+        FastRandIter(frif) => call_fastranditer_function(agent, frif, targs, args),
     }
 }
 
-fn call_fastranditer_function<Core: Active>(
-    core: &mut Core,
+fn call_fastranditer_function<Agent: Active>(
+    agent: &mut Agent,
     frif: &FastRandIterFunction,
     targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
     use FastRandIterFunction::*;
     match frif {
-        New => collection::fastranditer::new(core, targs, args),
-        Next => collection::fastranditer::next(core, args),
+        New => collection::fastranditer::new(agent, targs, args),
+        Next => collection::fastranditer::next(agent, args),
     }
 }
 
-fn call_hashmap_function<Core: Active>(
-    core: &mut Core,
+fn call_hashmap_function<Agent: Active>(
+    agent: &mut Agent,
     hmf: &HashMapFunction,
     _targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
     use HashMapFunction::*;
     match hmf {
-        New => collection::hashmap::new(core, args),
-        Put => collection::hashmap::put(core, args),
-        Get => collection::hashmap::get(core, args),
-        Remove => collection::hashmap::remove(core, args),
+        New => collection::hashmap::new(agent, args),
+        Put => collection::hashmap::put(agent, args),
+        Get => collection::hashmap::get(agent, args),
+        Remove => collection::hashmap::remove(agent, args),
     }
 }
 
-fn call_function<Core: Active>(
-    core: &mut Core,
+fn call_function<Agent: Active>(
+    agent: &mut Agent,
     value: Value_,
     cf: &ClosedFunction,
     _targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
     if let Some(env_) = pattern_matches(cf.0.env.fast_clone(), &cf.0.content.input.0, args) {
-        let source = core.cont_source().clone();
-        let env_saved = core.env().fast_clone();
-        *core.env() = env_;
+        let source = agent.cont_source().clone();
+        let env_saved = agent.env().fast_clone();
+        *agent.env() = env_;
         cf.0.content
             .name
             .fast_clone()
-            .map(|f| core.env().insert(f.0.clone(), value));
-        *core.cont() = Cont::Exp_(cf.0.content.exp.fast_clone(), Vector::new());
-        core.stack().push_front(Frame {
+            .map(|f| agent.env().insert(f.0.clone(), value));
+        *agent.cont() = Cont::Exp_(cf.0.content.exp.fast_clone(), Vector::new());
+        agent.stack().push_front(Frame {
             source,
             env: env_saved,
             cont: FrameCont::Call3,
@@ -403,22 +404,22 @@ fn call_function<Core: Active>(
     }
 }
 
-fn call_cont<Core: Active>(
-    core: &mut Core,
+fn call_cont<Agent: Active>(
+    agent: &mut Agent,
     func_value: Value_,
     inst: Option<Inst>,
     args_value: Value_,
 ) -> Result<Step, Interruption> {
     match &*func_value {
-        Value::Function(cf) => call_function(core, func_value.fast_clone(), cf, inst, args_value),
-        Value::PrimFunction(pf) => call_prim_function(core, pf, inst, args_value),
+        Value::Function(cf) => call_function(agent, func_value.fast_clone(), cf, inst, args_value),
+        Value::PrimFunction(pf) => call_prim_function(agent, pf, inst, args_value),
         /*
                 _ => {
-                    let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
+                    let func_value = agent.deref_value(func_value)?; // Account for dynamic value pointers
                     match &*func_value {
                         Value::Dynamic(d) => {
-                            let result = d.dynamic_mut().call(core, &inst, args_value.fast_clone())?;
-                            *core.cont() = Cont::Value_(result);
+                            let result = d.dynamic_mut().call(agent, &inst, args_value.fast_clone())?;
+                            *agent.cont() = Cont::Value_(result);
                             Ok(Step {})
                         }
         */
@@ -470,28 +471,28 @@ mod collection {
         use super::super::*;
         use crate::{shared::Share, value::Collection};
 
-        pub fn new<Core: Active>(
-            core: &mut Core,
+        pub fn new<Agent: Active>(
+            agent: &mut Agent,
             _targs: Option<Inst>,
             v: Value_,
         ) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let size: Option<u32> = assert_value_is_option_u32(&args[0])?;
                 let seed: u32 = assert_value_is_u32(&args[1])?;
-                let ptr = core.alloc(
+                let ptr = agent.alloc(
                     Value::Collection(Collection::FastRandIter(FastRandIter::new(size, seed)))
                         .share(),
                 );
-                *core.cont() = cont_value(Value::Opaque(ptr));
+                *agent.cont() = cont_value(Value::Opaque(ptr));
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
 
-        pub fn next<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn next<Agent: Active>(agent: &mut Agent, v: Value_) -> Result<Step, Interruption> {
             let ptr = assert_value_is_opaque_pointer(&v)?;
-            match &*core.deref(&ptr)? {
+            match &*agent.deref(&ptr)? {
                 Value::Collection(Collection::FastRandIter(fri)) => {
                     let mut fri = fri.clone();
                     let n = match fri.next() {
@@ -499,8 +500,8 @@ mod collection {
                         None => Value::Null,
                     };
                     let i = Value::Collection(Collection::FastRandIter(fri));
-                    store::mutate(core, ptr, i.share())?;
-                    *core.cont() = cont_value(n);
+                    store::mutate(agent, ptr, i.share())?;
+                    *agent.cont() = cont_value(n);
                     Ok(Step {})
                 }
                 _ => Err(Interruption::TypeMismatch),
@@ -513,15 +514,15 @@ mod collection {
         use crate::value::Collection;
         use im_rc::vector;
 
-        pub fn new<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn new<Agent: Active>(agent: &mut Agent, v: Value_) -> Result<Step, Interruption> {
             if let Some(_) = pattern_matches_temps(&Pat::Literal(Literal::Unit), v) {
-                *core.cont() = cont_value(Value::Collection(Collection::HashMap(HashMap::new())));
+                *agent.cont() = cont_value(Value::Collection(Collection::HashMap(HashMap::new())));
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn put<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn put<Agent: Active>(agent: &mut Agent, v: Value_) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(3), v) {
                 let hm = &args[0];
                 let k = &args[1];
@@ -540,13 +541,13 @@ mod collection {
                 // We could probably just tolerate this and use `Dynamic` values for performance-critical situations
                 let hm = Value::Collection(Collection::HashMap(hm));
                 let ret = Value::Tuple(vector![hm.share(), old.share()]);
-                *core.cont() = cont_value(ret);
+                *agent.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn get<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn get<Agent: Active>(agent: &mut Agent, v: Value_) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let hm = &args[0];
                 let k = &args[1];
@@ -560,13 +561,13 @@ mod collection {
                         return Err(Interruption::TypeMismatch);
                     }
                 };
-                *core.cont() = cont_value(ret);
+                *agent.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
-        pub fn remove<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+        pub fn remove<Agent: Active>(agent: &mut Agent, v: Value_) -> Result<Step, Interruption> {
             if let Some(args) = pattern_matches_temps(&pattern::temps(2), v) {
                 let hm = &args[0];
                 let k = &args[1];
@@ -582,7 +583,7 @@ mod collection {
                 };
                 let hm = Value::Collection(Collection::HashMap(hm));
                 let ret = Value::Tuple(vector![hm.share(), old.share()]);
-                *core.cont() = cont_value(ret);
+                *agent.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
@@ -591,59 +592,59 @@ mod collection {
     }
 }
 
-fn exp_step<Core: Active>(core: &mut Core, exp: Exp_) -> Result<Step, Interruption> {
+fn exp_step<Agent: Active>(agent: &mut Agent, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
     match &exp.0 {
         Literal(l) => {
             // TODO: partial evaluation would now be highly efficient due to value sharing
-            *core.cont() = cont_value(Value::from_literal(l).map_err(Interruption::ValueError)?);
+            *agent.cont() = cont_value(Value::from_literal(l).map_err(Interruption::ValueError)?);
             Ok(Step {})
         }
         Function(f) => {
-            let env = core.env().fast_clone();
-            *core.cont() = cont_value(Value::Function(ClosedFunction(Closed {
+            let env = agent.env().fast_clone();
+            *agent.cont() = cont_value(Value::Function(ClosedFunction(Closed {
                 env,
                 content: f.clone(), // TODO: `Shared<Function>`?
             })));
             Ok(Step {})
         }
-        Call(e1, inst, e2) => exp_conts(core, FrameCont::Call1(inst.clone(), e2.fast_clone()), e1),
-        Return(None) => return_(core, Value::Unit.share()),
-        Return(Some(e)) => exp_conts(core, FrameCont::Return, e),
-        Var(x) => match core.env().get(x) {
+        Call(e1, inst, e2) => exp_conts(agent, FrameCont::Call1(inst.clone(), e2.fast_clone()), e1),
+        Return(None) => return_(agent, Value::Unit.share()),
+        Return(Some(e)) => exp_conts(agent, FrameCont::Return, e),
+        Var(x) => match agent.env().get(x) {
             None => Err(Interruption::UnboundIdentifer(x.clone())),
             Some(v) => {
-                *core.cont() = Cont::Value_(v.fast_clone());
+                *agent.cont() = Cont::Value_(v.fast_clone());
                 Ok(Step {})
             }
         },
         Bin(e1, binop, e2) => {
-            exp_conts(core, FrameCont::BinOp1(binop.clone(), e2.fast_clone()), e1)
+            exp_conts(agent, FrameCont::BinOp1(binop.clone(), e2.fast_clone()), e1)
         }
-        Un(un, e) => exp_conts(core, FrameCont::UnOp(un.clone()), e),
-        Paren(e) => exp_conts(core, FrameCont::Paren, e),
+        Un(un, e) => exp_conts(agent, FrameCont::UnOp(un.clone()), e),
+        Paren(e) => exp_conts(agent, FrameCont::Paren, e),
         Variant(id, None) => {
             // TODO: cache and share variants?
-            *core.cont() = cont_value(Value::Variant(id.0.clone(), None));
+            *agent.cont() = cont_value(Value::Variant(id.0.clone(), None));
             Ok(Step {})
         }
-        Variant(id, Some(e)) => exp_conts(core, FrameCont::Variant(id.fast_clone()), e),
-        Switch(e1, cases) => exp_conts(core, FrameCont::Switch(cases.clone()), e1),
+        Variant(id, Some(e)) => exp_conts(agent, FrameCont::Variant(id.fast_clone()), e),
+        Switch(e1, cases) => exp_conts(agent, FrameCont::Switch(cases.clone()), e1),
         Block(decs) => exp_conts_(
-            core,
+            agent,
             source.clone(),
             FrameCont::Block,
             Cont::Decs(decs.vec.clone()),
             source,
         ),
-        Do(e) => exp_conts(core, FrameCont::Do, e),
-        Assert(e) => exp_conts(core, FrameCont::Assert, e),
+        Do(e) => exp_conts(agent, FrameCont::Do, e),
+        Assert(e) => exp_conts(agent, FrameCont::Assert, e),
         Object(fs) => {
             let mut fs: Vector<_> = fs.vec.fast_clone();
             match fs.pop_front() {
                 None => {
-                    *core.cont() = cont_value(Value::Object(HashMap::new()));
+                    *agent.cont() = cont_value(Value::Object(HashMap::new()));
                     Ok(Step {})
                 }
                 Some(f1) => {
@@ -652,7 +653,7 @@ fn exp_step<Core: Active>(core: &mut Core, exp: Exp_) -> Result<Step, Interrupti
                         id: f1.0.id.fast_clone(),
                         typ: f1.0.typ.fast_clone(),
                     };
-                    exp_conts(core, FrameCont::Object(Vector::new(), fc, fs), &f1.0.exp)
+                    exp_conts(agent, FrameCont::Object(Vector::new(), fc, fs), &f1.0.exp)
                 }
             }
         }
@@ -661,53 +662,57 @@ fn exp_step<Core: Active>(core: &mut Core, exp: Exp_) -> Result<Step, Interrupti
             match es.pop_front() {
                 None => {
                     // TODO: globally share (), true, false, null, etc.
-                    *core.cont() = cont_value(Value::Unit);
+                    *agent.cont() = cont_value(Value::Unit);
                     Ok(Step {})
                 }
-                Some(e1) => exp_conts(core, FrameCont::Tuple(Vector::new(), es), &e1),
+                Some(e1) => exp_conts(agent, FrameCont::Tuple(Vector::new(), es), &e1),
             }
         }
         Array(mut_, es) => {
             let mut es: Vector<_> = es.vec.fast_clone();
             match es.pop_front() {
                 None => {
-                    *core.cont() = cont_value(Value::Array(mut_.clone(), Vector::new()));
+                    *agent.cont() = cont_value(Value::Array(mut_.clone(), Vector::new()));
                     Ok(Step {})
                 }
-                Some(e1) => exp_conts(core, FrameCont::Array(mut_.clone(), Vector::new(), es), &e1),
+                Some(e1) => exp_conts(
+                    agent,
+                    FrameCont::Array(mut_.clone(), Vector::new(), es),
+                    &e1,
+                ),
             }
         }
-        Index(e1, e2) => exp_conts(core, FrameCont::Idx1(e2.fast_clone()), e1),
+        Index(e1, e2) => exp_conts(agent, FrameCont::Idx1(e2.fast_clone()), e1),
         Annot(e, t) => {
             match &t.0 {
-                Type::Prim(pt) => *core.cont_prim_type() = Some(pt.clone()),
+                Type::Prim(pt) => *agent.cont_prim_type() = Some(pt.clone()),
                 _ => {}
             };
-            exp_conts(core, FrameCont::Annot(t.fast_clone()), e)
+            exp_conts(agent, FrameCont::Annot(t.fast_clone()), e)
         }
-        Assign(e1, e2) => exp_conts(core, FrameCont::Assign1(e2.fast_clone()), e1),
-        Proj(e1, i) => exp_conts(core, FrameCont::Proj(*i), e1),
-        Dot(e1, f) => exp_conts(core, FrameCont::Dot(f.fast_clone()), e1),
-        If(e1, e2, e3) => exp_conts(core, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
+        Assign(e1, e2) => exp_conts(agent, FrameCont::Assign1(e2.fast_clone()), e1),
+        Proj(e1, i) => exp_conts(agent, FrameCont::Proj(*i), e1),
+        Dot(e1, f) => exp_conts(agent, FrameCont::Dot(f.fast_clone()), e1),
+        If(e1, e2, e3) => exp_conts(agent, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
         Rel(e1, relop, e2) => {
-            exp_conts(core, FrameCont::RelOp1(relop.clone(), e2.fast_clone()), e1)
+            exp_conts(agent, FrameCont::RelOp1(relop.clone(), e2.fast_clone()), e1)
         }
         While(e1, e2) => exp_conts(
-            core,
+            agent,
             FrameCont::While1(e1.fast_clone(), e2.fast_clone()),
             e1,
         ),
-        For(p, e1, e2) => exp_conts(core, FrameCont::For1(p.fast_clone(), e2.fast_clone()), e1),
-        And(e1, e2) => exp_conts(core, FrameCont::And1(e2.fast_clone()), e1),
-        Or(e1, e2) => exp_conts(core, FrameCont::Or1(e2.fast_clone()), e1),
-        Not(e) => exp_conts(core, FrameCont::Not, e),
-        Opt(e) => exp_conts(core, FrameCont::Opt, e),
-        DoOpt(e) => exp_conts(core, FrameCont::DoOpt, e),
-        Bang(e) => exp_conts(core, FrameCont::Bang, e),
-        Ignore(e) => exp_conts(core, FrameCont::Ignore, e),
-        Debug(e) => exp_conts(core, FrameCont::Debug, e),
+        For(p, e1, e2) => exp_conts(agent, FrameCont::For1(p.fast_clone(), e2.fast_clone()), e1),
+        And(e1, e2) => exp_conts(agent, FrameCont::And1(e2.fast_clone()), e1),
+        Or(e1, e2) => exp_conts(agent, FrameCont::Or1(e2.fast_clone()), e1),
+        Not(e) => exp_conts(agent, FrameCont::Not, e),
+        Opt(e) => exp_conts(agent, FrameCont::Opt, e),
+        DoOpt(e) => exp_conts(agent, FrameCont::DoOpt, e),
+        Bang(e) => exp_conts(agent, FrameCont::Bang, e),
+        Ignore(e) => exp_conts(agent, FrameCont::Ignore, e),
+        Debug(e) => exp_conts(agent, FrameCont::Debug, e),
         Prim(p) => {
-            *core.cont() = cont_value(Value::PrimFunction(
+            *agent.cont() = cont_value(Value::PrimFunction(
                 p.clone()
                     .map_err(|s| Interruption::UnrecognizedPrim(s.to_string()))?,
             ));
@@ -820,26 +825,27 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
     }
 }
 
-fn switch<Core: Active>(core: &mut Core, v: Value_, cases: Cases) -> Result<Step, Interruption> {
+fn switch<Agent: Active>(agent: &mut Agent, v: Value_, cases: Cases) -> Result<Step, Interruption> {
     for case in cases.vec.into_iter() {
-        if let Some(env) = pattern_matches(core.env().fast_clone(), &case.0.pat.0, v.fast_clone()) {
-            *core.env() = env;
-            *core.cont_source() = case.0.exp.1.clone();
-            *core.cont() = Cont::Exp_(case.0.exp.fast_clone(), Vector::new());
+        if let Some(env) = pattern_matches(agent.env().fast_clone(), &case.0.pat.0, v.fast_clone())
+        {
+            *agent.env() = env;
+            *agent.cont_source() = case.0.exp.1.clone();
+            *agent.cont() = Cont::Exp_(case.0.exp.fast_clone(), Vector::new());
             return Ok(Step {});
         }
     }
     Err(Interruption::NoMatchingCase)
 }
 
-fn bang_null<Core: Active>(core: &mut Core) -> Result<Step, Interruption> {
-    let mut stack = core.stack().clone();
+fn bang_null<Agent: Active>(agent: &mut Agent) -> Result<Step, Interruption> {
+    let mut stack = agent.stack().clone();
     loop {
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
                 FrameCont::DoOpt => {
-                    *core.stack() = stack;
-                    *core.cont() = cont_value(Value::Null);
+                    *agent.stack() = stack;
+                    *agent.cont() = cont_value(Value::Null);
                     return Ok(Step {});
                 }
                 _ => {}
@@ -850,15 +856,15 @@ fn bang_null<Core: Active>(core: &mut Core) -> Result<Step, Interruption> {
     }
 }
 
-fn return_<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-    let mut stack = core.stack().fast_clone();
+fn return_<Agent: Active>(agent: &mut Agent, v: Value_) -> Result<Step, Interruption> {
+    let mut stack = agent.stack().fast_clone();
     loop {
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
                 FrameCont::Call3 => {
-                    *core.env() = fr.env;
-                    *core.stack() = stack;
-                    *core.cont() = Cont::Value_(v);
+                    *agent.env() = fr.env;
+                    *agent.stack() = stack;
+                    *agent.cont() = Cont::Value_(v);
                     return Ok(Step {});
                 }
                 _ => {}
@@ -907,28 +913,28 @@ mod store {
 
     use super::{Active, Interruption, Mut, Pointer, Value};
 
-    pub fn mutate<Core: Active>(
-        core: &mut Core,
+    pub fn mutate<Agent: Active>(
+        agent: &mut Agent,
         p: Pointer,
         v: Value_,
     ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
-        match core.store().get(&p) {
+        match agent.store().get(&p) {
             None => return Err(Interruption::Dangling(p)),
             Some(_) => (),
         };
-        core.store().insert(p, v);
+        agent.store().insert(p, v);
         Ok(())
     }
 
-    pub fn mutate_index<Core: Active>(
-        core: &mut Core,
+    pub fn mutate_index<Agent: Active>(
+        agent: &mut Agent,
         p: Pointer,
         i: Value_,
         v: Value_,
     ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
-        let pointer_ref = core.store().get_mut(&p).ok_or(Interruption::Dangling(p))?;
+        let pointer_ref = agent.store().get_mut(&p).ok_or(Interruption::Dangling(p))?;
 
         match &**pointer_ref {
             Value::Array(Mut::Var, a) => {
@@ -948,7 +954,7 @@ mod store {
                 }
             }
             Value::Dynamic(_d) => {
-                /* d.fast_clone().dynamic_mut().set_index(core, i, v)?; */
+                /* d.fast_clone().dynamic_mut().set_index(agent, i, v)?; */
                 todo!();
                 /* Ok(()) */
             }
@@ -963,12 +969,15 @@ fn usize_from_biguint(n: &BigUint) -> Result<usize, Interruption> {
         .ok_or(Interruption::ValueError(ValueError::BigInt))
 }
 
-fn stack_cont_has_redex<Core: ActiveBorrow>(core: &Core, v: &Value) -> Result<bool, Interruption> {
-    if core.stack().is_empty() {
+fn stack_cont_has_redex<Agent: ActiveBorrow>(
+    agent: &Agent,
+    v: &Value,
+) -> Result<bool, Interruption> {
+    if agent.stack().is_empty() {
         Ok(false)
     } else {
         use FrameCont::*;
-        let frame = core.stack().front().unwrap();
+        let frame = agent.stack().front().unwrap();
         let r = match &frame.cont {
             UnOp(_) => true,
             RelOp1(_, _) => false,
@@ -1025,34 +1034,34 @@ fn stack_cont_has_redex<Core: ActiveBorrow>(core: &Core, v: &Value) -> Result<bo
 }
 
 // continue execution using the top-most stack frame, if any.
-fn stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
-    if core.stack().is_empty() {
-        *core.cont() = Cont::Value_(v.fast_clone());
+fn stack_cont<Agent: Active>(agent: &mut Agent, v: Value_) -> Result<Step, Interruption> {
+    if agent.stack().is_empty() {
+        *agent.cont() = Cont::Value_(v.fast_clone());
         Err(Interruption::Done(v))
     } else if let Some(&Frame {
         cont: FrameCont::ForOpaqueIter(ref pat, ref ptr, ref body),
         ..
-    }) = core.stack().front()
+    }) = agent.stack().front()
     {
         let pat = pat.fast_clone();
         let ptr = ptr.fast_clone();
         let body = body.fast_clone();
-        let env = core.stack().front().unwrap().env.fast_clone();
+        let env = agent.stack().front().unwrap().env.fast_clone();
         /* fast-path: avoid popping top stack frame. */
         match &*v {
             Value::Unit => (),
             _ => return Err(Interruption::TypeMismatch),
         };
-        match opaque_iter_next(core, &ptr)? {
+        match opaque_iter_next(agent, &ptr)? {
             None => {
-                core.stack().pop_front();
-                *core.cont() = cont_value(Value::Unit);
+                agent.stack().pop_front();
+                *agent.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             Some(v_) => {
                 if let Some(env) = pattern_matches(env, &pat.0, v_.fast_clone()) {
-                    *core.env() = env;
-                    exp_cont(core, &body)
+                    *agent.env() = env;
+                    exp_cont(agent, &body)
                 } else {
                     Err(Interruption::TypeMismatch)
                 }
@@ -1060,64 +1069,64 @@ fn stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interrup
         }
     } else {
         // common cases: need to pop top stack frame, then pattern-match it.
-        nonempty_stack_cont(core, v)
+        nonempty_stack_cont(agent, v)
     }
 }
 
-fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step, Interruption> {
+fn nonempty_stack_cont<Agent: Active>(agent: &mut Agent, v: Value_) -> Result<Step, Interruption> {
     use FrameCont::*;
-    let frame = core.stack().pop_front().unwrap();
+    let frame = agent.stack().pop_front().unwrap();
     match &frame.cont {
         Decs(_) => { /* decs in same block share an environment. */ }
         _ => {
-            *core.env() = frame.env;
+            *agent.env() = frame.env;
         }
     }
-    *core.cont_prim_type() = frame.cont_prim_type;
-    *core.cont_source() = frame.source;
+    *agent.cont_prim_type() = frame.cont_prim_type;
+    *agent.cont_source() = frame.source;
     match frame.cont {
         ForOpaqueIter(..) => unreachable!(),
         UnOp(un) => {
-            *core.cont() = cont_value(unop(un, v)?);
+            *agent.cont() = cont_value(unop(un, v)?);
             Ok(Step {})
         }
-        RelOp1(relop, e2) => exp_conts(core, RelOp2(v, relop), &e2),
+        RelOp1(relop, e2) => exp_conts(agent, RelOp2(v, relop), &e2),
         RelOp2(v1, rel) => {
-            let v = relop(&core.cont_prim_type(), rel, v1, v)?;
-            *core.cont() = cont_value(v);
+            let v = relop(&agent.cont_prim_type(), rel, v1, v)?;
+            *agent.cont() = cont_value(v);
             Ok(Step {})
         }
-        BinOp1(binop, e2) => exp_conts(core, BinOp2(v, binop), &e2),
+        BinOp1(binop, e2) => exp_conts(agent, BinOp2(v, binop), &e2),
         BinOp2(v1, bop) => {
-            let v = binop(&core.cont_prim_type(), bop, v1, v)?;
-            *core.cont() = cont_value(v);
+            let v = binop(&agent.cont_prim_type(), bop, v1, v)?;
+            *agent.cont() = cont_value(v);
             Ok(Step {})
         }
-        Assign1(e2) => exp_conts(core, Assign2(v), &e2),
+        Assign1(e2) => exp_conts(agent, Assign2(v), &e2),
         Assign2(v1) => match &*v1 {
             Value::Pointer(p) => {
-                store::mutate(core, p.clone(), v)?;
-                *core.cont() = cont_value(Value::Unit);
+                store::mutate(agent, p.clone(), v)?;
+                *agent.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             Value::Index(p, i) => {
-                store::mutate_index(core, p.clone(), i.fast_clone(), v)?;
-                *core.cont() = cont_value(Value::Unit);
+                store::mutate_index(agent, p.clone(), i.fast_clone(), v)?;
+                *agent.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             _ => Err(Interruption::TypeMismatch),
         },
-        Idx1(e2) => exp_conts(core, Idx2(v), &e2),
+        Idx1(e2) => exp_conts(agent, Idx2(v), &e2),
         Idx2(v1) => {
             if let Some(Frame {
                 cont: FrameCont::Assign1(_), // still need to evaluate RHS of assignment.
                 ..
-            }) = core.stack().get(0)
+            }) = agent.stack().get(0)
             {
                 match &*v1 {
                     Value::Pointer(p) => {
                         // save array pointer and offset until after RHS is evaluated.
-                        *core.cont() = cont_value(Value::Index(p.clone(), v.fast_clone()));
+                        *agent.cont() = cont_value(Value::Index(p.clone(), v.fast_clone()));
                         Ok(Step {})
                     }
                     Value::Dynamic(_) => Err(Interruption::Other(
@@ -1126,18 +1135,18 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                     _ => Err(Interruption::TypeMismatch),
                 }
             } else {
-                let v1 = core.deref_value(v1)?;
+                let v1 = agent.deref_value(v1)?;
                 match (&*v1, &*v) {
                     (Value::Array(_mut, a), Value::Nat(i)) => {
                         let i = usize_from_biguint(i)?;
-                        *core.cont() =
+                        *agent.cont() =
                             cont_value((**a.get(i).ok_or(Interruption::IndexOutOfBounds)?).clone());
                         Ok(Step {})
                     }
                     (Value::Dynamic(_d), _) => {
                         todo!()
                         /*
-                        *core.cont() =  cont_value((*d.dynamic().get_index(core, v)?).clone());
+                        *agent.cont() =  cont_value((*d.dynamic().get_index(agent, v)?).clone());
                         Ok(Step {})
                         */
                     }
@@ -1146,73 +1155,74 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
             }
         }
         Let(p, cont) => {
-            if let Some(env) = pattern_matches(core.env().clone(), p.as_ref().data_ref(), v) {
-                *core.env() = env;
-                *core.cont_source() = source_from_cont(&cont);
-                *core.cont() = cont;
+            if let Some(env) = pattern_matches(agent.env().clone(), p.as_ref().data_ref(), v) {
+                *agent.env() = env;
+                *agent.cont_source() = source_from_cont(&cont);
+                *agent.cont() = cont;
                 Ok(Step {})
             } else {
                 Err(Interruption::TypeMismatch)
             }
         }
         Var(x, cont) => {
-            let ptr = core.alloc(v);
-            core.env()
+            let ptr = agent.alloc(v);
+            agent
+                .env()
                 .insert(x.as_ref().data_ref().clone(), Value::Pointer(ptr).share());
-            *core.cont_source() = source_from_cont(&cont);
-            *core.cont() = cont;
+            *agent.cont_source() = source_from_cont(&cont);
+            *agent.cont() = cont;
             Ok(Step {})
         }
         Paren => {
-            *core.cont() = Cont::Value_(v);
+            *agent.cont() = Cont::Value_(v);
             Ok(Step {})
         }
         Variant(i) => {
-            *core.cont() = cont_value(Value::Variant(i.0.clone(), Some(v)));
+            *agent.cont() = cont_value(Value::Variant(i.0.clone(), Some(v)));
             Ok(Step {})
         }
-        Switch(cases) => switch(core, v, cases),
+        Switch(cases) => switch(agent, v, cases),
         Block => {
-            *core.cont() = Cont::Value_(v);
+            *agent.cont() = Cont::Value_(v);
             Ok(Step {})
         }
         Decs(decs) => {
             match decs.front() {
                 None => {
                     // return final value from block.
-                    *core.cont() = Cont::Value_(v);
+                    *agent.cont() = Cont::Value_(v);
                     Ok(Step {})
                 }
                 Some(_) => {
-                    *core.cont() = Cont::Decs(decs);
+                    *agent.cont() = Cont::Decs(decs);
                     Ok(Step {})
                 }
             }
         }
         Do => {
-            *core.cont() = Cont::Value_(v);
+            *agent.cont() = Cont::Value_(v);
             Ok(Step {})
         }
         Assert => match &*v {
             Value::Bool(true) => {
-                *core.cont() = cont_value(Value::Unit);
+                *agent.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             Value::Bool(false) => Err(Interruption::AssertionFailure),
             _ => Err(Interruption::TypeMismatch),
         },
         Ignore => {
-            *core.cont() = cont_value(Value::Unit);
+            *agent.cont() = cont_value(Value::Unit);
             Ok(Step {})
         }
         Tuple(mut done, mut rest) => {
             done.push_back(v);
             match rest.pop_front() {
                 None => {
-                    *core.cont() = cont_value(Value::Tuple(done));
+                    *agent.cont() = cont_value(Value::Tuple(done));
                     Ok(Step {})
                 }
-                Some(next) => exp_conts(core, Tuple(done, rest), &next),
+                Some(next) => exp_conts(agent, Tuple(done, rest), &next),
             }
         }
         Array(mut_, mut done, mut rest) => {
@@ -1220,16 +1230,16 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
             match rest.pop_front() {
                 None => {
                     if let Mut::Const = mut_ {
-                        *core.cont() = cont_value(Value::Array(mut_, done));
+                        *agent.cont() = cont_value(Value::Array(mut_, done));
                         Ok(Step {})
                     } else {
                         let arr = Value::Array(mut_, done);
-                        let ptr = core.alloc(arr.share());
-                        *core.cont() = cont_value(Value::Pointer(ptr));
+                        let ptr = agent.alloc(arr.share());
+                        *agent.cont() = cont_value(Value::Pointer(ptr));
                         Ok(Step {})
                     }
                 }
-                Some(next) => exp_conts(core, Array(mut_, done, rest), &next),
+                Some(next) => exp_conts(agent, Array(mut_, done, rest), &next),
             }
         }
         Object(mut done, ctx, mut rest) => {
@@ -1246,15 +1256,15 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                         let id = f.id.0.clone();
                         let val = match f.mut_ {
                             Mut::Const => f.val,
-                            Mut::Var => Value::Pointer(core.alloc(f.val)).share(),
+                            Mut::Var => Value::Pointer(agent.alloc(f.val)).share(),
                         };
                         hm.insert(id, crate::value::FieldValue { mut_: f.mut_, val });
                     }
-                    *core.cont() = cont_value(Value::Object(hm));
+                    *agent.cont() = cont_value(Value::Object(hm));
                     Ok(Step {})
                 }
                 Some(next) => exp_conts(
-                    core,
+                    agent,
                     Object(
                         done,
                         FieldContext {
@@ -1269,13 +1279,13 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
             }
         }
         Annot(_t) => {
-            *core.cont() = Cont::Value_(v);
+            *agent.cont() = Cont::Value_(v);
             Ok(Step {})
         }
         Proj(i) => match &*v {
             Value::Tuple(vs) => {
                 if let Some(vi) = vs.get(i) {
-                    *core.cont() = Cont::Value_(vi.fast_clone());
+                    *agent.cont() = Cont::Value_(vi.fast_clone());
                     Ok(Step {})
                 } else {
                     Err(Interruption::TypeMismatch)
@@ -1286,7 +1296,7 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
         Dot(f) => match &*v {
             Value::Object(fs) => {
                 if let Some(f) = fs.get(&f.0) {
-                    *core.cont() = Cont::Value_(f.val.fast_clone());
+                    *agent.cont() = Cont::Value_(f.val.fast_clone());
                     Ok(Step {})
                 } else {
                     Err(Interruption::TypeMismatch)
@@ -1295,8 +1305,8 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
             Value::Dynamic(_d) => {
                 todo!()
                 /*
-                let f = d.dynamic().get_field(core, f.0.as_str())?;
-                *core.cont() =  Cont::Value_(f);
+                let f = d.dynamic().get_field(agent, f.0.as_str())?;
+                *agent.cont() =  Cont::Value_(f);
                 Ok(Step {})
                  */
             }
@@ -1304,14 +1314,14 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
         },
         Debug => match &*v {
             Value::Unit => {
-                *core.cont() = Cont::Value_(v);
+                *agent.cont() = Cont::Value_(v);
                 Ok(Step {})
             }
             _ => Err(Interruption::TypeMismatch),
         },
         If(e2, e3) => match &*v {
             Value::Bool(b) => {
-                *core.cont() = if *b {
+                *agent.cont() = if *b {
                     Cont::Exp_(e2, Vector::new())
                 } else {
                     match e3 {
@@ -1326,16 +1336,16 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
         While1(e1, e2) => match &*v {
             Value::Bool(b) => {
                 if *b {
-                    exp_conts(core, FrameCont::While2(e1, e2.fast_clone()), &e2)
+                    exp_conts(agent, FrameCont::While2(e1, e2.fast_clone()), &e2)
                 } else {
-                    *core.cont() = cont_value(Value::Unit);
+                    *agent.cont() = cont_value(Value::Unit);
                     Ok(Step {})
                 }
             }
             _ => Err(Interruption::TypeMismatch),
         },
         While2(e1, e2) => match &*v {
-            Value::Unit => exp_conts(core, FrameCont::While1(e1.fast_clone(), e2), &e1),
+            Value::Unit => exp_conts(agent, FrameCont::While1(e1.fast_clone(), e2), &e1),
             _ => Err(Interruption::TypeMismatch),
         },
         For1(p, body) => {
@@ -1344,29 +1354,30 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                 Value::Opaque(ptr) => {
                     /* enter ForOpaqueIter loop (a "fast path"):
                     no need to evaluate general Motoko code for iterator. */
-                    let env = core.env().fast_clone();
-                    let source = core.cont_source().clone();
-                    core.stack().push_front(Frame {
+                    let env = agent.env().fast_clone();
+                    let source = agent.cont_source().clone();
+                    agent.stack().push_front(Frame {
                         env,
                         cont: FrameCont::ForOpaqueIter(p, ptr.clone(), body),
                         cont_prim_type: None,
                         source,
                     });
-                    *core.cont() = cont_value(Value::Unit);
+                    *agent.cont() = cont_value(Value::Unit);
                     Ok(Step {})
                 }
-                _ => cont_for_call_dot_next(core, p, v, body),
+                _ => cont_for_call_dot_next(agent, p, v, body),
             }
         }
         For2(p, v_iter, body) => match &*v {
             Value::Null => {
-                *core.cont() = cont_value(Value::Unit);
+                *agent.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             Value::Option(v_) => {
-                if let Some(env) = pattern_matches(core.env().fast_clone(), &p.0, v_.fast_clone()) {
-                    *core.env() = env;
-                    exp_conts(core, FrameCont::For3(p, v_iter, body.fast_clone()), &body)
+                if let Some(env) = pattern_matches(agent.env().fast_clone(), &p.0, v_.fast_clone())
+                {
+                    *agent.env() = env;
+                    exp_conts(agent, FrameCont::For3(p, v_iter, body.fast_clone()), &body)
                 } else {
                     Err(Interruption::TypeMismatch)
                 }
@@ -1374,15 +1385,15 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
             _ => Err(Interruption::TypeMismatch),
         },
         For3(p, v_iter, body) => match &*v {
-            Value::Unit => cont_for_call_dot_next(core, p, v_iter, body),
+            Value::Unit => cont_for_call_dot_next(agent, p, v_iter, body),
             _ => Err(Interruption::TypeMismatch),
         },
         And1(e2) => match &*v {
             Value::Bool(b) => {
                 if *b {
-                    exp_conts(core, FrameCont::And2, &e2)
+                    exp_conts(agent, FrameCont::And2, &e2)
                 } else {
-                    *core.cont() = cont_value(Value::Bool(false));
+                    *agent.cont() = cont_value(Value::Bool(false));
                     Ok(Step {})
                 }
             }
@@ -1390,7 +1401,7 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
         },
         And2 => match &*v {
             Value::Bool(b) => {
-                *core.cont() = cont_value(Value::Bool(*b));
+                *agent.cont() = cont_value(Value::Bool(*b));
                 Ok(Step {})
             }
             _ => Err(Interruption::TypeMismatch),
@@ -1398,57 +1409,57 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
         Or1(e2) => match &*v {
             Value::Bool(b) => {
                 if *b {
-                    *core.cont() = cont_value(Value::Bool(true));
+                    *agent.cont() = cont_value(Value::Bool(true));
                     Ok(Step {})
                 } else {
-                    exp_conts(core, FrameCont::Or2, &e2)
+                    exp_conts(agent, FrameCont::Or2, &e2)
                 }
             }
             _ => Err(Interruption::TypeMismatch),
         },
         Or2 => match &*v {
             Value::Bool(b) => {
-                *core.cont() = cont_value(Value::Bool(*b));
+                *agent.cont() = cont_value(Value::Bool(*b));
                 Ok(Step {})
             }
             _ => Err(Interruption::TypeMismatch),
         },
         Not => match &*v {
             Value::Bool(b) => {
-                *core.cont() = cont_value(Value::Bool(!b));
+                *agent.cont() = cont_value(Value::Bool(!b));
                 Ok(Step {})
             }
             _ => Err(Interruption::TypeMismatch),
         },
         Opt => {
-            *core.cont() = cont_value(Value::Option(v));
+            *agent.cont() = cont_value(Value::Option(v));
             Ok(Step {})
         }
         DoOpt => {
-            *core.cont() = cont_value(Value::Option(v));
+            *agent.cont() = cont_value(Value::Option(v));
             Ok(Step {})
         }
         Bang => match &*v {
             Value::Option(v) => {
-                *core.cont() = Cont::Value_(v.fast_clone());
+                *agent.cont() = Cont::Value_(v.fast_clone());
                 Ok(Step {})
             }
-            Value::Null => bang_null(core),
+            Value::Null => bang_null(agent),
             _ => Err(Interruption::TypeMismatch),
         },
-        Call1(inst, e2) => exp_conts(core, FrameCont::Call2(v, inst), &e2),
-        Call2(f, inst) => call_cont(core, f, inst, v),
+        Call1(inst, e2) => exp_conts(agent, FrameCont::Call2(v, inst), &e2),
+        Call2(f, inst) => call_cont(agent, f, inst, v),
         Call3 => {
-            *core.cont() = Cont::Value_(v);
+            *agent.cont() = Cont::Value_(v);
             Ok(Step {})
         }
-        Return => return_(core, v),
+        Return => return_(agent, v),
     }
 }
 
 // Returns `Some(span)` if the limits include the breakpoint.
-fn check_for_breakpoint<Core: ActiveBorrow>(core: &Core, limits: &Limits) -> Option<Breakpoint> {
-    let cont_span = &core.cont_source().span();
+fn check_for_breakpoint<Agent: ActiveBorrow>(agent: &Agent, limits: &Limits) -> Option<Breakpoint> {
+    let cont_span = &agent.cont_source().span();
     if let Some(span) = cont_span {
         if limits.breakpoints.contains(span) {
             Some(span.clone())
@@ -1460,16 +1471,16 @@ fn check_for_breakpoint<Core: ActiveBorrow>(core: &Core, limits: &Limits) -> Opt
     }
 }
 
-fn check_for_redex<Core: ActiveBorrow>(
-    core: &Core,
+fn check_for_redex<Agent: ActiveBorrow>(
+    agent: &Agent,
     limits: &Limits,
 ) -> Result<usize, Interruption> {
     let mut redex_bump = 0;
-    if let Cont::Value_(ref v) = core.cont() {
-        if stack_cont_has_redex(core, v)? {
+    if let Cont::Value_(ref v) = agent.cont() {
+        if stack_cont_has_redex(agent, v)? {
             redex_bump = 1;
             if let Some(redex_limit) = limits.redex {
-                if core.counts().redex >= redex_limit {
+                if agent.counts().redex >= redex_limit {
                     // if =, adding 1 will exceed limit, so do not.
                     return Err(Interruption::Limit(Limit::Redex));
                 }
@@ -1479,69 +1490,70 @@ fn check_for_redex<Core: ActiveBorrow>(
     Ok(redex_bump)
 }
 
-fn core_step<Core: Active>(core: &mut Core, limits: &Limits) -> Result<Step, Interruption> {
-    if let Some(break_span) = check_for_breakpoint(core, limits) {
+fn agent_step<Agent: Active>(agent: &mut Agent, limits: &Limits) -> Result<Step, Interruption> {
+    if let Some(break_span) = check_for_breakpoint(agent, limits) {
         return Err(Interruption::Breakpoint(break_span));
     }
     if let Some(step_limit) = limits.step {
-        if core.counts().step >= step_limit {
+        if agent.counts().step >= step_limit {
             return Err(Interruption::Limit(Limit::Step));
         }
     }
-    let redex_bump = check_for_redex(core, limits)?;
-    let ret = core_step_(core)?;
-    core.counts().step += 1;
-    core.counts().redex += redex_bump;
+    let redex_bump = check_for_redex(agent, limits)?;
+    let ret = agent_step_(agent)?;
+    agent.counts().step += 1;
+    agent.counts().redex += redex_bump;
     Ok(ret)
 }
 
-fn core_trace<Core: ActiveBorrow>(core: &Core) {
+fn agent_trace<Agent: ActiveBorrow>(agent: &Agent) {
     use log::trace;
     trace!(
         "# step {} (redex {})",
-        core.counts().step,
-        core.counts().redex
+        agent.counts().step,
+        agent.counts().redex
     );
-    trace!(" - cont = {:?}", core.cont());
-    trace!("   - cont_source = {:?}", core.cont_source());
-    trace!("   - env = {:?}", core.env());
-    trace!(" - stack = {:#?}", core.stack());
-    trace!(" - store = {:#?}", core.store());
+    trace!(" - cont = {:?}", agent.cont());
+    trace!("   - cont_source = {:?}", agent.cont_source());
+    trace!("   - env = {:?}", agent.env());
+    trace!(" - stack = {:#?}", agent.stack());
+    trace!(" - store = {:#?}", agent.store());
 }
 
-// To advance the core Motoko state by a single step, after all limits are checked.
-fn core_step_<Core: Active>(core: &mut Core) -> Result<Step, Interruption> {
-    core_trace(core);
+// To advance the agent Motoko state by a single step, after all limits are checked.
+fn agent_step_<Agent: Active>(agent: &mut Agent) -> Result<Step, Interruption> {
+    agent_trace(agent);
     let mut cont = Cont::Taken;
-    std::mem::swap(core.cont(), &mut cont);
+    std::mem::swap(agent.cont(), &mut cont);
     match cont {
         Cont::Taken => unreachable!("The VM's logic currently has an internal issue."),
         Cont::Exp_(e, decs) => {
             if decs.is_empty() {
-                exp_step(core, e)
+                exp_step(agent, e)
             } else {
                 let source = source_from_decs(&decs);
-                let env = core.env().fast_clone();
-                core.stack().push_front(Frame {
+                let env = agent.env().fast_clone();
+                agent.stack().push_front(Frame {
                     env,
                     cont: FrameCont::Decs(decs),
                     source,
                     cont_prim_type: None,
                 });
-                exp_step(core, e)
+                exp_step(agent, e)
             }
         }
         Cont::LetVarRet(_, i) => {
             match i {
                 Some(i) => {
-                    *core.cont() = Cont::Value_(
-                        core.env()
+                    *agent.cont() = Cont::Value_(
+                        agent
+                            .env()
                             .get(&i.0)
                             .ok_or(Interruption::Impossible)?
                             .fast_clone(),
                     )
                 }
-                None => *core.cont() = cont_value(Value::Unit),
+                None => *agent.cont() = cont_value(Value::Unit),
             };
             Ok(Step {})
         }
@@ -1550,43 +1562,43 @@ fn core_step_<Core: Active>(core: &mut Core) -> Result<Step, Interruption> {
                 Value::Pointer(p) => {
                     // Are we assigning to this pointer?
                     // If not, we are implicitly dereferencing it here.
-                    match &core.stack().front() {
+                    match &agent.stack().front() {
                         // Case: Let-binding the pointer.
                         Some(Frame {
                             cont: FrameCont::Let(_, _),
                             ..
-                        }) => return stack_cont(core, v),
+                        }) => return stack_cont(agent, v),
                         // Case: Assignment to a pointer.
                         Some(Frame {
                             cont: FrameCont::Assign1(_),
                             ..
-                        }) => return stack_cont(core, v),
+                        }) => return stack_cont(agent, v),
                         // Case: Array-indexing with a pointer.
                         Some(Frame {
                             cont: FrameCont::Idx1(_),
                             ..
-                        }) => return stack_cont(core, v),
+                        }) => return stack_cont(agent, v),
                         _ => (),
                     };
                     // Final case: Implicit dereferencing of pointer:
-                    let v = core.deref(p)?;
-                    *core.cont() = Cont::Value_(v);
+                    let v = agent.deref(p)?;
+                    *agent.cont() = Cont::Value_(v);
                     Ok(Step {})
                 }
-                _ => stack_cont(core, v),
+                _ => stack_cont(agent, v),
             }
         }
         Cont::Decs(mut decs) => {
             if decs.is_empty() {
-                *core.cont() = cont_value(Value::Unit);
-                *core.cont_source() = Source::Evaluation;
+                *agent.cont() = cont_value(Value::Unit);
+                *agent.cont_source() = Source::Evaluation;
                 Ok(Step {})
             } else {
                 let dec_ = decs.pop_front().unwrap();
                 match &dec_.0 {
                     Dec::Exp(e) => {
-                        *core.cont_source() = dec_.1.clone();
-                        *core.cont() = Cont::Exp_(e.fast_clone(), decs);
+                        *agent.cont_source() = dec_.1.clone();
+                        *agent.cont() = Cont::Exp_(e.fast_clone(), decs);
                         Ok(Step {})
                     }
                     Dec::Let(p, e) => {
@@ -1595,14 +1607,14 @@ fn core_step_<Core: Active>(core: &mut Core) -> Result<Step, Interruption> {
                                 Pat::Var(i) => Some(i.fast_clone()),
                                 _ => None,
                             };
-                            let source = core.cont_source().clone();
+                            let source = agent.cont_source().clone();
                             exp_conts(
-                                core,
+                                agent,
                                 FrameCont::Let(p.fast_clone(), Cont::LetVarRet(source, i)),
                                 e,
                             )
                         } else {
-                            exp_conts(core, FrameCont::Let(p.fast_clone(), Cont::Decs(decs)), e)
+                            exp_conts(agent, FrameCont::Let(p.fast_clone(), Cont::Decs(decs)), e)
                         }
                     }
                     Dec::LetActor(_i, _, _dfs) => {
@@ -1613,25 +1625,25 @@ fn core_step_<Core: Active>(core: &mut Core) -> Result<Step, Interruption> {
                     }
                     Dec::Var(p, e) => match p.0 {
                         Pat::Var(ref x) => {
-                            exp_conts(core, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), e)
+                            exp_conts(agent, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), e)
                         }
                         _ => nyi!(line!()),
                     },
                     Dec::Func(f) => {
                         let id = f.name.clone();
                         let v = Value::Function(ClosedFunction(Closed {
-                            env: core.env().fast_clone(),
+                            env: agent.env().fast_clone(),
                             content: f.clone(),
                         }))
                         .share();
                         if decs.is_empty() {
-                            *core.cont() = Cont::Value_(v);
+                            *agent.cont() = Cont::Value_(v);
                             Ok(Step {})
                         } else {
                             if let Some(i) = id {
-                                core.env().insert(i.as_ref().data_ref().clone(), v);
+                                agent.env().insert(i.as_ref().data_ref().clone(), v);
                             };
-                            *core.cont() = Cont::Decs(decs);
+                            *agent.cont() = Cont::Decs(decs);
                             Ok(Step {})
                         }
                     }
@@ -1642,32 +1654,32 @@ fn core_step_<Core: Active>(core: &mut Core) -> Result<Step, Interruption> {
     }
 }
 
-impl Core {
-    /// New VM core for a given program.
+impl Agent {
+    /// New VM agent for a given program.
     pub fn new(prog: Prog) -> Self {
-        core_init(prog)
+        agent_init(prog)
     }
 
-    /// New VM core without any program.
+    /// New VM agent without any program.
     pub fn empty() -> Self {
-        let mut core = core_init(crate::ast::Delim::new());
-        // core.eval_(None, &Limits::none()).expect("empty");
-        core.continue_(&Limits::none()).expect("empty");
-        core
+        let mut agent = agent_init(crate::ast::Delim::new());
+        // agent.eval_(None, &Limits::none()).expect("empty");
+        agent.continue_(&Limits::none()).expect("empty");
+        agent
     }
 
-    /// New VM core from a given program string, to be parsed during Core construction.
+    /// New VM agent from a given program string, to be parsed during Agent construction.
     #[cfg(feature = "parser")]
     pub fn parse(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
-        Ok(core_init(crate::check::parse(s)?))
+        Ok(agent_init(crate::check::parse(s)?))
     }
 
-    /// Step VM core, under some limits.
+    /// Step VM agent, under some limits.
     pub fn step(&mut self, limits: &Limits) -> Result<Step, Interruption> {
-        core_step(self, limits)
+        agent_step(self, limits)
     }
 
-    /// Evaluate a new program fragment, assuming `Core` is in a
+    /// Evaluate a new program fragment, assuming agent is in a
     /// well-defined "done" state.
     pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
         self.assert_idle().map_err(Interruption::EvalInitError)?;
@@ -1675,7 +1687,7 @@ impl Core {
         self.continue_(&Limits::none())
     }
 
-    /// Evaluate a new program fragment, assuming `Core` is in a
+    /// Evaluate a new program fragment, assuming agent is in a
     /// well-defined "done" state.  The block may refer to variables
     /// bound as arguments, and then forgotten after evaluation.
     pub fn eval_open_block(
@@ -1698,7 +1710,7 @@ impl Core {
         self.continue_(&Limits::none())
     }
 
-    /// Evaluate a new program fragment, assuming `Core` is in a
+    /// Evaluate a new program fragment, assuming agent is in a
     /// well-defined "done" state.
     #[cfg(feature = "parser")]
     pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value_, Interruption> {
@@ -1728,7 +1740,7 @@ impl Core {
     }
 
     /// Evaluate current continuation, or optionally a new program
-    /// fragment, assuming `Core` is in a well-defined "done" state.
+    /// fragment, assuming agent is in a well-defined "done" state.
     #[cfg(feature = "parser")]
     pub fn eval_(
         &mut self,
@@ -1762,30 +1774,13 @@ impl Core {
     }
 }
 
-// For core Motoko state initializing local VM state.
-fn local_init(active: Core) -> Local {
-    Local { active }
-}
-
-// use ic-agent to do function calls.
-fn local_run(local: &mut Local, limits: &Limits) -> Result<Signal, Error> {
+fn agent_run(agent: &mut Agent, limits: &Limits) -> Result<Signal, Error> {
     loop {
-        match core_step(&mut local.active, limits) {
+        match agent_step(agent, limits) {
             Ok(_step) => {}
             Err(Interruption::Done(v)) => return Ok(Signal::Done(v)),
             Err(other_interruption) => return Ok(Signal::Interruption(other_interruption)),
         }
-    }
-}
-
-impl Local {
-    /// New local VM instance for given `Core`.
-    pub fn new(core: Core) -> Self {
-        local_init(core)
-    }
-    /// Run the local VM (under some possible limits).
-    pub fn run(&mut self, limits: &Limits) -> Result<Signal, Error> {
-        local_run(self, limits)
     }
 }
 
@@ -1798,8 +1793,8 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
     use crate::vm_types::Interruption::SyntaxError;
     let p = crate::check::parse(prog).map_err(SyntaxError)?;
     info!("eval_limit: parsed.");
-    let mut l = Local::new(Core::new(p));
-    let s = l.run(limits).map_err(|_| ())?;
+    let mut a = Agent::new(p);
+    let s = agent_run(&mut a, limits).map_err(|_| ())?;
     use log::info;
     info!("eval_limit: final signal: {:#?}", s);
     use crate::vm_types::Signal::*;

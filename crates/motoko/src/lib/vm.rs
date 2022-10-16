@@ -8,12 +8,12 @@ use crate::value::{
     Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
-use crate::vm_types::EvalInitError;
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Active, ActiveBorrow, Breakpoint, Cont, Core, Counts, Env, Error, Interruption, Limit, Limits,
     Local, Pointer, Signal, Step, NYI,
 };
+use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
 use num_bigint::{BigUint, ToBigInt};
 use num_traits::ToPrimitive;
@@ -63,13 +63,12 @@ macro_rules! nyi {
 fn core_init(prog: Prog) -> Core {
     let cont_prim_type: Option<PrimType> = None;
     Core {
-        store: HashMap::new(),
+        store: Store::new(),
         stack: Vector::new(),
         env: HashMap::new(),
         cont: Cont::Decs(prog.vec),
         cont_source: Source::CoreInit, // special source -- or get the "full span" (but then what line or column number would be helpful here?  line 1 column 0?)
         cont_prim_type,
-        next_pointer: 0,
         debug_print_out: Vector::new(),
         counts: Counts::default(),
     }
@@ -254,7 +253,7 @@ fn cont_for_call_dot_next<Core: Active>(
                 cont_prim_type: None,
                 source,
             });
-            *core.cont() = Cont::Value_(d.dynamic_mut().iter_next()?);
+            *core.cont() = Cont::Value_(d.dynamic_mut().iter_next(core.store())?);
             Ok(Step {})
         }
         _ => {
@@ -416,7 +415,9 @@ fn call_cont<Core: Active>(
             let func_value = core.deref_value(func_value)?; // Account for dynamic value pointers
             match &*func_value {
                 Value::Dynamic(d) => {
-                    let result = d.dynamic_mut().call(&inst, args_value.fast_clone())?;
+                    let result =
+                        d.dynamic_mut()
+                            .call(core.store(), &inst, args_value.fast_clone())?;
                     *core.cont() = Cont::Value_(result);
                     Ok(Step {})
                 }
@@ -916,11 +917,10 @@ mod store {
         v: Value_,
     ) -> Result<(), Interruption> {
         // it is an error to mutate an unallocated pointer.
-        match core.store().get(&p) {
+        match core.store().get_mut(&p) {
             None => return Err(Interruption::Dangling(p)),
-            Some(_) => (),
+            Some(&mut v_) => v_ = v,
         };
-        core.store().insert(p, v);
         Ok(())
     }
 
@@ -951,7 +951,7 @@ mod store {
                 }
             }
             Value::Dynamic(d) => {
-                d.fast_clone().dynamic_mut().set_index(i, v)?;
+                d.fast_clone().dynamic_mut().set_index(core.store(), i, v)?;
                 Ok(())
             }
             _ => Err(Interruption::TypeMismatch),
@@ -1137,7 +1137,8 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                         Ok(Step {})
                     }
                     (Value::Dynamic(d), _) => {
-                        *core.cont() = cont_value((*d.dynamic().get_index(v)?).clone());
+                        *core.cont() =
+                            cont_value((*d.dynamic().get_index(core.store(), v)?).clone());
                         Ok(Step {})
                     }
                     _ => Err(Interruption::TypeMismatch),
@@ -1292,7 +1293,7 @@ fn nonempty_stack_cont<Core: Active>(core: &mut Core, v: Value_) -> Result<Step,
                 }
             }
             Value::Dynamic(d) => {
-                let f = d.dynamic().get_field(f.0.as_str())?;
+                let f = d.dynamic().get_field(core.store(), f.0.as_str())?;
                 *core.cont() = Cont::Value_(f);
                 Ok(Step {})
             }
@@ -1738,7 +1739,7 @@ impl Core {
 
     #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
-        self.store.remove(pointer)
+        self.store.dealloc(pointer)
     }
 
     #[inline]

@@ -66,7 +66,8 @@ fn dyn_struct() {
     agent.assign_alloc("value".to_id(), Struct::default().into_value());
 
     assert_eq!(
-        agent.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())
+        agent
+            .eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())
             .unwrap()
             .get(),
         Value::Char('a')
@@ -76,17 +77,19 @@ fn dyn_struct() {
     //     Ok(Value::Char('b'))
     // );
     assert_eq!(
-        agent.eval_prog(motoko::check::parse("value('c')").unwrap())
+        agent
+            .eval_prog(motoko::check::parse("value('c')").unwrap())
             .unwrap()
             .get(),
         Value::Char('c')
     );
     assert_eq!(
-        agent.eval_prog(
-            motoko::check::parse("var x = true; for (_ in value) { x := false }; x").unwrap()
-        )
-        .unwrap()
-        .get(),
+        agent
+            .eval_prog(
+                motoko::check::parse("var x = true; for (_ in value) { x := false }; x").unwrap()
+            )
+            .unwrap()
+            .get(),
         Value::Bool(true)
     );
 }

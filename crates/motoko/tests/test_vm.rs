@@ -259,6 +259,7 @@ fn actor() {
     assert_(p, p);
 }
 
+#[ignore]
 #[test]
 fn actor_counter_inc() {
     let p = "actor Counter {

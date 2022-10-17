@@ -609,7 +609,9 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             })));
             Ok(Step {})
         }
-        Call(e1, inst, e2) => exp_conts(active, FrameCont::Call1(inst.clone(), e2.fast_clone()), e1),
+        Call(e1, inst, e2) => {
+            exp_conts(active, FrameCont::Call1(inst.clone(), e2.fast_clone()), e1)
+        }
         Return(None) => return_(active, Value::Unit.share()),
         Return(Some(e)) => exp_conts(active, FrameCont::Return, e),
         Var(x) => match active.env().get(x) {
@@ -619,9 +621,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
                 Ok(Step {})
             }
         },
-        Bin(e1, binop, e2) => {
-            exp_conts(active, FrameCont::BinOp1(binop.clone(), e2.fast_clone()), e1)
-        }
+        Bin(e1, binop, e2) => exp_conts(
+            active,
+            FrameCont::BinOp1(binop.clone(), e2.fast_clone()),
+            e1,
+        ),
         Un(un, e) => exp_conts(active, FrameCont::UnOp(un.clone()), e),
         Paren(e) => exp_conts(active, FrameCont::Paren, e),
         Variant(id, None) => {
@@ -694,9 +698,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Proj(e1, i) => exp_conts(active, FrameCont::Proj(*i), e1),
         Dot(e1, f) => exp_conts(active, FrameCont::Dot(f.fast_clone()), e1),
         If(e1, e2, e3) => exp_conts(active, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
-        Rel(e1, relop, e2) => {
-            exp_conts(active, FrameCont::RelOp1(relop.clone(), e2.fast_clone()), e1)
-        }
+        Rel(e1, relop, e2) => exp_conts(
+            active,
+            FrameCont::RelOp1(relop.clone(), e2.fast_clone()),
+            e1,
+        ),
         While(e1, e2) => exp_conts(
             active,
             FrameCont::While1(e1.fast_clone(), e2.fast_clone()),
@@ -912,10 +918,7 @@ fn usize_from_biguint(n: &BigUint) -> Result<usize, Interruption> {
         .ok_or(Interruption::ValueError(ValueError::BigInt))
 }
 
-fn stack_cont_has_redex<A: ActiveBorrow>(
-    active: &A,
-    v: &Value,
-) -> Result<bool, Interruption> {
+fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, Interruption> {
     if active.stack().is_empty() {
         Ok(false)
     } else {
@@ -1409,10 +1412,7 @@ fn check_for_breakpoint<A: ActiveBorrow>(active: &A, limits: &Limits) -> Option<
     }
 }
 
-fn check_for_redex<A: ActiveBorrow>(
-    active: &A,
-    limits: &Limits,
-) -> Result<usize, Interruption> {
+fn check_for_redex<A: ActiveBorrow>(active: &A, limits: &Limits) -> Result<usize, Interruption> {
     let mut redex_bump = 0;
     if let Cont::Value_(ref v) = active.cont() {
         if stack_cont_has_redex(active, v)? {

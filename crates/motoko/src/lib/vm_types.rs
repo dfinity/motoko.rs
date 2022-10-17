@@ -8,7 +8,7 @@ use crate::parser_types::SyntaxError;
 use crate::shared::FastClone;
 use crate::value::ValueError;
 use crate::{
-    ast::{Dec_, Exp_, Id as Identifier, Id_, PrimType, Source, Span},
+    ast::{Dec_, Exp_, Id, Id_, PrimType, Source, Span},
     value::Value_,
 };
 use crate::{Share, Value};
@@ -61,13 +61,17 @@ pub mod def {
     }
 }
 
-/// Or maybe a string?
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Id(u64);
-
-/// Or maybe a string?
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Pointer(pub usize);
+pub struct NumericPointer(pub usize);
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NamedPointer(pub Id);
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Pointer {
+    Numeric(NumericPointer),
+    Named(NamedPointer),
+}
 
 impl<'a> crate::shared::FastClone<Pointer> for &'a Pointer {
     fn fast_clone(self) -> Pointer {
@@ -207,7 +211,7 @@ pub type Stack = stack::Frames;
 
 /// Local environment as a mapping from identifiers to values.
 /// This HashMap permits sharing.
-pub type Env = HashMap<Identifier, Value_>;
+pub type Env = HashMap<Id, Value_>;
 
 /// Store holds mutable variables, mutable arrays and mutable records.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -223,7 +227,7 @@ impl Store {
 
     fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
         let value = value.into();
-        let ptr = Pointer(self.next_pointer);
+        let ptr = Pointer::Numeric(NumericPointer(self.next_pointer));
         self.next_pointer = self.next_pointer.checked_add(1).expect("Out of pointers");
         self.map.insert(ptr.clone(), value);
         ptr
@@ -300,17 +304,21 @@ pub struct Counts {
      */
 }
 
-/// A Motoko Agent interacts with actors.
+/// A Motoko Agent interacts with zero or more Motoko actors.
 ///
-/// The cost of copying this state is O(1), permitting us to
-/// eventually version it and generate a DAG of relationships.
+/// The cost of copying this state is O(1).
 ///
-/// An agent removes some aspects of an Actor, but can still execute
+/// An Agent removes some aspects of an Actor, but can still execute
 /// Motoko code.  Unlike an actor, an agent lacks a public API with
 /// entry points. Hence, it has no way to be activated, and it awaits
 /// at most one response at a time.  Actors are more complex, in that
 /// they have a public API, and can be awaiting many responses as they
 /// service one.
+///
+/// The Agent captures several distinct use cases:
+///  - ingress message queue (as a Motoko program that sends messages to actors).
+///  - single-Actor unit test scripts.
+///  - multi-Actor integration test scripts.
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Agent {
@@ -329,12 +337,11 @@ pub struct Agent {
 
 /// A Motoko Actor.
 ///
-/// The cost of copying this state is O(1), permitting us to
-/// eventually version it and generate a DAG of relationships.
+/// The cost of copying this state is O(1).
 ///
-/// Actors have a public API, and can be awaiting many responses as
-/// they service one.  In these ways, they are more complex than a
-/// simple Motoko 'Agent'.
+/// An actors has a public API, and can be awaiting many responses as
+/// it services one.  In these ways, an Actor is more complex than the
+/// Motoko Agent that activates it.
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actor {
@@ -349,6 +356,26 @@ pub struct Actor {
     pub store: Store,
     pub debug_print_out: Vector<crate::value::Text>,
     pub counts: Counts,
+}
+
+/// A Core encompasses VM system state, including its actors.
+///
+/// The cost of copying this state is O(1).
+///
+/// A VM Core permits an Agent to interact with zero or more Actors.
+///
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Core {
+    agent: Agent,
+    actors: Actors,
+    next_resp_id: usize,
+}
+
+/// The Actors in a Core system.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Actors {
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
+    map: HashMap<Id, Actor>,
 }
 
 /// Exclusive write access to the "active" components of the VM.
@@ -543,7 +570,7 @@ pub enum Interruption {
     SyntaxError(SyntaxError),
     ValueError(ValueError),
     EvalInitError(EvalInitError),
-    UnboundIdentifer(Identifier),
+    UnboundIdentifer(Id),
     UnrecognizedPrim(String),
     BlockedAwaiting,
     Limit(Limit),

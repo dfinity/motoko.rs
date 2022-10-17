@@ -34,10 +34,11 @@ fn test_hashmap_randiter_intergration() {
 
     // generate initial data / batch random put.
     let size = 10;
-    agent.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
-        parse_static!(
-            "
+    agent
+        .eval_open_block(
+            vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
+            parse_static!(
+                "
       let j = rands(size);
       for (x in j) {
         let s = prim \"natToText\" x;
@@ -45,41 +46,43 @@ fn test_hashmap_randiter_intergration() {
         map := m;
       }
     "
+            )
+            .clone(),
         )
-        .clone(),
-    )
-    .unwrap();
+        .unwrap();
 
     // batch get.
     let size = 10;
-    agent.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
-        parse_static!(
-            "
+    agent
+        .eval_open_block(
+            vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
+            parse_static!(
+                "
       let j = rands(size);
       for (x in j) {
         let _ = prim \"hashMapGet\" (map, x);
       }
     "
+            )
+            .clone(),
         )
-        .clone(),
-    )
-    .unwrap();
+        .unwrap();
 
     // batch remove.
     let size = 10;
-    agent.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
-        parse_static!(
-            "
+    agent
+        .eval_open_block(
+            vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
+            parse_static!(
+                "
       let j = rands(size);
       for (x in j) {
         let (m, _) = prim \"hashMapRemove\" (map, x);
         map := m;
       }
     "
+            )
+            .clone(),
         )
-        .clone(),
-    )
-    .unwrap();
+        .unwrap();
 }

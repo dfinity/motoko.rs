@@ -10,14 +10,15 @@ use test_log::test; // enable logging output for tests by default.
 fn test_eval_open_block() {
     let mut agent = Agent::new(parse_static!("let x = 666; let y = 777;").clone());
     agent.continue_(&Limits::none()).unwrap();
-    agent.eval_open_block(
-        vec![
-            ("x", Value::Nat(BigUint::from(1_u32)).share()),
-            ("y", Value::Nat(BigUint::from(2_u32)).share()),
-        ],
-        parse_static!("var z = x + y").clone(),
-    )
-    .unwrap();
+    agent
+        .eval_open_block(
+            vec![
+                ("x", Value::Nat(BigUint::from(1_u32)).share()),
+                ("y", Value::Nat(BigUint::from(2_u32)).share()),
+            ],
+            parse_static!("var z = x + y").clone(),
+        )
+        .unwrap();
     let r = agent.eval_prog(parse_static!("x + y").clone()).unwrap();
     assert_eq!(r, Value::Nat(BigUint::from(666 + 777_u32)).share());
 }
@@ -37,10 +38,11 @@ fn test_hashmap_performance_steps() {
 
     // generate initial data / batch random put.
     let size = 10;
-    agent.eval_open_block(
-        vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
-        parse_static!(
-            "
+    agent
+        .eval_open_block(
+            vec![("size", Value::Nat(BigUint::from(size as u32)).share())],
+            parse_static!(
+                "
       var i = prim \"fastRandIterNew\" (?size, 1);
       let j = {
         next = func () { prim \"fastRandIterNext\" i }
@@ -51,8 +53,8 @@ fn test_hashmap_performance_steps() {
         map := m;
       }
     "
+            )
+            .clone(),
         )
-        .clone(),
-    )
-    .unwrap();
+        .unwrap();
 }

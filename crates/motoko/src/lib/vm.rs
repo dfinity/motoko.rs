@@ -10,8 +10,8 @@ use crate::value::{
 };
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Active, ActiveBorrow, Agent, Breakpoint, Cont, Counts, Env, Error, Interruption, Limit, Limits,
-    Pointer, Signal, Step, NYI,
+    Activation, Active, ActiveBorrow, Agent, Breakpoint, Cont, Counts, Env, Error, Interruption,
+    Limit, Limits, Pointer, Signal, Step, NYI,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -61,17 +61,14 @@ macro_rules! nyi {
 }
 
 fn agent_init(prog: Prog) -> Agent {
-    let cont_prim_type: Option<PrimType> = None;
-    Agent {
+    let mut a = Agent {
         store: Store::new(),
-        stack: Vector::new(),
-        env: HashMap::new(),
-        cont: Cont::Decs(prog.vec),
-        cont_source: Source::CoreInit, // special source -- or get the "full span" (but then what line or column number would be helpful here?  line 1 column 0?)
-        cont_prim_type,
-        debug_print_out: Vector::new(),
+        //debug_print_out: Vector::new(),
         counts: Counts::default(),
-    }
+        active: Activation::new(),
+    };
+    a.active.cont = Cont::Decs(prog.vec);
+    a
 }
 
 fn unop(un: UnOp, v: Value_) -> Result<Value, Interruption> {
@@ -1621,7 +1618,7 @@ impl Agent {
     /// well-defined "done" state.
     pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
         self.assert_idle().map_err(Interruption::EvalInitError)?;
-        self.cont = Cont::Decs(prog.vec);
+        self.active.cont = Cont::Decs(prog.vec);
         self.continue_(&Limits::none())
     }
 
@@ -1633,7 +1630,7 @@ impl Agent {
         value_bindings: Vec<(&str, impl Into<Value_>)>,
         prog: Prog,
     ) -> Result<Value_, Interruption> {
-        let source = self.cont_source.clone(); // to do -- use prog source
+        let source = self.active.cont_source.clone(); // to do -- use prog source
         self.assert_idle().map_err(Interruption::EvalInitError)?;
         exp_conts_(
             self,
@@ -1643,7 +1640,7 @@ impl Agent {
             source,
         )?;
         for (x, v) in value_bindings.into_iter() {
-            let _ = self.env.insert(x.to_id(), v.into());
+            let _ = self.active.env.insert(x.to_id(), v.into());
         }
         self.continue_(&Limits::none())
     }
@@ -1656,10 +1653,10 @@ impl Agent {
     }
 
     pub fn assert_idle(&self) -> Result<(), EvalInitError> {
-        if !self.stack.is_empty() {
+        if !self.active.stack.is_empty() {
             return Err(EvalInitError::NonEmptyStack);
         }
-        match self.cont {
+        match self.active.cont {
             Cont::Value_(_) => {}
             _ => return Err(EvalInitError::NonValueCont),
         };
@@ -1688,7 +1685,7 @@ impl Agent {
         if let Some(new_prog_frag) = new_prog_frag {
             self.assert_idle().map_err(Interruption::EvalInitError)?;
             let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
-            self.cont = Cont::Decs(p.vec);
+            self.active.cont = Cont::Decs(p.vec);
         };
         self.continue_(limits)
     }
@@ -1701,7 +1698,7 @@ impl Agent {
     #[inline]
     pub fn assign(&mut self, id: impl ToId, value: impl Into<Value_>) {
         let value = value.into();
-        self.env.insert(id.to_id(), value);
+        self.active.env.insert(id.to_id(), value);
     }
 
     #[inline]

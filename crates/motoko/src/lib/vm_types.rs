@@ -371,6 +371,7 @@ pub struct Actor {
     pub counts: Counts,
     pub active: Option<Activation>,
     pub awaiting: HashMap<RespId, Activation>,
+    // to do -- private/public fields/methods.
 }
 
 /// Unique response Id, for coordinating message responses from the
@@ -388,18 +389,18 @@ pub struct RespId(pub usize);
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Core {
+    pub schedule_choice: ScheduleChoice,
     pub agent: Agent,
     pub actors: Actors,
     pub next_resp_id: usize,
     pub debug_print_out: Vector<DebugPrintLine>,
 }
 
-/// A line of output emitted by prim "debugPrint"
+/// The current/last/next schedule choice, depending on context.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DebugPrintLine {
-    // Actor name, or None for the Agent.
-    actor: Option<Id>,
-    text: crate::value::Text,
+pub enum ScheduleChoice {
+    Agent,
+    Actor(Id),
 }
 
 /// The Actors in a Core system.
@@ -407,6 +408,15 @@ pub struct DebugPrintLine {
 pub struct Actors {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     map: HashMap<Id, Actor>,
+}
+
+/// A line of output emitted by prim "debugPrint".
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DebugPrintLine {
+    /// Who emitted this output?
+    schedule_choice: ScheduleChoice,
+    /// The emitted text.
+    text: crate::value::Text,
 }
 
 /// Exclusive write access to the "active" components of the VM.

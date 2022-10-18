@@ -261,19 +261,24 @@ fn actor() {
 
 #[test]
 fn actor_upgrade_demo_with_counter_inc() {
-    let p = "actor Counter = {
+    let p = "// file: Counter.mo
+             actor Counter = {
                var x = 0;
                public func get() /*: async Nat*/ { x };
                public func inc() { x := x + 1 };
              };
+             // test file: CounterTest.mo
              assert (Counter.get() == 0);
              Counter.inc();
              assert (Counter.get() == 1);
+             //
+             change file: Counter.mo
              actor Counter {
                var x = 0;
                public func get() /*: async Nat*/ { x };
                public func inc() { x := x + 2 };
              };
+
              assert (Counter.get() == 1);
              Counter.inc();
              assert (Counter.get() == 3);

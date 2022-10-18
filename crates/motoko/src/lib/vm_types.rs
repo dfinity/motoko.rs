@@ -421,13 +421,14 @@ pub struct DebugPrintLine {
 
 /// Exclusive write access to the "active" components of the VM.
 pub trait Active: ActiveBorrow {
+    fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice;
     fn cont<'a>(&'a mut self) -> &'a mut Cont;
     fn cont_source<'a>(&'a mut self) -> &'a mut Source;
     fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType>;
     fn env<'a>(&'a mut self) -> &'a mut Env;
     fn stack<'a>(&'a mut self) -> &'a mut Stack;
     fn store<'a>(&'a mut self) -> &'a mut Store;
-    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text>;
+    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<DebugPrintLine>;
     fn counts<'a>(&'a mut self) -> &'a mut Counts;
 
     fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
@@ -447,7 +448,7 @@ pub trait ActiveBorrow {
     fn env<'a>(&'a self) -> &'a Env;
     fn stack<'a>(&'a self) -> &'a Stack;
     fn store<'a>(&'a self) -> &'a Store;
-    fn debug_print_out<'a>(&'a self) -> &'a Vector<crate::value::Text>;
+    fn debug_print_out<'a>(&'a self) -> &'a Vector<DebugPrintLine>;
     fn counts<'a>(&'a self) -> &'a Counts;
     fn deref(&self, pointer: &Pointer) -> Result<Value_, Interruption> {
         self.store()
@@ -464,111 +465,145 @@ pub trait ActiveBorrow {
     }
 }
 
-impl Active for Agent {
+impl Active for Core {
+    fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
+        &self.schedule_choice
+    }
     fn cont<'a>(&'a mut self) -> &'a mut Cont {
-        &mut self.active.cont
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont
+            }
+        }
     }
     fn cont_source<'a>(&'a mut self) -> &'a mut Source {
-        &mut self.active.cont_source
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont_source,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont_source
+            }
+        }
     }
     fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType> {
-        &mut self.active.cont_prim_type
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont_prim_type,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont_prim_type
+            }
+        }
     }
     fn env<'a>(&'a mut self) -> &'a mut Env {
-        &mut self.active.env
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.env,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .env
+            }
+        }
     }
     fn stack<'a>(&'a mut self) -> &'a mut Stack {
-        &mut self.active.stack
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.stack,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .stack
+            }
+        }
     }
     fn store<'a>(&'a mut self) -> &'a mut Store {
-        &mut self.store
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.store,
+            Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().store,
+        }
     }
-    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text> {
-        todo!()
+    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<DebugPrintLine> {
+        &mut self.debug_print_out
     }
     fn counts<'a>(&'a mut self) -> &'a mut Counts {
-        &mut self.counts
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.counts,
+            Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().counts,
+        }
     }
 }
 
-impl ActiveBorrow for Agent {
+impl ActiveBorrow for Core {
     fn cont<'a>(&'a self) -> &'a Cont {
-        &self.active.cont
+        /*&self.active.cont*/
+        todo!()
     }
     fn cont_source<'a>(&'a self) -> &'a Source {
-        &self.active.cont_source
+        /*&self.active.cont_source*/
+        todo!()
     }
     fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType> {
-        &self.active.cont_prim_type
+        /*&self.active.cont_prim_type*/
+        todo!()
     }
     fn env<'a>(&'a self) -> &'a Env {
-        &self.active.env
+        /*&self.active.env*/
+        todo!()
     }
     fn stack<'a>(&'a self) -> &'a Stack {
-        &self.active.stack
+        /*&self.active.stack*/
+        todo!()
     }
     fn store<'a>(&'a self) -> &'a Store {
-        &self.store
+        /*&self.store*/
+        todo!()
     }
-    fn debug_print_out<'a>(&'a self) -> &'a Vector<crate::value::Text> {
+    fn debug_print_out<'a>(&'a self) -> &'a Vector<DebugPrintLine> {
         todo!()
     }
     fn counts<'a>(&'a self) -> &'a Counts {
-        &self.counts
-    }
-}
-
-impl Active for Actor {
-    fn cont<'a>(&'a mut self) -> &'a mut Cont {
-        &mut self.active.as_mut().unwrap().cont
-    }
-    fn cont_source<'a>(&'a mut self) -> &'a mut Source {
-        &mut self.active.as_mut().unwrap().cont_source
-    }
-    fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType> {
-        &mut self.active.as_mut().unwrap().cont_prim_type
-    }
-    fn env<'a>(&'a mut self) -> &'a mut Env {
-        &mut self.active.as_mut().unwrap().env
-    }
-    fn stack<'a>(&'a mut self) -> &'a mut Stack {
-        &mut self.active.as_mut().unwrap().stack
-    }
-    fn store<'a>(&'a mut self) -> &'a mut Store {
-        &mut self.store
-    }
-    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<crate::value::Text> {
+        /*&self.counts*/
         todo!()
-    }
-    fn counts<'a>(&'a mut self) -> &'a mut Counts {
-        &mut self.counts
-    }
-}
-
-impl ActiveBorrow for Actor {
-    fn cont<'a>(&'a self) -> &'a Cont {
-        &self.active.as_ref().unwrap().cont
-    }
-    fn cont_source<'a>(&'a self) -> &'a Source {
-        &self.active.as_ref().unwrap().cont_source
-    }
-    fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType> {
-        &self.active.as_ref().unwrap().cont_prim_type
-    }
-    fn env<'a>(&'a self) -> &'a Env {
-        &self.active.as_ref().unwrap().env
-    }
-    fn stack<'a>(&'a self) -> &'a Stack {
-        &self.active.as_ref().unwrap().stack
-    }
-    fn store<'a>(&'a self) -> &'a Store {
-        &self.store
-    }
-    fn debug_print_out<'a>(&'a self) -> &'a Vector<crate::value::Text> {
-        todo!()
-    }
-    fn counts<'a>(&'a self) -> &'a Counts {
-        &self.counts
     }
 }
 

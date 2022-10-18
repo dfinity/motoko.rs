@@ -273,21 +273,40 @@ fn call_prim_function<A: Active>(
     targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
+    use crate::vm_types::DebugPrintLine;
     use PrimFunction::*;
     match pf {
         DebugPrint => match &*args {
             Value::Text(s) => {
-                log::info!("DebugPrint: {}: {:?}", active.cont_source(), s);
-                active.debug_print_out().push_back(s.clone()); // TODO: store debug output as `Value_`?
+                let schedule_choice = active.schedule_choice().clone();
+                log::info!(
+                    "DebugPrint: {:?}, {}: {:?}",
+                    schedule_choice,
+                    active.cont_source(),
+                    s
+                );
+
+                active.debug_print_out().push_back(DebugPrintLine {
+                    text: s.clone(),
+                    schedule_choice,
+                });
                 *active.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             v => {
                 let txt = string_from_value(v)?;
-                log::info!("DebugPrint: {}: {:?}", active.cont_source(), txt);
-                active
-                    .debug_print_out()
-                    .push_back(crate::value::Text::from(txt));
+                let schedule_choice = active.schedule_choice().clone();
+                log::info!(
+                    "DebugPrint: {:?}: {}: {:?}",
+                    schedule_choice,
+                    active.cont_source(),
+                    txt
+                );
+                let schedule_choice = active.schedule_choice().clone();
+                active.debug_print_out().push_back(DebugPrintLine {
+                    text: crate::value::Text::from(txt),
+                    schedule_choice,
+                });
                 *active.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
@@ -1589,6 +1608,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
     }
 }
 
+/*
 impl Agent {
     /// New VM active for a given program.
     pub fn new(prog: Prog) -> Self {
@@ -1709,6 +1729,7 @@ impl Agent {
     }
 }
 
+
 fn agent_run(agent: &mut Agent, limits: &Limits) -> Result<Signal, Error> {
     loop {
         match active_step(agent, limits) {
@@ -1718,6 +1739,7 @@ fn agent_run(agent: &mut Agent, limits: &Limits) -> Result<Signal, Error> {
         }
     }
 }
+*/
 
 #[cfg(feature = "parser")]
 /// Used for tests in check module.

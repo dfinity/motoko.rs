@@ -10,8 +10,9 @@ use crate::value::{
 };
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Activation, Active, ActiveBorrow, Agent, Breakpoint, Cont, Counts, Env, Error, Interruption,
+    Activation, Active, ActiveBorrow, Agent, Actors, Breakpoint, Cont, Counts, Env, Error, Interruption,
     Limit, Limits, Pointer, Signal, Step, NYI,
+    ScheduleChoice, Core,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -1608,25 +1609,29 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
     }
 }
 
-/*
-impl Agent {
+impl Core {
     /// New VM active for a given program.
     pub fn new(prog: Prog) -> Self {
-        agent_init(prog)
+        Core {
+            schedule_choice: ScheduleChoice::Agent,
+            agent: agent_init(prog),
+            actors: Actors { map:HashMap::new() },
+            next_resp_id: 0,
+            debug_print_out: Vector::new()
+        }
     }
 
     /// New VM agent without any program.
     pub fn empty() -> Self {
-        let mut agent = agent_init(crate::ast::Delim::new());
-        // agent.eval_(None, &Limits::none()).expect("empty");
-        agent.continue_(&Limits::none()).expect("empty");
-        agent
+        let mut c = Self::new(crate::ast::Delim::new());
+        c.continue_(&Limits::none()).expect("empty");
+        c
     }
 
     /// New VM agent from a given program string, to be parsed during Agent construction.
     #[cfg(feature = "parser")]
     pub fn parse(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
-        Ok(agent_init(crate::check::parse(s)?))
+        Ok(Self::new(crate::check::parse(s)?))
     }
 
     /// Step VM agent, under some limits.
@@ -1637,8 +1642,8 @@ impl Agent {
     /// Evaluate a new program fragment, assuming agent is in a
     /// well-defined "done" state.
     pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
-        self.assert_idle().map_err(Interruption::EvalInitError)?;
-        self.active.cont = Cont::Decs(prog.vec);
+        self.assert_idle_agent().map_err(Interruption::EvalInitError)?;
+        self.agent.active.cont = Cont::Decs(prog.vec);
         self.continue_(&Limits::none())
     }
 
@@ -1650,8 +1655,8 @@ impl Agent {
         value_bindings: Vec<(&str, impl Into<Value_>)>,
         prog: Prog,
     ) -> Result<Value_, Interruption> {
-        let source = self.active.cont_source.clone(); // to do -- use prog source
-        self.assert_idle().map_err(Interruption::EvalInitError)?;
+        let source = self.agent.active.cont_source.clone(); // to do -- use prog source
+        self.assert_idle_agent().map_err(Interruption::EvalInitError)?;
         exp_conts_(
             self,
             source.clone(),
@@ -1660,7 +1665,7 @@ impl Agent {
             source,
         )?;
         for (x, v) in value_bindings.into_iter() {
-            let _ = self.active.env.insert(x.to_id(), v.into());
+            let _ = self.agent.active.env.insert(x.to_id(), v.into());
         }
         self.continue_(&Limits::none())
     }
@@ -1672,11 +1677,14 @@ impl Agent {
         self.eval_(Some(new_prog_frag), &Limits::none())
     }
 
-    pub fn assert_idle(&self) -> Result<(), EvalInitError> {
-        if !self.active.stack.is_empty() {
+    pub fn assert_idle_agent(&self) -> Result<(), EvalInitError> {
+        if self.schedule_choice != ScheduleChoice::Agent {
+            return Err(EvalInitError::AgentNotScheduled);
+        }
+        if !self.agent.active.stack.is_empty() {
             return Err(EvalInitError::NonEmptyStack);
         }
-        match self.active.cont {
+        match self.agent.active.cont {
             Cont::Value_(_) => {}
             _ => return Err(EvalInitError::NonValueCont),
         };
@@ -1703,22 +1711,23 @@ impl Agent {
         limits: &Limits,
     ) -> Result<Value_, Interruption> {
         if let Some(new_prog_frag) = new_prog_frag {
-            self.assert_idle().map_err(Interruption::EvalInitError)?;
+            self.assert_idle_agent().map_err(Interruption::EvalInitError)?;
             let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
-            self.active.cont = Cont::Decs(p.vec);
+            self.agent.active.cont = Cont::Decs(p.vec);
         };
         self.continue_(limits)
     }
 
     #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
-        self.store.dealloc(pointer)
+        self.store().dealloc(pointer)
     }
 
+    // to do -- rename this to "define" or "bind" ("assign" connotes mutation).
     #[inline]
     pub fn assign(&mut self, id: impl ToId, value: impl Into<Value_>) {
         let value = value.into();
-        self.active.env.insert(id.to_id(), value);
+        self.env().insert(id.to_id(), value);
     }
 
     #[inline]
@@ -1730,7 +1739,7 @@ impl Agent {
 }
 
 
-fn agent_run(agent: &mut Agent, limits: &Limits) -> Result<Signal, Error> {
+fn run(agent: &mut Core, limits: &Limits) -> Result<Signal, Error> {
     loop {
         match active_step(agent, limits) {
             Ok(_step) => {}
@@ -1739,7 +1748,6 @@ fn agent_run(agent: &mut Agent, limits: &Limits) -> Result<Signal, Error> {
         }
     }
 }
-*/
 
 #[cfg(feature = "parser")]
 /// Used for tests in check module.
@@ -1750,8 +1758,8 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
     use crate::vm_types::Interruption::SyntaxError;
     let p = crate::check::parse(prog).map_err(SyntaxError)?;
     info!("eval_limit: parsed.");
-    let mut a = Agent::new(p);
-    let s = agent_run(&mut a, limits).map_err(|_| ())?;
+    let mut a = Core::new(p);
+    let s = run(&mut a, limits).map_err(|_| ())?;
     use log::info;
     info!("eval_limit: final signal: {:#?}", s);
     use crate::vm_types::Signal::*;

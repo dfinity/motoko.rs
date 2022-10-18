@@ -61,30 +61,30 @@ fn dyn_struct() {
         }
     }
 
-    let mut agent = motoko::vm_types::Agent::empty();
+    let mut core = motoko::vm_types::Core::empty();
 
-    agent.assign_alloc("value".to_id(), Struct::default().into_value());
+    core.assign_alloc("value".to_id(), Struct::default().into_value());
 
     assert_eq!(
-        agent
+        core
             .eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())
             .unwrap()
             .get(),
         Value::Char('a')
     );
     // assert_eq!(
-    //     agent.eval_prog(motoko::check::parse("value.x := 'b'; value.x").unwrap()),
+    //     core.eval_prog(motoko::check::parse("value.x := 'b'; value.x").unwrap()),
     //     Ok(Value::Char('b'))
     // );
     assert_eq!(
-        agent
+        core
             .eval_prog(motoko::check::parse("value('c')").unwrap())
             .unwrap()
             .get(),
         Value::Char('c')
     );
     assert_eq!(
-        agent
+        core
             .eval_prog(
                 motoko::check::parse("var x = true; for (_ in value) { x := false }; x").unwrap()
             )

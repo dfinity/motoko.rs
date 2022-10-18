@@ -397,7 +397,7 @@ pub struct Core {
 }
 
 /// The current/last/next schedule choice, depending on context.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ScheduleChoice {
     Agent,
     Actor(Id),
@@ -407,16 +407,16 @@ pub enum ScheduleChoice {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actors {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
-    map: HashMap<Id, Actor>,
+    pub map: HashMap<Id, Actor>,
 }
 
 /// A line of output emitted by prim "debugPrint".
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DebugPrintLine {
     /// Who emitted this output?
-    schedule_choice: ScheduleChoice,
+    pub schedule_choice: ScheduleChoice,
     /// The emitted text.
-    text: crate::value::Text,
+    pub text: crate::value::Text,
 }
 
 /// Exclusive write access to the "active" components of the VM.
@@ -689,6 +689,7 @@ impl From<EvalInitError> for Interruption {
 pub enum EvalInitError {
     NonEmptyStack,
     NonValueCont,
+    AgentNotScheduled,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, Deserialize)]

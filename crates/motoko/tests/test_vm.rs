@@ -469,11 +469,11 @@ f()
 }
 
 #[test]
-fn test_agent_eval() {
-    let mut agent = motoko::vm_types::Agent::empty();
-    agent.eval("var x = 1").expect("oops");
-    agent.eval("var y = x + 1").expect("oops");
-    let y = agent.eval("y").expect("oops");
+fn test_core_eval() {
+    let mut core = motoko::vm_types::Core::empty();
+    core.eval("var x = 1").expect("oops");
+    core.eval("var y = x + 1").expect("oops");
+    let y = core.eval("y").expect("oops");
     assert_eq!(
         &*y,
         &motoko::value::Value::Nat(num_bigint::BigUint::from(2_u32))

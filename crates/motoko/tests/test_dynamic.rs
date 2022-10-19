@@ -66,8 +66,7 @@ fn dyn_struct() {
     core.assign_alloc("value".to_id(), Struct::default().into_value());
 
     assert_eq!(
-        core
-            .eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())
+        core.eval_prog(motoko::check::parse("value[5] := 'a'; value[5]").unwrap())
             .unwrap()
             .get(),
         Value::Char('a')
@@ -77,19 +76,17 @@ fn dyn_struct() {
     //     Ok(Value::Char('b'))
     // );
     assert_eq!(
-        core
-            .eval_prog(motoko::check::parse("value('c')").unwrap())
+        core.eval_prog(motoko::check::parse("value('c')").unwrap())
             .unwrap()
             .get(),
         Value::Char('c')
     );
     assert_eq!(
-        core
-            .eval_prog(
-                motoko::check::parse("var x = true; for (_ in value) { x := false }; x").unwrap()
-            )
-            .unwrap()
-            .get(),
+        core.eval_prog(
+            motoko::check::parse("var x = true; for (_ in value) { x := false }; x").unwrap()
+        )
+        .unwrap()
+        .get(),
         Value::Bool(true)
     );
 }

@@ -10,9 +10,9 @@ use crate::value::{
 };
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Activation, Active, ActiveBorrow, Agent, Actors, Breakpoint, Cont, Counts, Env, Error, Interruption,
-    Limit, Limits, Pointer, Signal, Step, NYI,
-    ScheduleChoice, Core,
+    Activation, Active, ActiveBorrow, Actors, Agent, Breakpoint, Cont, Core, Counts,
+    DebugPrintLine, Env, Error, Interruption, Limit, Limits, Pointer, ScheduleChoice, Signal,
+    Stack, Step, NYI,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -24,6 +24,209 @@ impl From<()> for Interruption {
     // try to avoid this conversion, except in temp code.
     fn from(_x: ()) -> Interruption {
         Interruption::Unknown
+    }
+}
+
+impl Active for Core {
+    fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
+        &self.schedule_choice
+    }
+    fn cont<'a>(&'a mut self) -> &'a mut Cont {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont
+            }
+        }
+    }
+    fn cont_source<'a>(&'a mut self) -> &'a mut Source {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont_source,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont_source
+            }
+        }
+    }
+    fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType> {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont_prim_type,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont_prim_type
+            }
+        }
+    }
+    fn env<'a>(&'a mut self) -> &'a mut Env {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.env,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .env
+            }
+        }
+    }
+    fn stack<'a>(&'a mut self) -> &'a mut Stack {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.stack,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .stack
+            }
+        }
+    }
+    fn store<'a>(&'a mut self) -> &'a mut Store {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.store,
+            Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().store,
+        }
+    }
+    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<DebugPrintLine> {
+        &mut self.debug_print_out
+    }
+    fn counts<'a>(&'a mut self) -> &'a mut Counts {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.counts,
+            Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().counts,
+        }
+    }
+}
+
+impl ActiveBorrow for Core {
+    fn cont<'a>(&'a self) -> &'a Cont {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.cont,
+            Actor(ref n) => {
+                &self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont
+            }
+        }
+    }
+    fn cont_source<'a>(&'a self) -> &'a Source {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.cont_source,
+            Actor(ref n) => {
+                &self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont_source
+            }
+        }
+    }
+    fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType> {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.cont_prim_type,
+            Actor(ref n) => {
+                &self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont_prim_type
+            }
+        }
+    }
+    fn env<'a>(&'a self) -> &'a Env {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.env,
+            Actor(ref n) => &self.actors.map.get(n).unwrap().active.as_ref().unwrap().env,
+        }
+    }
+    fn stack<'a>(&'a self) -> &'a Stack {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.stack,
+            Actor(ref n) => {
+                &self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .stack
+            }
+        }
+    }
+    fn store<'a>(&'a self) -> &'a Store {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.store,
+            Actor(ref n) => &self.actors.map.get(n).unwrap().store,
+        }
+    }
+    fn debug_print_out<'a>(&'a self) -> &'a Vector<DebugPrintLine> {
+        &self.debug_print_out
+    }
+    fn counts<'a>(&'a self) -> &'a Counts {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.counts,
+            Actor(ref n) => &self.actors.map.get(n).unwrap().counts,
+        }
     }
 }
 
@@ -274,7 +477,6 @@ fn call_prim_function<A: Active>(
     targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
-    use crate::vm_types::DebugPrintLine;
     use PrimFunction::*;
     match pf {
         DebugPrint => match &*args {
@@ -1615,9 +1817,11 @@ impl Core {
         Core {
             schedule_choice: ScheduleChoice::Agent,
             agent: agent_init(prog),
-            actors: Actors { map:HashMap::new() },
+            actors: Actors {
+                map: HashMap::new(),
+            },
             next_resp_id: 0,
-            debug_print_out: Vector::new()
+            debug_print_out: Vector::new(),
         }
     }
 
@@ -1642,7 +1846,8 @@ impl Core {
     /// Evaluate a new program fragment, assuming agent is in a
     /// well-defined "done" state.
     pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
-        self.assert_idle_agent().map_err(Interruption::EvalInitError)?;
+        self.assert_idle_agent()
+            .map_err(Interruption::EvalInitError)?;
         self.agent.active.cont = Cont::Decs(prog.vec);
         self.continue_(&Limits::none())
     }
@@ -1656,7 +1861,8 @@ impl Core {
         prog: Prog,
     ) -> Result<Value_, Interruption> {
         let source = self.agent.active.cont_source.clone(); // to do -- use prog source
-        self.assert_idle_agent().map_err(Interruption::EvalInitError)?;
+        self.assert_idle_agent()
+            .map_err(Interruption::EvalInitError)?;
         exp_conts_(
             self,
             source.clone(),
@@ -1711,7 +1917,8 @@ impl Core {
         limits: &Limits,
     ) -> Result<Value_, Interruption> {
         if let Some(new_prog_frag) = new_prog_frag {
-            self.assert_idle_agent().map_err(Interruption::EvalInitError)?;
+            self.assert_idle_agent()
+                .map_err(Interruption::EvalInitError)?;
             let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
             self.agent.active.cont = Cont::Decs(p.vec);
         };
@@ -1737,7 +1944,6 @@ impl Core {
         pointer
     }
 }
-
 
 fn run(agent: &mut Core, limits: &Limits) -> Result<Signal, Error> {
     loop {

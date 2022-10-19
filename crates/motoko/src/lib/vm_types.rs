@@ -575,35 +575,106 @@ impl Active for Core {
 
 impl ActiveBorrow for Core {
     fn cont<'a>(&'a self) -> &'a Cont {
-        /*&self.active.cont*/
-        todo!()
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.cont,
+            Actor(ref n) => {
+                & self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont
+            }
+        }
     }
     fn cont_source<'a>(&'a self) -> &'a Source {
-        /*&self.active.cont_source*/
-        todo!()
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => & self.agent.active.cont_source,
+            Actor(ref n) => {
+                & self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont_source
+            }
+        }
     }
     fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType> {
-        /*&self.active.cont_prim_type*/
-        todo!()
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => & self.agent.active.cont_prim_type,
+            Actor(ref n) => {
+                & self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont_prim_type
+            }
+        }
     }
     fn env<'a>(&'a self) -> &'a Env {
-        /*&self.active.env*/
-        todo!()
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => & self.agent.active.env,
+            Actor(ref n) => {
+                & self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .env
+            }
+        }
     }
     fn stack<'a>(&'a self) -> &'a Stack {
-        /*&self.active.stack*/
-        todo!()
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => & self.agent.active.stack,
+            Actor(ref n) => {
+                & self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .stack
+            }
+        }
     }
     fn store<'a>(&'a self) -> &'a Store {
-        /*&self.store*/
-        todo!()
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => & self.agent.store,
+            Actor(ref n) => & self.actors.map.get(n).unwrap().store,
+        }
     }
     fn debug_print_out<'a>(&'a self) -> &'a Vector<DebugPrintLine> {
-        todo!()
+        & self.debug_print_out
     }
     fn counts<'a>(&'a self) -> &'a Counts {
-        /*&self.counts*/
-        todo!()
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => & self.agent.counts,
+            Actor(ref n) => & self.actors.map.get(n).unwrap().counts,
+        }
     }
 }
 

@@ -556,12 +556,6 @@ pub struct NYI {
     pub line: u32,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Signal {
-    Done(Value_),
-    Interruption(Interruption),
-}
-
 pub type Breakpoint = Span;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

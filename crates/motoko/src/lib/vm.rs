@@ -11,8 +11,7 @@ use crate::value::{
 use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actors, Agent, Breakpoint, Cont, Core, Counts,
-    DebugPrintLine, Env, Error, Interruption, Limit, Limits, Pointer, ScheduleChoice, Signal,
-    Stack, Step, NYI,
+    DebugPrintLine, Env, Interruption, Limit, Limits, Pointer, ScheduleChoice, Stack, Step, NYI,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -1828,7 +1827,7 @@ impl Core {
     /// New VM agent without any program.
     pub fn empty() -> Self {
         let mut c = Self::new(crate::ast::Delim::new());
-        c.continue_(&Limits::none()).expect("empty");
+        c.run(&Limits::none()).expect("empty");
         c
     }
 
@@ -1849,7 +1848,7 @@ impl Core {
         self.assert_idle_agent()
             .map_err(Interruption::EvalInitError)?;
         self.agent.active.cont = Cont::Decs(prog.vec);
-        self.continue_(&Limits::none())
+        self.run(&Limits::none())
     }
 
     /// Evaluate a new program fragment, assuming agent is in a
@@ -1873,7 +1872,7 @@ impl Core {
         for (x, v) in value_bindings.into_iter() {
             let _ = self.agent.active.env.insert(x.to_id(), v.into());
         }
-        self.continue_(&Limits::none())
+        self.run(&Limits::none())
     }
 
     /// Evaluate a new program fragment, assuming agent is in a
@@ -1898,7 +1897,7 @@ impl Core {
     }
 
     /// Continue evaluation, with given limits.
-    pub fn continue_(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
+    pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
         loop {
             match self.step(limits) {
                 Ok(_step) => {}
@@ -1908,8 +1907,8 @@ impl Core {
         }
     }
 
-    /// Evaluate current continuation, or optionally a new program
-    /// fragment, assuming agent is in a well-defined "done" state.
+    /// Evaluate current agent continuation, or optionally a new agent
+    /// program fragment, assuming agent is in a "done" state.
     #[cfg(feature = "parser")]
     pub fn eval_(
         &mut self,
@@ -1922,7 +1921,7 @@ impl Core {
             let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
             self.agent.active.cont = Cont::Decs(p.vec);
         };
-        self.continue_(limits)
+        self.run(limits)
     }
 
     #[inline]
@@ -1945,16 +1944,6 @@ impl Core {
     }
 }
 
-fn run(agent: &mut Core, limits: &Limits) -> Result<Signal, Error> {
-    loop {
-        match active_step(agent, limits) {
-            Ok(_step) => {}
-            Err(Interruption::Done(v)) => return Ok(Signal::Done(v)),
-            Err(other_interruption) => return Ok(Signal::Interruption(other_interruption)),
-        }
-    }
-}
-
 #[cfg(feature = "parser")]
 /// Used for tests in check module.
 pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
@@ -1964,15 +1953,11 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
     use crate::vm_types::Interruption::SyntaxError;
     let p = crate::check::parse(prog).map_err(SyntaxError)?;
     info!("eval_limit: parsed.");
-    let mut a = Core::new(p);
-    let s = run(&mut a, limits).map_err(|_| ())?;
+    let mut c = Core::new(p);
+    let r = c.run(limits);
     use log::info;
-    info!("eval_limit: final signal: {:#?}", s);
-    use crate::vm_types::Signal::*;
-    match s {
-        Done(result) => Ok(result),
-        Interruption(i) => Err(i),
-    }
+    info!("eval_limit: result: {:#?}", r);
+    r
 }
 
 /// Used for tests in check module.

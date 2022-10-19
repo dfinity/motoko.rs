@@ -30,7 +30,7 @@ fn test_hashmap_randiter_intergration() {
         )
         .clone(),
     );
-    core.continue_(&Limits::none()).unwrap();
+    core.run(&Limits::none()).unwrap();
 
     // generate initial data / batch random put.
     let size = 10;

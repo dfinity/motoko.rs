@@ -9,7 +9,7 @@ use test_log::test; // enable logging output for tests by default.
 #[test]
 fn test_eval_open_block() {
     let mut core = Core::new(parse_static!("let x = 666; let y = 777;").clone());
-    core.continue_(&Limits::none()).unwrap();
+    core.run(&Limits::none()).unwrap();
     core.eval_open_block(
         vec![
             ("x", Value::Nat(BigUint::from(1_u32)).share()),
@@ -33,7 +33,7 @@ fn test_hashmap_performance_steps() {
         )
         .clone(),
     );
-    core.continue_(&Limits::none()).unwrap();
+    core.run(&Limits::none()).unwrap();
 
     // generate initial data / batch random put.
     let size = 10;

@@ -1811,7 +1811,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
 }
 
 impl Core {
-    /// New VM active for a given program.
+    /// New VM for a given program.
     pub fn new(prog: Prog) -> Self {
         Core {
             schedule_choice: ScheduleChoice::Agent,
@@ -1824,35 +1824,64 @@ impl Core {
         }
     }
 
-    /// New VM agent without any program.
+    /// New VM without any program.
     pub fn empty() -> Self {
         let mut c = Self::new(crate::ast::Delim::new());
         c.run(&Limits::none()).expect("empty");
         c
     }
 
-    /// New VM agent from a given program string, to be parsed during Agent construction.
+    /// New VM from a given program string, to be parsed as the Agent program.
     #[cfg(feature = "parser")]
     pub fn parse(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
         Ok(Self::new(crate::check::parse(s)?))
     }
 
-    /// Step VM agent, under some limits.
+    /// Attempt a single-step of VM, under some limits.
     pub fn step(&mut self, limits: &Limits) -> Result<Step, Interruption> {
         active_step(self, limits)
     }
 
-    /// Evaluate a new program fragment, assuming agent is in a
-    /// well-defined "done" state.
-    pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
+    /// Run multiple steps of VM, with given limits.
+    /// `Ok(value)` means that the Agent is idle.
+    pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
+        loop {
+            match self.step(limits) {
+                Ok(_step) => {}
+                Err(Interruption::Done(v)) => return Ok(v),
+                Err(other_interruption) => return Err(other_interruption),
+            }
+        }
+    }
+
+    /// Assert that the Agent is idle.
+    pub fn assert_idle_agent(&self) -> Result<(), EvalInitError> {
+        if self.schedule_choice != ScheduleChoice::Agent {
+            return Err(EvalInitError::AgentNotScheduled);
+        }
+        if !self.agent.active.stack.is_empty() {
+            return Err(EvalInitError::NonEmptyStack);
+        }
+        match self.agent.active.cont {
+            Cont::Value_(_) => {}
+            _ => return Err(EvalInitError::NonValueCont),
+        };
+        Ok(())
+    }
+
+    /// Evaluate a new program fragment, assuming agent is idle.
+    #[cfg(feature = "parser")]
+    pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value_, Interruption> {
         self.assert_idle_agent()
             .map_err(Interruption::EvalInitError)?;
-        self.agent.active.cont = Cont::Decs(prog.vec);
+        let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
+        self.agent.active.cont = Cont::Decs(p.vec);
         self.run(&Limits::none())
     }
 
-    /// Evaluate a new program fragment, assuming agent is in a
-    /// well-defined "done" state.  The block may refer to variables
+    /// Evaluate a new program fragment, assuming agent is idle.
+    ///
+    /// The block may refer to variables
     /// bound as arguments, and then forgotten after evaluation.
     pub fn eval_open_block(
         &mut self,
@@ -1875,53 +1904,12 @@ impl Core {
         self.run(&Limits::none())
     }
 
-    /// Evaluate a new program fragment, assuming agent is in a
-    /// well-defined "done" state.
-    #[cfg(feature = "parser")]
-    pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value_, Interruption> {
-        self.eval_(Some(new_prog_frag), &Limits::none())
-    }
-
-    pub fn assert_idle_agent(&self) -> Result<(), EvalInitError> {
-        if self.schedule_choice != ScheduleChoice::Agent {
-            return Err(EvalInitError::AgentNotScheduled);
-        }
-        if !self.agent.active.stack.is_empty() {
-            return Err(EvalInitError::NonEmptyStack);
-        }
-        match self.agent.active.cont {
-            Cont::Value_(_) => {}
-            _ => return Err(EvalInitError::NonValueCont),
-        };
-        Ok(())
-    }
-
-    /// Continue evaluation, with given limits.
-    pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
-        loop {
-            match self.step(limits) {
-                Ok(_step) => {}
-                Err(Interruption::Done(v)) => return Ok(v),
-                Err(other_interruption) => return Err(other_interruption),
-            }
-        }
-    }
-
-    /// Evaluate current agent continuation, or optionally a new agent
-    /// program fragment, assuming agent is in a "done" state.
-    #[cfg(feature = "parser")]
-    pub fn eval_(
-        &mut self,
-        new_prog_frag: Option<&str>,
-        limits: &Limits,
-    ) -> Result<Value_, Interruption> {
-        if let Some(new_prog_frag) = new_prog_frag {
-            self.assert_idle_agent()
-                .map_err(Interruption::EvalInitError)?;
-            let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
-            self.agent.active.cont = Cont::Decs(p.vec);
-        };
-        self.run(limits)
+    /// Evaluate a new program fragment, assuming agent is idle.
+    pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
+        self.assert_idle_agent()
+            .map_err(Interruption::EvalInitError)?;
+        self.agent.active.cont = Cont::Decs(prog.vec);
+        self.run(&Limits::none())
     }
 
     #[inline]

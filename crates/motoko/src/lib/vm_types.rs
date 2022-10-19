@@ -19,22 +19,25 @@ pub mod def {
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+    pub struct Defs(pub HashMap<CtxId, Ctx>);
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct CtxId(usize);
 
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Ctx {
         parent: Option<CtxId>,
         fields: HashMap<CtxId, Field>,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Field {
         pub def: Def,
         pub vis: Option<Vis_>,
         pub stab: Option<Stab_>,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub enum Def {
         Module(Module),
         Actor(Actor),
@@ -42,19 +45,19 @@ pub mod def {
         Value(crate::value::Value_),
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Module {
         parent: CtxId,
         fields: CtxId,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Actor {
         context: CtxId,
         fields: CtxId,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Function {
         context: CtxId,
         function: crate::ast::Function,
@@ -389,6 +392,7 @@ pub struct RespId(pub usize);
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Core {
+    pub defs: def::Defs,
     pub schedule_choice: ScheduleChoice,
     pub agent: Agent,
     pub actors: Actors,
@@ -421,6 +425,7 @@ pub struct DebugPrintLine {
 
 /// Exclusive write access to the "active" components of the VM.
 pub trait Active: ActiveBorrow {
+    fn defs<'a>(&'a mut self) -> &'a mut def::Defs;
     fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice;
     fn cont<'a>(&'a mut self) -> &'a mut Cont;
     fn cont_source<'a>(&'a mut self) -> &'a mut Source;

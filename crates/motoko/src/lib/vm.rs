@@ -1,5 +1,5 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, RelOp,
+    BinOp, Cases, Dec, Dec_, Exp, Exp_, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, RelOp,
     Source, ToId, Type, UnOp,
 };
 //use crate::ast_traversal::ToNode;
@@ -9,6 +9,7 @@ use crate::value::{
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
+    def::Defs,
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actors, Agent, Breakpoint, Cont, Core, Counts,
     DebugPrintLine, Env, Interruption, Limit, Limits, Pointer, ScheduleChoice, Stack, Step, NYI,
@@ -26,7 +27,16 @@ impl From<()> for Interruption {
     }
 }
 
+impl Defs {
+    fn new() -> Self {
+        Defs(HashMap::new())
+    }
+}
+
 impl Active for Core {
+    fn defs<'a>(&'a mut self) -> &'a mut Defs {
+        &mut self.defs
+    }
     fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
         &self.schedule_choice
     }
@@ -261,6 +271,31 @@ macro_rules! nyi {
             line: $line,
         }))
     };
+}
+
+mod def {
+    use super::*;
+    use crate::ast::DecFields;
+
+    pub fn actor(
+        _defs: &mut Defs,
+        _id: &Option<Id_>,
+        _dfs: &DecFields,
+    ) -> Result<Value_, Interruption> {
+        todo!()
+    }
+
+    pub fn func(_defs: &mut Defs) -> Result<Value_, Interruption> {
+        todo!()
+    }
+
+    pub fn val(_defs: &mut Defs) -> Result<Value_, Interruption> {
+        todo!()
+    }
+
+    pub fn var(_defs: &mut Defs) -> Result<Value_, Interruption> {
+        todo!()
+    }
 }
 
 fn agent_init(prog: Prog) -> Agent {
@@ -1773,8 +1808,16 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                             exp_conts(active, FrameCont::Let(p.fast_clone(), Cont::Decs(decs)), e)
                         }
                     }
-                    Dec::LetActor(_i, _, _dfs) => {
-                        nyi!(line!())
+                    Dec::LetActor(i, _, dfs) => {
+                        let v = def::actor(active.defs(), i, dfs)?;
+                        *active.cont() = Cont::Decs(decs);
+                        match i {
+                            None => (),
+                            Some(i) => {
+                                active.env().insert(i.0.clone(), v);
+                            }
+                        };
+                        Ok(Step {})
                     }
                     Dec::LetModule(_i, _, _dfs) => {
                         nyi!(line!())
@@ -1814,6 +1857,7 @@ impl Core {
     /// New VM for a given program.
     pub fn new(prog: Prog) -> Self {
         Core {
+            defs: Defs::new(),
             schedule_choice: ScheduleChoice::Agent,
             agent: agent_init(prog),
             actors: Actors {

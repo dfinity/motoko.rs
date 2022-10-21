@@ -382,11 +382,11 @@ impl Activation {
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actor {
+    pub def: crate::shared::Shared<def::Actor>,
     pub store: Store,
     pub counts: Counts,
     pub active: Option<Activation>,
     pub awaiting: HashMap<RespId, Activation>,
-    // to do -- private/public fields/methods.
 }
 
 /// Unique response Id, for coordinating message responses from the
@@ -453,9 +453,7 @@ pub trait Active: ActiveBorrow {
         self.store().alloc(value)
     }
 
-    fn create(&mut self, _name: Option<Id>, _actor: def::Actor) -> Result<Value_, Interruption> {
-        todo!()
-    }
+    fn create(&mut self, name: Option<Id>, actor: def::Actor) -> Result<Value_, Interruption>;
 }
 
 /// Non-exclusive read access to the "active" components of the VM.

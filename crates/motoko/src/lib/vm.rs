@@ -9,7 +9,7 @@ use crate::value::{
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
-    def::{Ctx, CtxId, Def, Defs},
+    def::{Actor, Ctx, CtxId, Def, Defs},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actors, Agent, Breakpoint, Cont, Core, Counts,
     DebugPrintLine, Env, Interruption, Limit, Limits, Pointer, ScheduleChoice, Stack, Step, NYI,
@@ -219,6 +219,19 @@ impl Active for Core {
         match &self.schedule_choice {
             Agent => &mut self.agent.counts,
             Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().counts,
+        }
+    }
+    fn create(&mut self, name: Option<Id>, actor: Actor) -> Result<Value_, Interruption> {
+        if let Some(name) = name {
+            let v = Value::Actor(crate::value::Actor(name));
+            // to do --
+            // allocate store.
+            // put actor somewhere.
+            // detect upgrade case.
+            // do upgrade.
+            Ok(v.share())
+        } else {
+            todo!()
         }
     }
 }
@@ -1609,6 +1622,13 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 *active.cont() = Cont::Value_(f);
                 Ok(Step {})
             }
+            Value::Actor(n) => {
+                // to do -- get defs from actor n
+                // look up definition for f
+                // is it a function?  If no, type mismatch.
+                // Run the function by setting contination.
+                todo!()
+            }
             _ => Err(Interruption::TypeMismatch),
         },
         Debug => match &*v {
@@ -1915,13 +1935,13 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                     }
                     Dec::LetActor(i, _, dfs) => {
                         let v = def::actor(active, i, dec_.1.clone(), None, None, dfs)?;
-                        *active.cont() = Cont::Decs(decs);
                         match i {
                             None => (),
                             Some(i) => {
                                 active.env().insert(i.0.clone(), v);
                             }
                         };
+                        *active.cont() = Cont::Decs(decs);
                         Ok(Step {})
                     }
                     Dec::LetModule(_i, _, _dfs) => {

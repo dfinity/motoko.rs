@@ -128,7 +128,14 @@ pub enum Value {
     Collection(Collection),
     Dynamic(DynamicValue),
     // DynamicRef(DynamicRef),
+    Actor(Actor),
 }
+
+/// Actor instance, as a "pointer."
+///s
+/// To do -- handle canister ID case, where there is no Motoko-level identifier.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Actor(pub Id);
 
 // #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 // pub struct DynamicValue(); // to do --
@@ -470,6 +477,7 @@ impl Value {
                 Object(map)
             }
             Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+            Value::Actor(_) => Err(ValueError::ToRust("Actor".to_string()))?,
             Value::Opaque(_) => Err(ValueError::ToRust("Opaque".to_string()))?,
             Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,

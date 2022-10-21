@@ -1,6 +1,6 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, RelOp,
-    Source, ToId, Type, UnOp,
+    BinOp, Cases, Dec, Dec_, Exp, Exp_, Id, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog,
+    RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
@@ -9,7 +9,7 @@ use crate::value::{
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
-    def::Defs,
+    def::{Ctx, CtxId, Def, Defs},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actors, Agent, Breakpoint, Cont, Core, Counts,
     DebugPrintLine, Env, Interruption, Limit, Limits, Pointer, ScheduleChoice, Stack, Step, NYI,
@@ -27,13 +27,80 @@ impl From<()> for Interruption {
     }
 }
 
+impl Def {
+    pub fn source(&self) -> Source {
+        todo!()
+    }
+}
+
+impl crate::vm_types::def::Field {
+    pub fn source(&self) -> Source {
+        self.def.source()
+    }
+}
+
 impl Defs {
     fn new() -> Self {
-        Defs(HashMap::new())
+        let mut map = HashMap::new();
+        let root = Ctx {
+            parent: None,
+            fields: HashMap::new(),
+        };
+        map.insert(CtxId(0), root);
+        Defs {
+            map,
+            active_ctx: CtxId(0),
+            next_ctx_id: 1,
+        }
+    }
+    fn new_context(&mut self) -> CtxId {
+        let x = self.next_ctx_id;
+        self.next_ctx_id
+            .checked_add(1)
+            .expect("Out of def-context ids.");
+        let ctx = Ctx {
+            parent: Some(self.active_ctx.clone()),
+            fields: HashMap::new(),
+        };
+        self.map.insert(CtxId(x), ctx);
+        CtxId(x)
+    }
+    fn insert_field(
+        &mut self,
+        i: &Id,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        def: Def,
+    ) -> Result<(), Interruption> {
+        let s = source.clone();
+        let a = self.active_ctx.clone();
+        let y = self.map.get_mut(&a).unwrap().fields.insert(
+            i.clone(),
+            crate::vm_types::def::Field {
+                source,
+                stab,
+                vis,
+                def,
+            },
+        );
+        if let Some(y) = y {
+            // to do -- both source infos for the error.
+            Err(Interruption::AmbiguousIdentifer(
+                i.clone(),
+                s,
+                y.source().clone(),
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
 
 impl Active for Core {
+    fn ctx_id<'a>(&'a mut self) -> &'a mut CtxId {
+        &mut self.defs.active_ctx
+    }
     fn defs<'a>(&'a mut self) -> &'a mut Defs {
         &mut self.defs
     }
@@ -277,12 +344,29 @@ mod def {
     use super::*;
     use crate::ast::DecFields;
 
-    pub fn actor(
-        _defs: &mut Defs,
-        _id: &Option<Id_>,
-        _dfs: &DecFields,
+    pub fn actor<A: Active>(
+        //_defs: &mut Defs,
+        active: &mut A,
+        id: &Option<Id_>,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        dfs: &DecFields,
     ) -> Result<Value_, Interruption> {
-        todo!()
+        for df in dfs.vec.iter() {
+            println!("{:?}", df)
+        }
+        let fields = active.defs().new_context();
+        let actor = crate::vm_types::def::Actor { fields };
+        match id {
+            None => {}
+            Some(x) => {
+                active
+                    .defs()
+                    .insert_field(&x.0, source, vis, stab, Def::Actor(actor.clone()))?
+            }
+        }
+        active.create(id.as_ref().map(|i| i.0.clone()), actor)
     }
 
     pub fn func(_defs: &mut Defs) -> Result<Value_, Interruption> {
@@ -1809,7 +1893,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         }
                     }
                     Dec::LetActor(i, _, dfs) => {
-                        let v = def::actor(active.defs(), i, dfs)?;
+                        let v = def::actor(active, i, dec_.1.clone(), None, None, dfs)?;
                         *active.cont() = Cont::Decs(decs);
                         match i {
                             None => (),

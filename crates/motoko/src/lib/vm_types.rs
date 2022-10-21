@@ -14,20 +14,31 @@ use crate::{
 use crate::{Share, Value};
 
 pub mod def {
-    use crate::ast::{Stab_, Vis_};
+    use crate::ast::{Id, Source, Stab_, Vis_};
     use im_rc::HashMap;
     use serde::{Deserialize, Serialize};
 
+    /// Definition database.
+    ///
+    /// Each entry is a context of mutually-recursive definitions.
+    /// Definitions may consist of actors, actor classes, classes, modules, functions and constant values.
+    /// Actors, actor classes, (object) classes and modules each introduce a new, child context for nested definitions.
+    /// Except for the root context(s), every context has one parent context.
+    /// Hence, contexts in the database form a forest, with one tree per root.
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-    pub struct Defs(pub HashMap<CtxId, Ctx>);
+    pub struct Defs {
+        pub map: HashMap<CtxId, Ctx>,
+        pub active_ctx: CtxId,
+        pub next_ctx_id: usize,
+    }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-    pub struct CtxId(usize);
+    pub struct CtxId(pub usize);
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Ctx {
-        parent: Option<CtxId>,
-        fields: HashMap<CtxId, Field>,
+        pub parent: Option<CtxId>,
+        pub fields: HashMap<Id, Field>,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -35,6 +46,7 @@ pub mod def {
         pub def: Def,
         pub vis: Option<Vis_>,
         pub stab: Option<Stab_>,
+        pub source: Source,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -47,20 +59,20 @@ pub mod def {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Module {
-        parent: CtxId,
-        fields: CtxId,
+        //pub parent: CtxId,
+        pub fields: CtxId,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Actor {
-        context: CtxId,
-        fields: CtxId,
+        //pub context: CtxId,
+        pub fields: CtxId,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Function {
-        context: CtxId,
-        function: crate::ast::Function,
+        pub context: CtxId,
+        pub function: crate::ast::Function,
     }
 }
 
@@ -426,6 +438,7 @@ pub struct DebugPrintLine {
 /// Exclusive write access to the "active" components of the VM.
 pub trait Active: ActiveBorrow {
     fn defs<'a>(&'a mut self) -> &'a mut def::Defs;
+    fn ctx_id<'a>(&'a mut self) -> &'a mut def::CtxId;
     fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice;
     fn cont<'a>(&'a mut self) -> &'a mut Cont;
     fn cont_source<'a>(&'a mut self) -> &'a mut Source;
@@ -440,7 +453,7 @@ pub trait Active: ActiveBorrow {
         self.store().alloc(value)
     }
 
-    fn create(&mut self, _name: Option<Id>, _actor: Actor) -> Result<Value_, Interruption> {
+    fn create(&mut self, _name: Option<Id>, _actor: def::Actor) -> Result<Value_, Interruption> {
         todo!()
     }
 }
@@ -514,6 +527,7 @@ pub enum Interruption {
     ValueError(ValueError),
     EvalInitError(EvalInitError),
     UnboundIdentifer(Id),
+    AmbiguousIdentifer(Id, Source, Source),
     UnrecognizedPrim(String),
     BlockedAwaiting,
     Limit(Limit),

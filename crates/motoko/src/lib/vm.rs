@@ -53,7 +53,7 @@ impl Defs {
             next_ctx_id: 1,
         }
     }
-    fn new_context(&mut self) -> CtxId {
+    fn enter_context(&mut self) -> CtxId {
         let x = self.next_ctx_id;
         self.next_ctx_id
             .checked_add(1)
@@ -63,6 +63,7 @@ impl Defs {
             fields: HashMap::new(),
         };
         self.map.insert(CtxId(x), ctx);
+        self.active_ctx = CtxId(x);
         CtxId(x)
     }
     fn insert_field(
@@ -94,6 +95,17 @@ impl Defs {
         } else {
             Ok(())
         }
+    }
+    fn leave_context(&mut self, sanity_check_active: &CtxId) {
+        assert_eq!(&self.active_ctx, sanity_check_active);
+        self.active_ctx = self
+            .map
+            .get(&self.active_ctx)
+            .expect("leave context")
+            .parent
+            .as_ref()
+            .expect("parent context")
+            .clone();
     }
 }
 
@@ -342,10 +354,18 @@ macro_rules! nyi {
 
 mod def {
     use super::*;
-    use crate::ast::DecFields;
+    use crate::ast::{DecField, DecFields};
+
+    fn insert_field<A: Active>(
+        active: &mut A,
+        source: &Source,
+        df: &DecField,
+    ) -> Result<(), Interruption> {
+        println!("{:?} -- {:?} ", source, df);
+        Ok(())
+    }
 
     pub fn actor<A: Active>(
-        //_defs: &mut Defs,
         active: &mut A,
         id: &Option<Id_>,
         source: Source,
@@ -353,10 +373,11 @@ mod def {
         stab: Option<Stab_>,
         dfs: &DecFields,
     ) -> Result<Value_, Interruption> {
+        let fields = active.defs().enter_context();
         for df in dfs.vec.iter() {
-            println!("{:?}", df)
+            insert_field(active, &df.1, &df.0)?;
         }
-        let fields = active.defs().new_context();
+        active.defs().leave_context(&fields);
         let actor = crate::vm_types::def::Actor { fields };
         match id {
             None => {}

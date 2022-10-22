@@ -529,9 +529,9 @@ pub struct Step {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Response {
-    target: RespTarget,
+    pub target: RespTarget,
     /* to do -- RespId */
-    value: Value_,
+    pub value: Value_,
 }
 
 pub type RespTarget = ScheduleChoice;

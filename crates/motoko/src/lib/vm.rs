@@ -12,8 +12,8 @@ use crate::vm_types::{
     def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, Counts,
-    DebugPrintLine, Env, Interruption, Limit, Limits, NamedPointer, Pointer, ScheduleChoice, Stack,
-    Step, NYI,
+    DebugPrintLine, Env, Interruption, Limit, Limits, NamedPointer, Pointer, Response,
+    ScheduleChoice, Stack, Step, NYI,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -30,7 +30,8 @@ impl From<()> for Interruption {
 
 impl Def {
     pub fn source(&self) -> Source {
-        todo!()
+        // to do
+        Source::Evaluation
     }
 }
 
@@ -1510,7 +1511,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
     *active.cont_source() = frame.source;
     match frame.cont {
         ForOpaqueIter(..) => unreachable!(),
-        Respond(..) => nyi!(line!()),
+        Respond(target) => Err(Interruption::Response(Response { target, value: v })),
         UnOp(un) => {
             *active.cont() = cont_value(unop(un, v)?);
             Ok(Step {})
@@ -2173,6 +2174,19 @@ impl Core {
         call_function_def(self, actor_env, &f, inst, v)
     }
 
+    fn response(&mut self, _limits: &Limits, r: Response) -> Result<Step, Interruption> {
+        match self.schedule_choice {
+            ScheduleChoice::Actor(ref i) => {
+                let actor = self.actors.map.get_mut(i).unwrap();
+                actor.active = None;
+            }
+            _ => unreachable!(),
+        };
+        self.schedule_choice = r.target;
+        *self.cont() = Cont::Value_(r.value);
+        Ok(Step {})
+    }
+
     /// Run multiple steps of VM, with given limits.
     /// `Ok(value)` means that the Agent is idle.
     pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
@@ -2182,6 +2196,9 @@ impl Core {
                 Err(Interruption::Done(v)) => return Ok(v),
                 Err(Interruption::Send(am, inst, v)) => {
                     self.send(limits, am, inst, v)?;
+                }
+                Err(Interruption::Response(r)) => {
+                    self.response(limits, r)?;
                 }
                 Err(other_interruption) => return Err(other_interruption),
             }

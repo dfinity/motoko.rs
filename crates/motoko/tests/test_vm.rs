@@ -260,6 +260,28 @@ fn actor() {
 }
 
 #[test]
+fn actor_counter_inc_twice() {
+    let p = "let y = 999;
+             let x = 666;
+             actor Counter = {
+               var x = 0;
+               public func get() /*: async Nat*/ { x };
+               public func inc() { x := x + 1 };
+             };
+             assert (Counter.get() == 0);
+             Counter.inc();
+             assert (Counter.get() == 1);
+             Counter.inc();
+             assert (Counter.get() == 2);
+             assert (y == 999);
+             assert (x == 666);
+             #ok
+";
+    assert_(p, "#ok");
+}
+
+#[ignore]
+#[test]
 fn actor_upgrade_demo_with_counter_inc() {
     let p = "actor Counter = {
                var x = 0;

@@ -53,8 +53,9 @@ pub mod def {
     pub enum Def {
         Module(Module),
         Actor(Actor),
-        Function(Function),
+        Func(Function),
         Value(crate::value::Value_),
+        Var(crate::value::Value_),
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -248,6 +249,14 @@ impl Store {
         ptr
     }
 
+    pub fn alloc_named(&mut self, name: Id, value: impl Into<Value_>) -> Pointer {
+        let value = value.into();
+        let ptr = Pointer::Named(NamedPointer(name));
+        let prev = self.map.insert(ptr.clone(), value);
+        assert_eq!(prev, None);
+        ptr
+    }
+
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
         self.map.remove(pointer)
     }
@@ -382,7 +391,7 @@ impl Activation {
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actor {
-    pub def: crate::shared::Shared<def::Actor>,
+    pub def: def::Actor,
     pub store: Store,
     pub counts: Counts,
     pub active: Option<Activation>,
@@ -439,7 +448,7 @@ pub struct DebugPrintLine {
 pub trait Active: ActiveBorrow {
     fn defs<'a>(&'a mut self) -> &'a mut def::Defs;
     fn ctx_id<'a>(&'a mut self) -> &'a mut def::CtxId;
-    fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice;
+    //fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice;
     fn cont<'a>(&'a mut self) -> &'a mut Cont;
     fn cont_source<'a>(&'a mut self) -> &'a mut Source;
     fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType>;
@@ -458,6 +467,9 @@ pub trait Active: ActiveBorrow {
 
 /// Non-exclusive read access to the "active" components of the VM.
 pub trait ActiveBorrow {
+    fn defs<'a>(&'a self) -> &'a def::Defs;
+    fn ctx_id<'a>(&'a self) -> &'a def::CtxId;
+    fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice;
     fn cont<'a>(&'a self) -> &'a Cont;
     fn cont_source<'a>(&'a self) -> &'a Source;
     fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType>;
@@ -519,6 +531,7 @@ pub enum Interruption {
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     TypeMismatch,
+    NonLiteralInit(Source),
     NoMatchingCase,
     #[cfg(feature = "parser")]
     SyntaxError(SyntaxError),

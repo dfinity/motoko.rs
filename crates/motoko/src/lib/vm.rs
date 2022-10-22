@@ -9,9 +9,9 @@ use crate::value::{
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
-    def::{Actor, Ctx, CtxId, Def, Defs},
+    def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Function as FunctionDef},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Activation, Active, ActiveBorrow, Actors, Agent, Breakpoint, Cont, Core, Counts,
+    Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, Counts,
     DebugPrintLine, Env, Interruption, Limit, Limits, Pointer, ScheduleChoice, Stack, Step, NYI,
 };
 use crate::vm_types::{EvalInitError, Store};
@@ -116,9 +116,9 @@ impl Active for Core {
     fn defs<'a>(&'a mut self) -> &'a mut Defs {
         &mut self.defs
     }
-    fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
-        &self.schedule_choice
-    }
+    //fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
+    //&self.schedule_choice
+    //}
     fn cont<'a>(&'a mut self) -> &'a mut Cont {
         use ScheduleChoice::*;
         match &self.schedule_choice {
@@ -221,14 +221,32 @@ impl Active for Core {
             Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().counts,
         }
     }
-    fn create(&mut self, name: Option<Id>, actor: Actor) -> Result<Value_, Interruption> {
-        if let Some(name) = name {
-            let v = Value::Actor(crate::value::Actor(name));
-            // to do --
-            // allocate store.
-            // put actor somewhere.
-            // detect upgrade case.
-            // do upgrade.
+    fn create(&mut self, name: Option<Id>, def: ActorDef) -> Result<Value_, Interruption> {
+        if let Some(ref name) = name {
+            let v = Value::Actor(crate::value::Actor(name.clone()));
+            //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
+            let mut store = Store::new();
+            let ctx = self.defs().map.get(&def.fields).unwrap();
+            for (i, field) in ctx.fields.iter() {
+                match &field.def {
+                    Def::Var(v) => {
+                        store.alloc_named(i.clone(), v.fast_clone());
+                    }
+                    Def::Func(..) => {}
+                    _ => todo!(),
+                }
+            }
+            let a = Actor {
+                def,
+                store,
+                counts: Counts::default(),
+                active: None,
+                awaiting: HashMap::new(),
+            };
+            let a0 = self.actors.map.insert(name.clone(), a);
+            if let Some(_a0) = a0 {
+                todo!("upgrade")
+            };
             Ok(v.share())
         } else {
             todo!()
@@ -237,6 +255,15 @@ impl Active for Core {
 }
 
 impl ActiveBorrow for Core {
+    fn ctx_id<'a>(&'a self) -> &'a CtxId {
+        &self.defs.active_ctx
+    }
+    fn defs<'a>(&'a self) -> &'a Defs {
+        &self.defs
+    }
+    fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
+        &self.schedule_choice
+    }
     fn cont<'a>(&'a self) -> &'a Cont {
         use ScheduleChoice::*;
         match &self.schedule_choice {
@@ -375,7 +402,46 @@ mod def {
         df: &DecField,
     ) -> Result<(), Interruption> {
         println!("{:?} -- {:?} ", source, df);
-        Ok(())
+        match &df.dec.0 {
+            Dec::Func(f) => {
+                if let Some(name) = f.name.clone() {
+                    let f = FunctionDef {
+                        context: active.defs().active_ctx.clone(),
+                        function: f.clone(),
+                    };
+                    active.defs().insert_field(
+                        &name.0,
+                        source.clone(),
+                        df.vis.clone(),
+                        df.stab.clone(),
+                        Def::Func(f),
+                    )?;
+                    Ok(())
+                } else {
+                    nyi!(line!())
+                }
+            }
+            Dec::Var(p, e) => {
+                let v = match &e.0 {
+                    Exp::Literal(l) => Value::from_literal(l)?,
+                    _ => return Err(Interruption::NonLiteralInit(e.1.clone())),
+                };
+                if let Pat::Var(ref x) = p.0 {
+                    active.defs().insert_field(
+                        &x.0,
+                        source.clone(),
+                        df.vis.clone(),
+                        df.stab.clone(),
+                        Def::Var(v.share()),
+                    )?;
+                    //Ok(Value::Pointer(Pointer::NamedPointer(x.0.clone())))
+                    Ok(())
+                } else {
+                    nyi!(line!())
+                }
+            }
+            _ => nyi!(line!()),
+        }
     }
 
     pub fn actor<A: Active>(
@@ -401,18 +467,6 @@ mod def {
             }
         }
         active.create(id.as_ref().map(|i| i.0.clone()), actor)
-    }
-
-    pub fn func(_defs: &mut Defs) -> Result<Value_, Interruption> {
-        todo!()
-    }
-
-    pub fn val(_defs: &mut Defs) -> Result<Value_, Interruption> {
-        todo!()
-    }
-
-    pub fn var(_defs: &mut Defs) -> Result<Value_, Interruption> {
-        todo!()
     }
 }
 
@@ -1622,7 +1676,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 *active.cont() = Cont::Value_(f);
                 Ok(Step {})
             }
-            Value::Actor(n) => {
+            Value::Actor(_n) => {
                 // to do -- get defs from actor n
                 // look up definition for f
                 // is it a function?  If no, type mismatch.
@@ -1834,6 +1888,7 @@ fn active_trace<A: ActiveBorrow>(active: &A) {
     trace!("   - env = {:?}", active.env());
     trace!(" - stack = {:#?}", active.stack());
     trace!(" - store = {:#?}", active.store());
+    trace!(" - defs  = {:#?}", active.defs());
 }
 
 // To advance the active Motoko state by a single step, after all limits are checked.

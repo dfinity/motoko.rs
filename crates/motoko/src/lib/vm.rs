@@ -5,7 +5,7 @@ use crate::ast::{
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
 use crate::value::{
-    Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
+    ActorId, Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
     HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
@@ -223,7 +223,10 @@ impl Active for Core {
     }
     fn create(&mut self, name: Option<Id>, def: ActorDef) -> Result<Value_, Interruption> {
         if let Some(ref name) = name {
-            let v = Value::Actor(crate::value::Actor(name.clone()));
+            let v = Value::Actor(crate::value::Actor {
+                def: def.clone(),
+                id: ActorId::Local(name.clone()),
+            });
             //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
             let mut store = Store::new();
             let ctx = self.defs().map.get(&def.fields).unwrap();

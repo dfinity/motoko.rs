@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut, ToId};
 use crate::dynamic::Dynamic;
 use crate::shared::{FastClone, Share, Shared};
-use crate::vm_types::Env;
+use crate::vm_types::{def::Actor as ActorDef, Env};
 
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -131,11 +131,22 @@ pub enum Value {
     Actor(Actor),
 }
 
-/// Actor instance, as a "pointer."
-///s
-/// To do -- handle canister ID case, where there is no Motoko-level identifier.
+/// Actor value.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Actor(pub Id);
+pub struct Actor {
+    /// Provides the public interface for message sends (for sanity checks, warnings).
+    pub def: ActorDef,
+    /// Provides the operational target of message sends.
+    pub id: ActorId,
+}
+
+/// Actor identifier (key part of an actor value).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ActorId {
+    /// Actor is identified by a local name in the Agent program that creates it.
+    Local(Id),
+    // to do -- case: canister ID and canister alias pair from dfx.json.
+}
 
 // #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 // pub struct DynamicValue(); // to do --

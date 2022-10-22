@@ -9,7 +9,7 @@ use crate::value::{
     FastRandIterFunction, HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
-    def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Function as FunctionDef},
+    def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, Counts,
     DebugPrintLine, Env, Interruption, Limit, Limits, Pointer, ScheduleChoice, Stack, Step, NYI,
@@ -36,6 +36,12 @@ impl Def {
 impl crate::vm_types::def::Field {
     pub fn source(&self) -> Source {
         self.def.source()
+    }
+}
+
+impl CtxId {
+    pub fn get_field<'a, A: ActiveBorrow>(&self, a: &'a A, id: &Id) -> Option<&'a FieldDef> {
+        a.defs().map.get(self).unwrap().fields.get(id)
     }
 }
 
@@ -372,6 +378,7 @@ impl Limits {
             breakpoints: vec![],
             step: None,
             redex: None,
+            send: None,
         }
     }
     /// Set step limit.
@@ -411,6 +418,11 @@ mod def {
                     let f = FunctionDef {
                         context: active.defs().active_ctx.clone(),
                         function: f.clone(),
+                        rec_value: Value::Function(ClosedFunction(Closed {
+                            env: HashMap::new(),
+                            content: f.clone(),
+                        }))
+                        .share(),
                     };
                     active.defs().insert_field(
                         &name.0,
@@ -799,6 +811,34 @@ fn call_hashmap_function<A: Active>(
         Put => collection::hashmap::put(active, args),
         Get => collection::hashmap::get(active, args),
         Remove => collection::hashmap::remove(active, args),
+    }
+}
+
+fn call_function_def<A: Active>(
+    active: &mut A,
+    fndef: &FunctionDef,
+    _targs: Option<Inst>,
+    args: Value_,
+) -> Result<Step, Interruption> {
+    if let Some(env_) = pattern_matches(HashMap::new(), &fndef.function.input.0, args) {
+        let source = active.cont_source().clone();
+        let env_saved = active.env().fast_clone();
+        *active.env() = env_;
+        fndef.function.name.fast_clone().map(|f| {
+            active
+                .env()
+                .insert(f.0.clone(), fndef.rec_value.fast_clone())
+        });
+        *active.cont() = Cont::Exp_(fndef.function.exp.fast_clone(), Vector::new());
+        active.stack().push_front(Frame {
+            source,
+            env: env_saved,
+            cont: FrameCont::Call3,
+            cont_prim_type: None, /* to do */
+        }); // to match with Return, if any.
+        Ok(Step {})
+    } else {
+        Err(Interruption::TypeMismatch)
     }
 }
 
@@ -1354,6 +1394,7 @@ fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, 
         use FrameCont::*;
         let frame = active.stack().front().unwrap();
         let r = match &frame.cont {
+            Respond(_) => true,
             UnOp(_) => true,
             RelOp1(_, _) => false,
             RelOp2(_, _) => true,
@@ -1461,6 +1502,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
     *active.cont_source() = frame.source;
     match frame.cont {
         ForOpaqueIter(..) => unreachable!(),
+        Respond(..) => nyi!(line!()),
         UnOp(un) => {
             *active.cont() = cont_value(unop(un, v)?);
             Ok(Step {})
@@ -1892,7 +1934,8 @@ fn active_step<A: Active>(active: &mut A, limits: &Limits) -> Result<Step, Inter
 fn active_trace<A: ActiveBorrow>(active: &A) {
     use log::trace;
     trace!(
-        "# step {} (redex {})",
+        "# {:?} step {} (redex {})",
+        active.schedule_choice(),
         active.counts().step,
         active.counts().redex
     );
@@ -2079,6 +2122,48 @@ impl Core {
         active_step(self, limits)
     }
 
+    fn check_for_send_limit(&self, limits: &Limits) -> bool {
+        if let Some(s) = limits.send {
+            self.counts().send >= s
+        } else {
+            false
+        }
+    }
+
+    fn send(
+        &mut self,
+        limits: &Limits,
+        am: ActorMethod,
+        inst: Option<Inst>,
+        v: Value_,
+    ) -> Result<Step, Interruption> {
+        if self.check_for_send_limit(limits) {
+            return Err(Interruption::Limit(Limit::Send));
+        };
+        self.counts()
+            .send
+            .checked_add(1)
+            .expect("Cannot count sends.");
+        let resp_target = self.schedule_choice.clone();
+        self.schedule_choice = ScheduleChoice::Actor(am.actor.clone());
+        let actor = self.actors.map.get(&am.actor).unwrap();
+        let f = match actor.def.fields.get_field(self, &am.method).map(|f| &f.def) {
+            Some(&Def::Func(ref f)) => f.clone(),
+            _ => return nyi!(line!()),
+        };
+        let actor = self.actors.map.get_mut(&am.actor).unwrap();
+        assert!(actor.active.is_none());
+        let mut activation = Activation::new();
+        activation.stack.push_front(Frame {
+            source: Source::Evaluation,
+            cont_prim_type: None,
+            env: HashMap::new(),
+            cont: FrameCont::Respond(resp_target),
+        });
+        actor.active = Some(activation);
+        call_function_def(self, &f, inst, v)
+    }
+
     /// Run multiple steps of VM, with given limits.
     /// `Ok(value)` means that the Agent is idle.
     pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
@@ -2086,7 +2171,9 @@ impl Core {
             match self.step(limits) {
                 Ok(_step) => {}
                 Err(Interruption::Done(v)) => return Ok(v),
-                Err(Interruption::Send(_am, _, _v)) => return nyi!(line!()),
+                Err(Interruption::Send(am, inst, v)) => {
+                    self.send(limits, am, inst, v)?;
+                }
                 Err(other_interruption) => return Err(other_interruption),
             }
         }

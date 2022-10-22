@@ -74,6 +74,7 @@ pub mod def {
     pub struct Function {
         pub context: CtxId,
         pub function: crate::ast::Function,
+        pub rec_value: crate::value::Value_,
     }
 }
 
@@ -114,7 +115,7 @@ pub enum Cont {
 }
 
 pub mod stack {
-    use super::{Cont, Env, Pointer, Vector};
+    use super::{Cont, Env, Pointer, RespTarget, Vector};
     use crate::ast::{
         BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, RelOp, Source, Type_,
         UnOp,
@@ -175,6 +176,7 @@ pub mod stack {
         Call2(Value_, Option<Inst>), // `Value_` necessary to prevent `Function` / `PrimFunction` clone
         Call3,
         Return,
+        Respond(RespTarget),
     }
     impl FrameCont {
         pub fn formal(&self) -> Option<FormalFrameCont> {
@@ -321,10 +323,10 @@ impl Store {
 pub struct Counts {
     pub step: usize,
     pub redex: usize,
+    pub send: usize,
     /*
     pub call: usize,
     pub alloc: usize,
-    pub send: usize,
      */
 }
 
@@ -501,11 +503,11 @@ pub struct Limits {
 
     pub step: Option<usize>,
     pub redex: Option<usize>,
+    pub send: Option<usize>,
     /*
     pub stack: Option<usize>,
     pub call: Option<usize>,
     pub alloc: Option<usize>,
-    pub send: Option<usize>,
      */
 }
 
@@ -513,6 +515,7 @@ pub struct Limits {
 pub enum Limit {
     Step,
     Redex,
+    Send,
 }
 
 // to do Q -- how much detail to provide about stepping?
@@ -523,12 +526,22 @@ pub struct Step {
     // - log of kind of steps (expression kinds)?
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Response {
+    target: RespTarget,
+    /* to do -- RespId */
+    value: Value_,
+}
+
+pub type RespTarget = ScheduleChoice;
+
 // interruptions are events that prevent steppping from progressing.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "interruption_type", content = "value")]
 pub enum Interruption {
     Done(Value_),
     Send(ActorMethod, Option<Inst>, Value_),
+    Response(Response),
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     TypeMismatch,

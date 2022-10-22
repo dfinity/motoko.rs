@@ -466,6 +466,7 @@ pub trait Active: ActiveBorrow {
     }
 
     fn create(&mut self, name: Option<Id>, actor: def::Actor) -> Result<Value_, Interruption>;
+    fn upgrade(&mut self, name: Option<Id>, actor: def::Actor) -> Result<Value_, Interruption>;
 }
 
 /// Non-exclusive read access to the "active" components of the VM.

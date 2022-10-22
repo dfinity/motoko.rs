@@ -280,7 +280,6 @@ fn actor_counter_inc_twice() {
     assert_(p, "#ok");
 }
 
-#[ignore]
 #[test]
 fn actor_upgrade_demo_with_counter_inc() {
     let p = "actor Counter = {

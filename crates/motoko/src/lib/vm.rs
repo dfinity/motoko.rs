@@ -104,6 +104,31 @@ impl Defs {
             Ok(())
         }
     }
+    fn reinsert_field(
+        &mut self,
+        i: &Id,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        def: Def,
+    ) -> Result<(), Interruption> {
+        let a = self.active_ctx.clone();
+        let y = self.map.get_mut(&a).unwrap().fields.insert(
+            i.clone(),
+            crate::vm_types::def::Field {
+                source,
+                stab,
+                vis,
+                def,
+            },
+        );
+        if let Some(_) = y {
+            Ok(())
+        } else {
+            unreachable!()
+        }
+    }
+
     fn leave_context(&mut self, sanity_check_active: &CtxId) {
         assert_eq!(&self.active_ctx, sanity_check_active);
         self.active_ctx = self
@@ -248,7 +273,9 @@ impl Active for Core {
                             Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
                         );
                     }
-                    Def::Func(..) => {}
+                    Def::Func(..) => {
+                        // to do
+                    }
                     _ => todo!(),
                 }
             }
@@ -264,6 +291,63 @@ impl Active for Core {
             if let Some(_a0) = a0 {
                 todo!("upgrade")
             };
+            Ok(v.share())
+        } else {
+            todo!()
+        }
+    }
+
+    fn upgrade(&mut self, name: Option<Id>, def: ActorDef) -> Result<Value_, Interruption> {
+        if let Some(ref name) = name {
+            let v = Value::Actor(crate::value::Actor {
+                def: Some(def.clone()),
+                id: ActorId::Local(name.clone()),
+            });
+            let mut env = HashMap::new();
+            let mut store = self
+                .actors
+                .map
+                .get(&ActorId::Local(name.clone()))
+                .unwrap()
+                .store
+                .clone();
+            let counts = self
+                .actors
+                .map
+                .get(&ActorId::Local(name.clone()))
+                .unwrap()
+                .counts
+                .clone();
+            let ctx = self.defs().map.get(&def.fields).unwrap();
+            for (i, field) in ctx.fields.iter() {
+                match &field.def {
+                    Def::Var(v) => {
+                        if let None = store.get(&Pointer::Named(NamedPointer(i.clone()))) {
+                            store.alloc_named(i.clone(), v.fast_clone());
+                        } else {
+                            // keep store's current value.
+                            // (even if not stable.)
+                        }
+                        env.insert(
+                            i.clone(),
+                            Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
+                        );
+                    }
+                    Def::Func(..) => {
+                        // to do
+                    }
+                    _ => todo!(),
+                }
+            }
+            let a = Actor {
+                def,
+                env,
+                store,
+                counts,
+                active: None,
+                awaiting: HashMap::new(),
+            };
+            self.actors.map.insert(ActorId::Local(name.clone()), a);
             Ok(v.share())
         } else {
             todo!()
@@ -490,6 +574,34 @@ mod def {
             }
         }
         active.create(id.as_ref().map(|i| i.0.clone()), actor)
+    }
+
+    pub fn actor_upgrade<A: Active>(
+        active: &mut A,
+        id: &Option<Id_>,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        dfs: &DecFields,
+        _old_def: &ActorDef,
+    ) -> Result<Value_, Interruption> {
+        let fields = active.defs().enter_context();
+        for df in dfs.vec.iter() {
+            insert_field(active, &df.1, &df.0)?;
+        }
+        active.defs().leave_context(&fields);
+        let actor = crate::vm_types::def::Actor { fields };
+        match id {
+            None => {
+                unreachable!()
+            }
+            Some(x) => {
+                active
+                    .defs()
+                    .reinsert_field(&x.0, source, vis, stab, Def::Actor(actor.clone()))?
+            }
+        }
+        active.upgrade(id.as_ref().map(|i| i.0.clone()), actor)
     }
 }
 
@@ -2054,7 +2166,32 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         }
                     }
                     Dec::LetActor(i, _, dfs) => {
-                        let v = def::actor(active, i, dec_.1.clone(), None, None, dfs)?;
+                        let v = match i {
+                            /* Are we upgrading a local Actor? */
+                            None => def::actor(active, i, dec_.1.clone(), None, None, dfs)?,
+                            Some(local_name) => {
+                                let ctx_id = active.defs().active_ctx.clone();
+                                let old_def =
+                                    ctx_id.get_field(active, &local_name.0).map(|x| x.clone());
+
+                                match old_def {
+                                    None => def::actor(active, i, dec_.1.clone(), None, None, dfs)?,
+                                    Some(FieldDef {
+                                        def: Def::Actor(old_def),
+                                        ..
+                                    }) => def::actor_upgrade(
+                                        active,
+                                        i,
+                                        dec_.1.clone(),
+                                        None,
+                                        None,
+                                        dfs,
+                                        &old_def,
+                                    )?,
+                                    _ => unreachable!(),
+                                }
+                            }
+                        };
                         match i {
                             None => (),
                             Some(i) => {

@@ -849,9 +849,7 @@ fn call_cont<A: Active>(
                     *active.cont() = Cont::Value_(result);
                     Ok(Step {})
                 }
-                Value::ActorMethod(_am) => {
-                    nyi!(line!())
-                }
+                Value::ActorMethod(am) => Err(Interruption::Send(am.clone(), inst, args_value)),
                 _ => Err(Interruption::TypeMismatch),
             }
         }
@@ -2088,6 +2086,7 @@ impl Core {
             match self.step(limits) {
                 Ok(_step) => {}
                 Err(Interruption::Done(v)) => return Ok(v),
+                Err(Interruption::Send(_am, _, _v)) => return nyi!(line!()),
                 Err(other_interruption) => return Err(other_interruption),
             }
         }

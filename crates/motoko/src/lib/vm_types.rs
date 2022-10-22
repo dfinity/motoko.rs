@@ -2,11 +2,11 @@ use im_rc::{HashMap, Vector};
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::ast::Mut;
+use crate::ast::{Inst, Mut};
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
 use crate::shared::FastClone;
-use crate::value::{ActorId, ValueError};
+use crate::value::{ActorId, ActorMethod, ValueError};
 use crate::{
     ast::{Dec_, Exp_, Id, Id_, PrimType, Source, Span},
     value::Value_,
@@ -528,6 +528,7 @@ pub struct Step {
 #[serde(tag = "interruption_type", content = "value")]
 pub enum Interruption {
     Done(Value_),
+    Send(ActorMethod, Option<Inst>, Value_),
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     TypeMismatch,

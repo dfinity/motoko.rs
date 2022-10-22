@@ -394,6 +394,7 @@ impl Activation {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actor {
     pub def: def::Actor,
+    pub env: Env,
     pub store: Store,
     pub counts: Counts,
     pub active: Option<Activation>,

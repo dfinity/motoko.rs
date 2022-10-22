@@ -12,7 +12,8 @@ use crate::vm_types::{
     def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, Counts,
-    DebugPrintLine, Env, Interruption, Limit, Limits, Pointer, ScheduleChoice, Stack, Step, NYI,
+    DebugPrintLine, Env, Interruption, Limit, Limits, NamedPointer, Pointer, ScheduleChoice, Stack,
+    Step, NYI,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -235,11 +236,16 @@ impl Active for Core {
             });
             //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
             let mut store = Store::new();
+            let mut env = HashMap::new();
             let ctx = self.defs().map.get(&def.fields).unwrap();
             for (i, field) in ctx.fields.iter() {
                 match &field.def {
                     Def::Var(v) => {
                         store.alloc_named(i.clone(), v.fast_clone());
+                        env.insert(
+                            i.clone(),
+                            Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
+                        );
                     }
                     Def::Func(..) => {}
                     _ => todo!(),
@@ -247,6 +253,7 @@ impl Active for Core {
             }
             let a = Actor {
                 def,
+                env,
                 store,
                 counts: Counts::default(),
                 active: None,
@@ -816,11 +823,12 @@ fn call_hashmap_function<A: Active>(
 
 fn call_function_def<A: Active>(
     active: &mut A,
+    actor_env: Env,
     fndef: &FunctionDef,
     _targs: Option<Inst>,
     args: Value_,
 ) -> Result<Step, Interruption> {
-    if let Some(env_) = pattern_matches(HashMap::new(), &fndef.function.input.0, args) {
+    if let Some(env_) = pattern_matches(actor_env, &fndef.function.input.0, args) {
         let source = active.cont_source().clone();
         let env_saved = active.env().fast_clone();
         *active.env() = env_;
@@ -2147,6 +2155,7 @@ impl Core {
         let resp_target = self.schedule_choice.clone();
         self.schedule_choice = ScheduleChoice::Actor(am.actor.clone());
         let actor = self.actors.map.get(&am.actor).unwrap();
+        let actor_env = actor.env.fast_clone();
         let f = match actor.def.fields.get_field(self, &am.method).map(|f| &f.def) {
             Some(&Def::Func(ref f)) => f.clone(),
             _ => return nyi!(line!()),
@@ -2157,11 +2166,11 @@ impl Core {
         activation.stack.push_front(Frame {
             source: Source::Evaluation,
             cont_prim_type: None,
-            env: HashMap::new(),
+            env: actor.env.fast_clone(),
             cont: FrameCont::Respond(resp_target),
         });
         actor.active = Some(activation);
-        call_function_def(self, &f, inst, v)
+        call_function_def(self, actor_env, &f, inst, v)
     }
 
     /// Run multiple steps of VM, with given limits.

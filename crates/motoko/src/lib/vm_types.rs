@@ -6,7 +6,7 @@ use crate::ast::Mut;
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError;
 use crate::shared::FastClone;
-use crate::value::ValueError;
+use crate::value::{ActorId, ValueError};
 use crate::{
     ast::{Dec_, Exp_, Id, Id_, PrimType, Source, Span},
     value::Value_,
@@ -425,14 +425,14 @@ pub struct Core {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ScheduleChoice {
     Agent,
-    Actor(Id),
+    Actor(ActorId),
 }
 
 /// The Actors in a Core system.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actors {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
-    pub map: HashMap<Id, Actor>,
+    pub map: HashMap<ActorId, Actor>,
 }
 
 /// A line of output emitted by prim "debugPrint".

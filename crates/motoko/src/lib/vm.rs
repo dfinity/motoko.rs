@@ -246,7 +246,7 @@ impl Active for Core {
                 active: None,
                 awaiting: HashMap::new(),
             };
-            let a0 = self.actors.map.insert(name.clone(), a);
+            let a0 = self.actors.map.insert(ActorId::Local(name.clone()), a);
             if let Some(_a0) = a0 {
                 todo!("upgrade")
             };

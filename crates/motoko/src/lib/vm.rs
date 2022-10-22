@@ -5,8 +5,8 @@ use crate::ast::{
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
 use crate::value::{
-    ActorId, Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
-    HashMapFunction, PrimFunction, Value, ValueError, Value_,
+    ActorId, ActorMethod, Closed, ClosedFunction, CollectionFunction, FastRandIter,
+    FastRandIterFunction, HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
     def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Function as FunctionDef},
@@ -224,7 +224,7 @@ impl Active for Core {
     fn create(&mut self, name: Option<Id>, def: ActorDef) -> Result<Value_, Interruption> {
         if let Some(ref name) = name {
             let v = Value::Actor(crate::value::Actor {
-                def: def.clone(),
+                def: Some(def.clone()),
                 id: ActorId::Local(name.clone()),
             });
             //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
@@ -848,6 +848,9 @@ fn call_cont<A: Active>(
                             .call(active.store(), &inst, args_value.fast_clone())?;
                     *active.cont() = Cont::Value_(result);
                     Ok(Step {})
+                }
+                Value::ActorMethod(_am) => {
+                    nyi!(line!())
                 }
                 _ => Err(Interruption::TypeMismatch),
             }
@@ -1679,12 +1682,21 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 *active.cont() = Cont::Value_(f);
                 Ok(Step {})
             }
-            Value::Actor(_n) => {
+            Value::Actor(a) => {
                 // to do -- get defs from actor n
                 // look up definition for f
-                // is it a function?  If no, type mismatch.
-                // Run the function by setting contination.
-                todo!()
+                // is it a public function?
+                // if not public, give error.
+                // if not available, type mismatch.
+                *active.cont() = Cont::Value_(
+                    Value::ActorMethod(ActorMethod {
+                        actor: a.id.clone(),
+                        method: f.0.clone(),
+                    })
+                    .share(),
+                );
+                // do projection, representing function with special value.
+                Ok(Step {})
             }
             _ => Err(Interruption::TypeMismatch),
         },

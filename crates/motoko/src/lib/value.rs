@@ -129,13 +129,14 @@ pub enum Value {
     Dynamic(DynamicValue),
     // DynamicRef(DynamicRef),
     Actor(Actor),
+    ActorMethod(ActorMethod),
 }
 
 /// Actor value.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Actor {
     /// Provides the public interface for message sends (for sanity checks, warnings).
-    pub def: ActorDef,
+    pub def: Option<ActorDef>,
     /// Provides the operational target of message sends.
     pub id: ActorId,
 }
@@ -146,6 +147,13 @@ pub enum ActorId {
     /// Actor is identified by a local name in the Agent program that creates it.
     Local(Id),
     // to do -- case: canister ID and canister alias pair from dfx.json.
+}
+
+/// Actor method value.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ActorMethod {
+    pub actor: ActorId,
+    pub method: Id,
 }
 
 // #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -489,6 +497,7 @@ impl Value {
             }
             Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
             Value::Actor(_) => Err(ValueError::ToRust("Actor".to_string()))?,
+            Value::ActorMethod(_) => Err(ValueError::ToRust("ActorMethod".to_string()))?,
             Value::Opaque(_) => Err(ValueError::ToRust("Opaque".to_string()))?,
             Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,

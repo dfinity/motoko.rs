@@ -1,17 +1,19 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, RelOp,
-    Source, ToId, Type, UnOp,
+    BinOp, Cases, Dec, Dec_, Exp, Exp_, Id, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog,
+    RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
 use crate::value::{
-    Closed, ClosedFunction, CollectionFunction, FastRandIter, FastRandIterFunction,
-    HashMapFunction, PrimFunction, Value, ValueError, Value_,
+    ActorId, ActorMethod, Closed, ClosedFunction, CollectionFunction, FastRandIter,
+    FastRandIterFunction, HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
+    def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Active, ActiveBorrow, Agent, Breakpoint, Cont, Counts, Env, Error, Interruption, Limit, Limits,
-    Pointer, Signal, Step, NYI,
+    Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, Counts,
+    DebugPrintLine, Env, Interruption, Limit, Limits, NamedPointer, Pointer, Response,
+    ScheduleChoice, Stack, Step, NYI,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -26,6 +28,437 @@ impl From<()> for Interruption {
     }
 }
 
+impl Def {
+    pub fn source(&self) -> Source {
+        // to do
+        Source::Evaluation
+    }
+}
+
+impl crate::vm_types::def::Field {
+    pub fn source(&self) -> Source {
+        self.def.source()
+    }
+}
+
+impl CtxId {
+    pub fn get_field<'a, A: ActiveBorrow>(&self, a: &'a A, id: &Id) -> Option<&'a FieldDef> {
+        a.defs().map.get(self).unwrap().fields.get(id)
+    }
+}
+
+impl Defs {
+    fn new() -> Self {
+        let mut map = HashMap::new();
+        let root = Ctx {
+            parent: None,
+            fields: HashMap::new(),
+        };
+        map.insert(CtxId(0), root);
+        Defs {
+            map,
+            active_ctx: CtxId(0),
+            next_ctx_id: 1,
+        }
+    }
+    fn enter_context(&mut self) -> CtxId {
+        let x = self.next_ctx_id;
+        self.next_ctx_id
+            .checked_add(1)
+            .expect("Out of def-context ids.");
+        let ctx = Ctx {
+            parent: Some(self.active_ctx.clone()),
+            fields: HashMap::new(),
+        };
+        self.map.insert(CtxId(x), ctx);
+        self.active_ctx = CtxId(x);
+        CtxId(x)
+    }
+    fn insert_field(
+        &mut self,
+        i: &Id,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        def: Def,
+    ) -> Result<(), Interruption> {
+        let s = source.clone();
+        let a = self.active_ctx.clone();
+        let y = self.map.get_mut(&a).unwrap().fields.insert(
+            i.clone(),
+            crate::vm_types::def::Field {
+                source,
+                stab,
+                vis,
+                def,
+            },
+        );
+        if let Some(y) = y {
+            // to do -- both source infos for the error.
+            Err(Interruption::AmbiguousIdentifer(
+                i.clone(),
+                s,
+                y.source().clone(),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+    fn reinsert_field(
+        &mut self,
+        i: &Id,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        def: Def,
+    ) -> Result<(), Interruption> {
+        let a = self.active_ctx.clone();
+        let y = self.map.get_mut(&a).unwrap().fields.insert(
+            i.clone(),
+            crate::vm_types::def::Field {
+                source,
+                stab,
+                vis,
+                def,
+            },
+        );
+        if let Some(_) = y {
+            Ok(())
+        } else {
+            unreachable!()
+        }
+    }
+
+    fn leave_context(&mut self, sanity_check_active: &CtxId) {
+        assert_eq!(&self.active_ctx, sanity_check_active);
+        self.active_ctx = self
+            .map
+            .get(&self.active_ctx)
+            .expect("leave context")
+            .parent
+            .as_ref()
+            .expect("parent context")
+            .clone();
+    }
+}
+
+impl Active for Core {
+    fn ctx_id<'a>(&'a mut self) -> &'a mut CtxId {
+        &mut self.defs.active_ctx
+    }
+    fn defs<'a>(&'a mut self) -> &'a mut Defs {
+        &mut self.defs
+    }
+    //fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
+    //&self.schedule_choice
+    //}
+    fn cont<'a>(&'a mut self) -> &'a mut Cont {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont
+            }
+        }
+    }
+    fn cont_source<'a>(&'a mut self) -> &'a mut Source {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont_source,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont_source
+            }
+        }
+    }
+    fn cont_prim_type<'a>(&'a mut self) -> &'a mut Option<PrimType> {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.cont_prim_type,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .cont_prim_type
+            }
+        }
+    }
+    fn env<'a>(&'a mut self) -> &'a mut Env {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.env,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .env
+            }
+        }
+    }
+    fn stack<'a>(&'a mut self) -> &'a mut Stack {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.stack,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .stack
+            }
+        }
+    }
+    fn store<'a>(&'a mut self) -> &'a mut Store {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.store,
+            Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().store,
+        }
+    }
+    fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<DebugPrintLine> {
+        &mut self.debug_print_out
+    }
+    fn counts<'a>(&'a mut self) -> &'a mut Counts {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.counts,
+            Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().counts,
+        }
+    }
+    fn create(&mut self, name: Option<Id>, def: ActorDef) -> Result<Value_, Interruption> {
+        if let Some(ref name) = name {
+            let v = Value::Actor(crate::value::Actor {
+                def: Some(def.clone()),
+                id: ActorId::Local(name.clone()),
+            });
+            //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
+            let mut store = Store::new();
+            let mut env = HashMap::new();
+            let ctx = self.defs().map.get(&def.fields).unwrap();
+            for (i, field) in ctx.fields.iter() {
+                match &field.def {
+                    Def::Var(v) => {
+                        store.alloc_named(i.clone(), v.fast_clone());
+                        env.insert(
+                            i.clone(),
+                            Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
+                        );
+                    }
+                    Def::Func(..) => {
+                        // to do
+                    }
+                    _ => todo!(),
+                }
+            }
+            let a = Actor {
+                def,
+                env,
+                store,
+                counts: Counts::default(),
+                active: None,
+                awaiting: HashMap::new(),
+            };
+            let a0 = self.actors.map.insert(ActorId::Local(name.clone()), a);
+            if let Some(_a0) = a0 {
+                todo!("upgrade")
+            };
+            Ok(v.share())
+        } else {
+            todo!()
+        }
+    }
+
+    fn upgrade(&mut self, name: Option<Id>, def: ActorDef) -> Result<Value_, Interruption> {
+        if let Some(ref name) = name {
+            let v = Value::Actor(crate::value::Actor {
+                def: Some(def.clone()),
+                id: ActorId::Local(name.clone()),
+            });
+            let mut env = HashMap::new();
+            let mut store = self
+                .actors
+                .map
+                .get(&ActorId::Local(name.clone()))
+                .unwrap()
+                .store
+                .clone();
+            let counts = self
+                .actors
+                .map
+                .get(&ActorId::Local(name.clone()))
+                .unwrap()
+                .counts
+                .clone();
+            let ctx = self.defs().map.get(&def.fields).unwrap();
+            for (i, field) in ctx.fields.iter() {
+                match &field.def {
+                    Def::Var(v) => {
+                        if let None = store.get(&Pointer::Named(NamedPointer(i.clone()))) {
+                            store.alloc_named(i.clone(), v.fast_clone());
+                        } else {
+                            // keep store's current value.
+                            // (even if not stable.)
+                        }
+                        env.insert(
+                            i.clone(),
+                            Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
+                        );
+                    }
+                    Def::Func(..) => {
+                        // to do
+                    }
+                    _ => todo!(),
+                }
+            }
+            let a = Actor {
+                def,
+                env,
+                store,
+                counts,
+                active: None,
+                awaiting: HashMap::new(),
+            };
+            self.actors.map.insert(ActorId::Local(name.clone()), a);
+            Ok(v.share())
+        } else {
+            todo!()
+        }
+    }
+}
+
+impl ActiveBorrow for Core {
+    fn ctx_id<'a>(&'a self) -> &'a CtxId {
+        &self.defs.active_ctx
+    }
+    fn defs<'a>(&'a self) -> &'a Defs {
+        &self.defs
+    }
+    fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
+        &self.schedule_choice
+    }
+    fn cont<'a>(&'a self) -> &'a Cont {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.cont,
+            Actor(ref n) => {
+                &self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont
+            }
+        }
+    }
+    fn cont_source<'a>(&'a self) -> &'a Source {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.cont_source,
+            Actor(ref n) => {
+                &self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont_source
+            }
+        }
+    }
+    fn cont_prim_type<'a>(&'a self) -> &'a Option<PrimType> {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.cont_prim_type,
+            Actor(ref n) => {
+                &self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .cont_prim_type
+            }
+        }
+    }
+    fn env<'a>(&'a self) -> &'a Env {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.env,
+            Actor(ref n) => &self.actors.map.get(n).unwrap().active.as_ref().unwrap().env,
+        }
+    }
+    fn stack<'a>(&'a self) -> &'a Stack {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.active.stack,
+            Actor(ref n) => {
+                &self
+                    .actors
+                    .map
+                    .get(n)
+                    .unwrap()
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .stack
+            }
+        }
+    }
+    fn store<'a>(&'a self) -> &'a Store {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.store,
+            Actor(ref n) => &self.actors.map.get(n).unwrap().store,
+        }
+    }
+    fn debug_print_out<'a>(&'a self) -> &'a Vector<DebugPrintLine> {
+        &self.debug_print_out
+    }
+    fn counts<'a>(&'a self) -> &'a Counts {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &self.agent.counts,
+            Actor(ref n) => &self.actors.map.get(n).unwrap().counts,
+        }
+    }
+}
+
 impl Limits {
     pub fn default() -> Self {
         Self::none()
@@ -37,6 +470,7 @@ impl Limits {
             breakpoints: vec![],
             step: None,
             redex: None,
+            send: None,
         }
     }
     /// Set step limit.
@@ -60,18 +494,126 @@ macro_rules! nyi {
     };
 }
 
-fn agent_init(prog: Prog) -> Agent {
-    let cont_prim_type: Option<PrimType> = None;
-    Agent {
-        store: Store::new(),
-        stack: Vector::new(),
-        env: HashMap::new(),
-        cont: Cont::Decs(prog.vec),
-        cont_source: Source::CoreInit, // special source -- or get the "full span" (but then what line or column number would be helpful here?  line 1 column 0?)
-        cont_prim_type,
-        debug_print_out: Vector::new(),
-        counts: Counts::default(),
+mod def {
+    use super::*;
+    use crate::ast::{DecField, DecFields};
+
+    fn insert_field<A: Active>(
+        active: &mut A,
+        source: &Source,
+        df: &DecField,
+    ) -> Result<(), Interruption> {
+        println!("{:?} -- {:?} ", source, df);
+        match &df.dec.0 {
+            Dec::Func(f) => {
+                if let Some(name) = f.name.clone() {
+                    let f = FunctionDef {
+                        context: active.defs().active_ctx.clone(),
+                        function: f.clone(),
+                        rec_value: Value::Function(ClosedFunction(Closed {
+                            env: HashMap::new(),
+                            content: f.clone(),
+                        }))
+                        .share(),
+                    };
+                    active.defs().insert_field(
+                        &name.0,
+                        source.clone(),
+                        df.vis.clone(),
+                        df.stab.clone(),
+                        Def::Func(f),
+                    )?;
+                    Ok(())
+                } else {
+                    nyi!(line!())
+                }
+            }
+            Dec::Var(p, e) => {
+                let v = match &e.0 {
+                    Exp::Literal(l) => Value::from_literal(l)?,
+                    _ => return Err(Interruption::NonLiteralInit(e.1.clone())),
+                };
+                if let Pat::Var(ref x) = p.0 {
+                    active.defs().insert_field(
+                        &x.0,
+                        source.clone(),
+                        df.vis.clone(),
+                        df.stab.clone(),
+                        Def::Var(v.share()),
+                    )?;
+                    //Ok(Value::Pointer(Pointer::NamedPointer(x.0.clone())))
+                    Ok(())
+                } else {
+                    nyi!(line!())
+                }
+            }
+            _ => nyi!(line!()),
+        }
     }
+
+    pub fn actor<A: Active>(
+        active: &mut A,
+        id: &Option<Id_>,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        dfs: &DecFields,
+    ) -> Result<Value_, Interruption> {
+        let fields = active.defs().enter_context();
+        for df in dfs.vec.iter() {
+            insert_field(active, &df.1, &df.0)?;
+        }
+        active.defs().leave_context(&fields);
+        let actor = crate::vm_types::def::Actor { fields };
+        match id {
+            None => {}
+            Some(x) => {
+                active
+                    .defs()
+                    .insert_field(&x.0, source, vis, stab, Def::Actor(actor.clone()))?
+            }
+        }
+        active.create(id.as_ref().map(|i| i.0.clone()), actor)
+    }
+
+    pub fn actor_upgrade<A: Active>(
+        active: &mut A,
+        id: &Option<Id_>,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        dfs: &DecFields,
+        _old_def: &ActorDef,
+    ) -> Result<Value_, Interruption> {
+        let fields = active.defs().enter_context();
+        for df in dfs.vec.iter() {
+            insert_field(active, &df.1, &df.0)?;
+        }
+        active.defs().leave_context(&fields);
+        let actor = crate::vm_types::def::Actor { fields };
+        match id {
+            None => {
+                unreachable!()
+            }
+            Some(x) => {
+                active
+                    .defs()
+                    .reinsert_field(&x.0, source, vis, stab, Def::Actor(actor.clone()))?
+            }
+        }
+        active.upgrade(id.as_ref().map(|i| i.0.clone()), actor)
+    }
+}
+
+fn agent_init(prog: Prog) -> Agent {
+    let mut a = Agent {
+        store: Store::new(),
+        //debug_print_out: Vector::new(),
+        counts: Counts::default(),
+        active: Activation::new(),
+    };
+    a.active.cont = Cont::Decs(prog.vec);
+    a
 }
 
 fn unop(un: UnOp, v: Value_) -> Result<Value, Interruption> {
@@ -280,17 +822,35 @@ fn call_prim_function<A: Active>(
     match pf {
         DebugPrint => match &*args {
             Value::Text(s) => {
-                log::info!("DebugPrint: {}: {:?}", active.cont_source(), s);
-                active.debug_print_out().push_back(s.clone()); // TODO: store debug output as `Value_`?
+                let schedule_choice = active.schedule_choice().clone();
+                log::info!(
+                    "DebugPrint: {:?}, {}: {:?}",
+                    schedule_choice,
+                    active.cont_source(),
+                    s
+                );
+
+                active.debug_print_out().push_back(DebugPrintLine {
+                    text: s.clone(),
+                    schedule_choice,
+                });
                 *active.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
             v => {
                 let txt = string_from_value(v)?;
-                log::info!("DebugPrint: {}: {:?}", active.cont_source(), txt);
-                active
-                    .debug_print_out()
-                    .push_back(crate::value::Text::from(txt));
+                let schedule_choice = active.schedule_choice().clone();
+                log::info!(
+                    "DebugPrint: {:?}: {}: {:?}",
+                    schedule_choice,
+                    active.cont_source(),
+                    txt
+                );
+                let schedule_choice = active.schedule_choice().clone();
+                active.debug_print_out().push_back(DebugPrintLine {
+                    text: crate::value::Text::from(txt),
+                    schedule_choice,
+                });
                 *active.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
@@ -374,6 +934,35 @@ fn call_hashmap_function<A: Active>(
     }
 }
 
+fn call_function_def<A: Active>(
+    active: &mut A,
+    actor_env: Env,
+    fndef: &FunctionDef,
+    _targs: Option<Inst>,
+    args: Value_,
+) -> Result<Step, Interruption> {
+    if let Some(env_) = pattern_matches(actor_env, &fndef.function.input.0, args) {
+        let source = active.cont_source().clone();
+        let env_saved = active.env().fast_clone();
+        *active.env() = env_;
+        fndef.function.name.fast_clone().map(|f| {
+            active
+                .env()
+                .insert(f.0.clone(), fndef.rec_value.fast_clone())
+        });
+        *active.cont() = Cont::Exp_(fndef.function.exp.fast_clone(), Vector::new());
+        active.stack().push_front(Frame {
+            source,
+            env: env_saved,
+            cont: FrameCont::Call3,
+            cont_prim_type: None, /* to do */
+        }); // to match with Return, if any.
+        Ok(Step {})
+    } else {
+        Err(Interruption::TypeMismatch)
+    }
+}
+
 fn call_function<A: Active>(
     active: &mut A,
     value: Value_,
@@ -421,6 +1010,7 @@ fn call_cont<A: Active>(
                     *active.cont() = Cont::Value_(result);
                     Ok(Step {})
                 }
+                Value::ActorMethod(am) => Err(Interruption::Send(am.clone(), inst, args_value)),
                 _ => Err(Interruption::TypeMismatch),
             }
         }
@@ -609,7 +1199,9 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             })));
             Ok(Step {})
         }
-        Call(e1, inst, e2) => exp_conts(active, FrameCont::Call1(inst.clone(), e2.fast_clone()), e1),
+        Call(e1, inst, e2) => {
+            exp_conts(active, FrameCont::Call1(inst.clone(), e2.fast_clone()), e1)
+        }
         Return(None) => return_(active, Value::Unit.share()),
         Return(Some(e)) => exp_conts(active, FrameCont::Return, e),
         Var(x) => match active.env().get(x) {
@@ -619,9 +1211,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
                 Ok(Step {})
             }
         },
-        Bin(e1, binop, e2) => {
-            exp_conts(active, FrameCont::BinOp1(binop.clone(), e2.fast_clone()), e1)
-        }
+        Bin(e1, binop, e2) => exp_conts(
+            active,
+            FrameCont::BinOp1(binop.clone(), e2.fast_clone()),
+            e1,
+        ),
         Un(un, e) => exp_conts(active, FrameCont::UnOp(un.clone()), e),
         Paren(e) => exp_conts(active, FrameCont::Paren, e),
         Variant(id, None) => {
@@ -694,9 +1288,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Proj(e1, i) => exp_conts(active, FrameCont::Proj(*i), e1),
         Dot(e1, f) => exp_conts(active, FrameCont::Dot(f.fast_clone()), e1),
         If(e1, e2, e3) => exp_conts(active, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
-        Rel(e1, relop, e2) => {
-            exp_conts(active, FrameCont::RelOp1(relop.clone(), e2.fast_clone()), e1)
-        }
+        Rel(e1, relop, e2) => exp_conts(
+            active,
+            FrameCont::RelOp1(relop.clone(), e2.fast_clone()),
+            e1,
+        ),
         While(e1, e2) => exp_conts(
             active,
             FrameCont::While1(e1.fast_clone(), e2.fast_clone()),
@@ -912,16 +1508,14 @@ fn usize_from_biguint(n: &BigUint) -> Result<usize, Interruption> {
         .ok_or(Interruption::ValueError(ValueError::BigInt))
 }
 
-fn stack_cont_has_redex<A: ActiveBorrow>(
-    active: &A,
-    v: &Value,
-) -> Result<bool, Interruption> {
+fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, Interruption> {
     if active.stack().is_empty() {
         Ok(false)
     } else {
         use FrameCont::*;
         let frame = active.stack().front().unwrap();
         let r = match &frame.cont {
+            Respond(_) => true,
             UnOp(_) => true,
             RelOp1(_, _) => false,
             RelOp2(_, _) => true,
@@ -1029,6 +1623,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
     *active.cont_source() = frame.source;
     match frame.cont {
         ForOpaqueIter(..) => unreachable!(),
+        Respond(target) => Err(Interruption::Response(Response { target, value: v })),
         UnOp(un) => {
             *active.cont() = cont_value(unop(un, v)?);
             Ok(Step {})
@@ -1248,6 +1843,22 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 *active.cont() = Cont::Value_(f);
                 Ok(Step {})
             }
+            Value::Actor(a) => {
+                // to do -- get defs from actor n
+                // look up definition for f
+                // is it a public function?
+                // if not public, give error.
+                // if not available, type mismatch.
+                *active.cont() = Cont::Value_(
+                    Value::ActorMethod(ActorMethod {
+                        actor: a.id.clone(),
+                        method: f.0.clone(),
+                    })
+                    .share(),
+                );
+                // do projection, representing function with special value.
+                Ok(Step {})
+            }
             _ => Err(Interruption::TypeMismatch),
         },
         Debug => match &*v {
@@ -1409,10 +2020,7 @@ fn check_for_breakpoint<A: ActiveBorrow>(active: &A, limits: &Limits) -> Option<
     }
 }
 
-fn check_for_redex<A: ActiveBorrow>(
-    active: &A,
-    limits: &Limits,
-) -> Result<usize, Interruption> {
+fn check_for_redex<A: ActiveBorrow>(active: &A, limits: &Limits) -> Result<usize, Interruption> {
     let mut redex_bump = 0;
     if let Cont::Value_(ref v) = active.cont() {
         if stack_cont_has_redex(active, v)? {
@@ -1447,7 +2055,8 @@ fn active_step<A: Active>(active: &mut A, limits: &Limits) -> Result<Step, Inter
 fn active_trace<A: ActiveBorrow>(active: &A) {
     use log::trace;
     trace!(
-        "# step {} (redex {})",
+        "# {:?} step {} (redex {})",
+        active.schedule_choice(),
         active.counts().step,
         active.counts().redex
     );
@@ -1456,6 +2065,7 @@ fn active_trace<A: ActiveBorrow>(active: &A) {
     trace!("   - env = {:?}", active.env());
     trace!(" - stack = {:#?}", active.stack());
     trace!(" - store = {:#?}", active.store());
+    trace!(" - defs  = {:#?}", active.defs());
 }
 
 // To advance the active Motoko state by a single step, after all limits are checked.
@@ -1555,8 +2165,41 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                             exp_conts(active, FrameCont::Let(p.fast_clone(), Cont::Decs(decs)), e)
                         }
                     }
-                    Dec::LetActor(_i, _, _dfs) => {
-                        nyi!(line!())
+                    Dec::LetActor(i, _, dfs) => {
+                        let v = match i {
+                            /* Are we upgrading a local Actor? */
+                            None => def::actor(active, i, dec_.1.clone(), None, None, dfs)?,
+                            Some(local_name) => {
+                                let ctx_id = active.defs().active_ctx.clone();
+                                let old_def =
+                                    ctx_id.get_field(active, &local_name.0).map(|x| x.clone());
+
+                                match old_def {
+                                    None => def::actor(active, i, dec_.1.clone(), None, None, dfs)?,
+                                    Some(FieldDef {
+                                        def: Def::Actor(old_def),
+                                        ..
+                                    }) => def::actor_upgrade(
+                                        active,
+                                        i,
+                                        dec_.1.clone(),
+                                        None,
+                                        None,
+                                        dfs,
+                                        &old_def,
+                                    )?,
+                                    _ => unreachable!(),
+                                }
+                            }
+                        };
+                        match i {
+                            None => (),
+                            Some(i) => {
+                                active.env().insert(i.0.clone(), v);
+                            }
+                        };
+                        *active.cont() = Cont::Decs(decs);
+                        Ok(Step {})
                     }
                     Dec::LetModule(_i, _, _dfs) => {
                         nyi!(line!())
@@ -1592,49 +2235,150 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
     }
 }
 
-impl Agent {
-    /// New VM active for a given program.
+impl Core {
+    /// New VM for a given program.
     pub fn new(prog: Prog) -> Self {
-        agent_init(prog)
+        Core {
+            defs: Defs::new(),
+            schedule_choice: ScheduleChoice::Agent,
+            agent: agent_init(prog),
+            actors: Actors {
+                map: HashMap::new(),
+            },
+            next_resp_id: 0,
+            debug_print_out: Vector::new(),
+        }
     }
 
-    /// New VM agent without any program.
+    /// New VM without any program.
     pub fn empty() -> Self {
-        let mut agent = agent_init(crate::ast::Delim::new());
-        // agent.eval_(None, &Limits::none()).expect("empty");
-        agent.continue_(&Limits::none()).expect("empty");
-        agent
+        let mut c = Self::new(crate::ast::Delim::new());
+        c.run(&Limits::none()).expect("empty");
+        c
     }
 
-    /// New VM agent from a given program string, to be parsed during Agent construction.
+    /// New VM from a given program string, to be parsed as the Agent program.
     #[cfg(feature = "parser")]
     pub fn parse(s: &str) -> Result<Self, crate::parser_types::SyntaxError> {
-        Ok(agent_init(crate::check::parse(s)?))
+        Ok(Self::new(crate::check::parse(s)?))
     }
 
-    /// Step VM agent, under some limits.
+    /// Attempt a single-step of VM, under some limits.
     pub fn step(&mut self, limits: &Limits) -> Result<Step, Interruption> {
         active_step(self, limits)
     }
 
-    /// Evaluate a new program fragment, assuming agent is in a
-    /// well-defined "done" state.
-    pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
-        self.assert_idle().map_err(Interruption::EvalInitError)?;
-        self.cont = Cont::Decs(prog.vec);
-        self.continue_(&Limits::none())
+    fn check_for_send_limit(&self, limits: &Limits) -> bool {
+        if let Some(s) = limits.send {
+            self.counts().send >= s
+        } else {
+            false
+        }
     }
 
-    /// Evaluate a new program fragment, assuming agent is in a
-    /// well-defined "done" state.  The block may refer to variables
+    fn send(
+        &mut self,
+        limits: &Limits,
+        am: ActorMethod,
+        inst: Option<Inst>,
+        v: Value_,
+    ) -> Result<Step, Interruption> {
+        if self.check_for_send_limit(limits) {
+            return Err(Interruption::Limit(Limit::Send));
+        };
+        self.counts()
+            .send
+            .checked_add(1)
+            .expect("Cannot count sends.");
+        let resp_target = self.schedule_choice.clone();
+        self.schedule_choice = ScheduleChoice::Actor(am.actor.clone());
+        let actor = self.actors.map.get(&am.actor).unwrap();
+        let actor_env = actor.env.fast_clone();
+        let f = match actor.def.fields.get_field(self, &am.method).map(|f| &f.def) {
+            Some(&Def::Func(ref f)) => f.clone(),
+            _ => return nyi!(line!()),
+        };
+        let actor = self.actors.map.get_mut(&am.actor).unwrap();
+        assert!(actor.active.is_none());
+        let mut activation = Activation::new();
+        activation.stack.push_front(Frame {
+            source: Source::Evaluation,
+            cont_prim_type: None,
+            env: actor.env.fast_clone(),
+            cont: FrameCont::Respond(resp_target),
+        });
+        actor.active = Some(activation);
+        call_function_def(self, actor_env, &f, inst, v)
+    }
+
+    fn response(&mut self, _limits: &Limits, r: Response) -> Result<Step, Interruption> {
+        match self.schedule_choice {
+            ScheduleChoice::Actor(ref i) => {
+                let actor = self.actors.map.get_mut(i).unwrap();
+                actor.active = None;
+            }
+            _ => unreachable!(),
+        };
+        self.schedule_choice = r.target;
+        *self.cont() = Cont::Value_(r.value);
+        Ok(Step {})
+    }
+
+    /// Run multiple steps of VM, with given limits.
+    /// `Ok(value)` means that the Agent is idle.
+    pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
+        loop {
+            match self.step(limits) {
+                Ok(_step) => {}
+                Err(Interruption::Done(v)) => return Ok(v),
+                Err(Interruption::Send(am, inst, v)) => {
+                    self.send(limits, am, inst, v)?;
+                }
+                Err(Interruption::Response(r)) => {
+                    self.response(limits, r)?;
+                }
+                Err(other_interruption) => return Err(other_interruption),
+            }
+        }
+    }
+
+    /// Assert that the Agent is idle.
+    pub fn assert_idle_agent(&self) -> Result<(), EvalInitError> {
+        if self.schedule_choice != ScheduleChoice::Agent {
+            return Err(EvalInitError::AgentNotScheduled);
+        }
+        if !self.agent.active.stack.is_empty() {
+            return Err(EvalInitError::NonEmptyStack);
+        }
+        match self.agent.active.cont {
+            Cont::Value_(_) => {}
+            _ => return Err(EvalInitError::NonValueCont),
+        };
+        Ok(())
+    }
+
+    /// Evaluate a new program fragment, assuming agent is idle.
+    #[cfg(feature = "parser")]
+    pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value_, Interruption> {
+        self.assert_idle_agent()
+            .map_err(Interruption::EvalInitError)?;
+        let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
+        self.agent.active.cont = Cont::Decs(p.vec);
+        self.run(&Limits::none())
+    }
+
+    /// Evaluate a new program fragment, assuming agent is idle.
+    ///
+    /// The block may refer to variables
     /// bound as arguments, and then forgotten after evaluation.
     pub fn eval_open_block(
         &mut self,
         value_bindings: Vec<(&str, impl Into<Value_>)>,
         prog: Prog,
     ) -> Result<Value_, Interruption> {
-        let source = self.cont_source.clone(); // to do -- use prog source
-        self.assert_idle().map_err(Interruption::EvalInitError)?;
+        let source = self.agent.active.cont_source.clone(); // to do -- use prog source
+        self.assert_idle_agent()
+            .map_err(Interruption::EvalInitError)?;
         exp_conts_(
             self,
             source.clone(),
@@ -1643,65 +2387,29 @@ impl Agent {
             source,
         )?;
         for (x, v) in value_bindings.into_iter() {
-            let _ = self.env.insert(x.to_id(), v.into());
+            let _ = self.agent.active.env.insert(x.to_id(), v.into());
         }
-        self.continue_(&Limits::none())
+        self.run(&Limits::none())
     }
 
-    /// Evaluate a new program fragment, assuming agent is in a
-    /// well-defined "done" state.
-    #[cfg(feature = "parser")]
-    pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value_, Interruption> {
-        self.eval_(Some(new_prog_frag), &Limits::none())
-    }
-
-    pub fn assert_idle(&self) -> Result<(), EvalInitError> {
-        if !self.stack.is_empty() {
-            return Err(EvalInitError::NonEmptyStack);
-        }
-        match self.cont {
-            Cont::Value_(_) => {}
-            _ => return Err(EvalInitError::NonValueCont),
-        };
-        Ok(())
-    }
-
-    /// Continue evaluation, with given limits.
-    pub fn continue_(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
-        loop {
-            match self.step(limits) {
-                Ok(_step) => {}
-                Err(Interruption::Done(v)) => return Ok(v),
-                Err(other_interruption) => return Err(other_interruption),
-            }
-        }
-    }
-
-    /// Evaluate current continuation, or optionally a new program
-    /// fragment, assuming agent is in a well-defined "done" state.
-    #[cfg(feature = "parser")]
-    pub fn eval_(
-        &mut self,
-        new_prog_frag: Option<&str>,
-        limits: &Limits,
-    ) -> Result<Value_, Interruption> {
-        if let Some(new_prog_frag) = new_prog_frag {
-            self.assert_idle().map_err(Interruption::EvalInitError)?;
-            let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
-            self.cont = Cont::Decs(p.vec);
-        };
-        self.continue_(limits)
+    /// Evaluate a new program fragment, assuming agent is idle.
+    pub fn eval_prog(&mut self, prog: Prog) -> Result<Value_, Interruption> {
+        self.assert_idle_agent()
+            .map_err(Interruption::EvalInitError)?;
+        self.agent.active.cont = Cont::Decs(prog.vec);
+        self.run(&Limits::none())
     }
 
     #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
-        self.store.dealloc(pointer)
+        self.store().dealloc(pointer)
     }
 
+    // to do -- rename this to "define" or "bind" ("assign" connotes mutation).
     #[inline]
     pub fn assign(&mut self, id: impl ToId, value: impl Into<Value_>) {
         let value = value.into();
-        self.env.insert(id.to_id(), value);
+        self.env().insert(id.to_id(), value);
     }
 
     #[inline]
@@ -1709,16 +2417,6 @@ impl Agent {
         let pointer = self.alloc(value);
         self.assign(id, Value::Pointer(pointer.fast_clone()).share());
         pointer
-    }
-}
-
-fn agent_run(agent: &mut Agent, limits: &Limits) -> Result<Signal, Error> {
-    loop {
-        match active_step(agent, limits) {
-            Ok(_step) => {}
-            Err(Interruption::Done(v)) => return Ok(Signal::Done(v)),
-            Err(other_interruption) => return Ok(Signal::Interruption(other_interruption)),
-        }
     }
 }
 
@@ -1731,15 +2429,11 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
     use crate::vm_types::Interruption::SyntaxError;
     let p = crate::check::parse(prog).map_err(SyntaxError)?;
     info!("eval_limit: parsed.");
-    let mut a = Agent::new(p);
-    let s = agent_run(&mut a, limits).map_err(|_| ())?;
+    let mut c = Core::new(p);
+    let r = c.run(limits);
     use log::info;
-    info!("eval_limit: final signal: {:#?}", s);
-    use crate::vm_types::Signal::*;
-    match s {
-        Done(result) => Ok(result),
-        Interruption(i) => Err(i),
-    }
+    info!("eval_limit: result: {:#?}", r);
+    r
 }
 
 /// Used for tests in check module.

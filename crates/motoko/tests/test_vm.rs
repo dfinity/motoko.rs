@@ -259,15 +259,48 @@ fn actor() {
     assert_(p, p);
 }
 
-#[ignore]
 #[test]
-fn actor_counter_inc() {
-    let p = "actor Counter {
+fn actor_counter_inc_twice() {
+    let p = "let y = 999;
+             let x = 666;
+             actor Counter = {
                var x = 0;
                public func get() /*: async Nat*/ { x };
                public func inc() { x := x + 1 };
-             }";
-    assert_(p, p);
+             };
+             assert (Counter.get() == 0);
+             Counter.inc();
+             assert (Counter.get() == 1);
+             Counter.inc();
+             assert (Counter.get() == 2);
+             assert (y == 999);
+             assert (x == 666);
+             #ok
+";
+    assert_(p, "#ok");
+}
+
+#[test]
+fn actor_upgrade_demo_with_counter_inc() {
+    let p = "actor Counter = {
+               var x = 0;
+               public func get() /*: async Nat*/ { x };
+               public func inc() { x := x + 1 };
+             };
+             assert (Counter.get() == 0);
+             Counter.inc();
+             assert (Counter.get() == 1);
+             actor Counter {
+               var x = 0;
+               public func get() /*: async Nat*/ { x };
+               public func inc() { x := x + 2 };
+             };
+             assert (Counter.get() == 1);
+             Counter.inc();
+             assert (Counter.get() == 3);
+             #ok
+";
+    assert_(p, "#ok");
 }
 
 #[test]
@@ -452,11 +485,11 @@ f()
 }
 
 #[test]
-fn test_agent_eval() {
-    let mut agent = motoko::vm_types::Agent::empty();
-    agent.eval("var x = 1").expect("oops");
-    agent.eval("var y = x + 1").expect("oops");
-    let y = agent.eval("y").expect("oops");
+fn test_core_eval() {
+    let mut core = motoko::vm_types::Core::empty();
+    core.eval("var x = 1").expect("oops");
+    core.eval("var y = x + 1").expect("oops");
+    let y = core.eval("y").expect("oops");
     assert_eq!(
         &*y,
         &motoko::value::Value::Nat(num_bigint::BigUint::from(2_u32))

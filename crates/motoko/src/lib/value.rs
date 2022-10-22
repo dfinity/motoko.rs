@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut, ToId};
 use crate::dynamic::Dynamic;
 use crate::shared::{FastClone, Share, Shared};
-use crate::vm_types::Env;
+use crate::vm_types::{def::Actor as ActorDef, Env};
 
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -128,6 +128,32 @@ pub enum Value {
     Collection(Collection),
     Dynamic(DynamicValue),
     // DynamicRef(DynamicRef),
+    Actor(Actor),
+    ActorMethod(ActorMethod),
+}
+
+/// Actor value.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Actor {
+    /// Provides the public interface for message sends (for sanity checks, warnings).
+    pub def: Option<ActorDef>,
+    /// Provides the operational target of message sends.
+    pub id: ActorId,
+}
+
+/// Actor identifier (key part of an actor value).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ActorId {
+    /// Actor is identified by a local name in the Agent program that creates it.
+    Local(Id),
+    // to do -- case: canister ID and canister alias pair from dfx.json.
+}
+
+/// Actor method value.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ActorMethod {
+    pub actor: ActorId,
+    pub method: Id,
 }
 
 // #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -470,6 +496,8 @@ impl Value {
                 Object(map)
             }
             Value::Pointer(_) => Err(ValueError::ToRust("Pointer".to_string()))?,
+            Value::Actor(_) => Err(ValueError::ToRust("Actor".to_string()))?,
+            Value::ActorMethod(_) => Err(ValueError::ToRust("ActorMethod".to_string()))?,
             Value::Opaque(_) => Err(ValueError::ToRust("Opaque".to_string()))?,
             Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,

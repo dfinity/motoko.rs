@@ -98,7 +98,6 @@ fn group_(tokens: &[Loc<Token>]) -> LexResult<Vec<TokenTree>> {
                 let start = i;
                 if let Some(end) = find_closing(g, tokens, i) {
                     i = end;
-                    // println!("{}  ---  {}", tokens[start].0, tokens[end].0); //////////
                     TokenTree::Group(
                         group_(&tokens[start + 1..i])?,
                         g.clone(),
@@ -117,7 +116,6 @@ fn group_(tokens: &[Loc<Token>]) -> LexResult<Vec<TokenTree>> {
 }
 
 fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option<usize> {
-    // println!(">  {:?} {}", sort, start);///////
     let mut i = start + 1;
     let mut depth: usize = 0;
     while i < tokens.len() {
@@ -128,7 +126,7 @@ fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option
                 depth += 1;
             } else if
             /* sort!=&GroupType::Comment */
-            g == &GroupType::BlockComment {
+            g == &GroupType::Comment {
                 // Skip depth check in block comments
                 if let Some(j) = find_closing(g, tokens, i) {
                     i = j;
@@ -145,6 +143,5 @@ fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option
         };
         i += 1;
     }
-    // println!("<  {:?} {}", sort, start);///////
     None
 }

@@ -6,18 +6,6 @@ use crate::parser_types::SyntaxError;
 use regex::Regex;
 use structopt::lazy_static::lazy_static;
 
-// TODO: refactor lalrpop lexer details
-// impl crate::parser::__ToTriple for Loc<Token> {
-//     fn to_triple(
-//         Loc(token, src): Self,
-//     ) -> Result<
-//         (crate::ast::Source, Token, crate::ast::Source),
-//         lalrpop_util::ParseError<crate::ast::Source, Token, &'static str>,
-//     > {
-//         Ok((src.clone(), token, src))
-//     }
-// }
-
 // Replace a token tree with equivalent whitespace
 fn spacify_token_tree(tt: TokenTree) -> TokenTree {
     lazy_static! {
@@ -36,11 +24,11 @@ fn spacify_token_tree(tt: TokenTree) -> TokenTree {
 fn prepare_token_tree(tt: TokenTree) -> TokenTree {
     match tt {
         TokenTree::Token(Loc(ref token, _)) => match token {
-            Token::LineComment(_) => spacify_token_tree(tt),
+            Token::LineComment(_) | Token::BlockComment(_) => spacify_token_tree(tt),
             // Token::Space(_) | Token::MultiLineSpace(_) => None,
             _ => tt,
         },
-        TokenTree::Group(_, GroupType::BlockComment, _) => spacify_token_tree(tt),
+        TokenTree::Group(_, GroupType::Comment, _) => spacify_token_tree(tt),
         TokenTree::Group(trees, group, pair) => TokenTree::Group(
             trees.into_iter().map(prepare_token_tree).collect(),
             group,

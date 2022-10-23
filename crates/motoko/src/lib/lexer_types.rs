@@ -26,18 +26,23 @@ pub enum Token {
     #[regex(r"//[^\n]*", data)]
     LineComment(Data),
 
+    #[regex(r"/\*[^*]*\*/", data)] // precedence
+    BlockComment(Data),
+
     #[token("(", data!(GroupType::Paren))]
     #[token("{", data!(GroupType::Curly))]
     #[token("[", data!(GroupType::Square))]
     #[token("<", data!(GroupType::Angle))]
-    #[token("/*", data!(GroupType::BlockComment))]
+    #[token("/*", data!(GroupType::Comment))]
+    #[token("/**", data!(GroupType::Comment))] // precedence
     Open((Data, GroupType)),
 
     #[token(")", data!(GroupType::Paren))]
     #[token("}", data!(GroupType::Curly))]
     #[token("]", data!(GroupType::Square))]
     #[token(">", data!(GroupType::Angle))]
-    #[token("*/", data!(GroupType::BlockComment))]
+    #[token("*/", data!(GroupType::Comment))]
+    #[token("**/", data!(GroupType::Comment))] // precedence
     Close((Data, GroupType)),
 
     #[token(".", data)]
@@ -101,9 +106,22 @@ impl Token {
         use Token::*;
         match self {
             Error => Err(()),
-            LineComment(s) | Open((s, _)) | Close((s, _)) | Dot(s) | Colon(s) | Assign(s)
-            | Operator(s) | Ident(s) | Wild(s) | Delim((s, _)) | Literal((s, _)) | Space(s)
-            | Line(s) | MultiLine(s) | Unknown(s) => Ok(s),
+            LineComment(s)
+            | BlockComment(s)
+            | Open((s, _))
+            | Close((s, _))
+            | Dot(s)
+            | Colon(s)
+            | Assign(s)
+            | Operator(s)
+            | Ident(s)
+            | Wild(s)
+            | Delim((s, _))
+            | Literal((s, _))
+            | Space(s)
+            | Line(s)
+            | MultiLine(s)
+            | Unknown(s) => Ok(s),
         }
     }
 }
@@ -115,7 +133,7 @@ pub enum GroupType {
     Curly,
     Square,
     Angle,
-    BlockComment,
+    Comment,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,7 +160,7 @@ impl GroupType {
             GroupType::Curly => "{",
             GroupType::Square => "[",
             GroupType::Angle => "<",
-            GroupType::BlockComment => "/*",
+            GroupType::Comment => "/*",
         }
     }
     pub fn right_str(&self) -> &'static str {
@@ -152,7 +170,7 @@ impl GroupType {
             GroupType::Curly => "}",
             GroupType::Square => "]",
             GroupType::Angle => ">",
-            GroupType::BlockComment => "*/",
+            GroupType::Comment => "*/",
         }
     }
 }

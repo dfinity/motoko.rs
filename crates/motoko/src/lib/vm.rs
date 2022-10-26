@@ -2359,7 +2359,11 @@ impl Core {
     /// `Ok(value)` means that the Agent is idle.
     pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
         loop {
-            self.step(limits)?;
+            match self.step(limits) {
+                Ok(Step {}) => {},
+                Err(Interruption::Done(v)) => return Ok(v),
+                Err(i) => return Err(i),
+            }
         }
     }
 

@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use motoko::{vm_types::Limits, vm_types::Core, Share, Value};
+use motoko::{vm_types::Core, vm_types::Limits, Share, Value};
 
 fn bench_example(c: &mut Criterion) {
     let mut group = c.benchmark_group("Examples");

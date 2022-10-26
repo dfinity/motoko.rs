@@ -106,22 +106,9 @@ impl Token {
         use Token::*;
         match self {
             Error => Err(()),
-            LineComment(s)
-            | BlockComment(s)
-            | Open((s, _))
-            | Close((s, _))
-            | Dot(s)
-            | Colon(s)
-            | Assign(s)
-            | Operator(s)
-            | Ident(s)
-            | Wild(s)
-            | Delim((s, _))
-            | Literal((s, _))
-            | Space(s)
-            | Line(s)
-            | MultiLine(s)
-            | Unknown(s) => Ok(s),
+            LineComment(s) | BlockComment(s) | Open((s, _)) | Close((s, _)) | Dot(s) | Colon(s)
+            | Assign(s) | Operator(s) | Ident(s) | Wild(s) | Delim((s, _)) | Literal((s, _))
+            | Space(s) | Line(s) | MultiLine(s) | Unknown(s) => Ok(s),
         }
     }
 }

@@ -21,6 +21,32 @@ use num_bigint::{BigUint, ToBigInt};
 use num_traits::ToPrimitive;
 use std::vec::Vec;
 
+impl Interruption {
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            Interruption::Send(..) => true,
+            Interruption::Response(..) => true,
+            Interruption::Breakpoint(..) => true,
+            Interruption::Limit(..) => true,
+            _ => false,
+        }
+    }
+}
+
+/*
+trait InterruptionLike {
+    fn interruption<'a>(&'a self) -> Option<&'a Interruption>;
+}
+
+impl InterruptionLike for Interruption {
+    fn interruption<'a>(&'a self) -> Option<&'a Interruption> {
+        Some(self)
+    }
+
+    }
+}
+*/
+
 impl From<()> for Interruption {
     // try to avoid this conversion, except in temp code.
     fn from(_x: ()) -> Interruption {
@@ -2265,7 +2291,12 @@ impl Core {
 
     /// Attempt a single-step of VM, under some limits.
     pub fn step(&mut self, limits: &Limits) -> Result<Step, Interruption> {
-        active_step(self, limits)
+        match active_step(self, limits) {
+            Ok(Step {}) => Ok(Step {}),
+            Err(Interruption::Send(am, inst, v)) => self.send(limits, am, inst, v),
+            Err(Interruption::Response(r)) => self.response(limits, r),
+            Err(other_interruption) => return Err(other_interruption),
+        }
     }
 
     fn check_for_send_limit(&self, limits: &Limits) -> bool {
@@ -2329,15 +2360,9 @@ impl Core {
     pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
         loop {
             match self.step(limits) {
-                Ok(_step) => {}
+                Ok(Step {}) => {},
                 Err(Interruption::Done(v)) => return Ok(v),
-                Err(Interruption::Send(am, inst, v)) => {
-                    self.send(limits, am, inst, v)?;
-                }
-                Err(Interruption::Response(r)) => {
-                    self.response(limits, r)?;
-                }
-                Err(other_interruption) => return Err(other_interruption),
+                Err(i) => return Err(i),
             }
         }
     }

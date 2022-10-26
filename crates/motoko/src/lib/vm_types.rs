@@ -556,7 +556,6 @@ pub enum Interruption {
     UnboundIdentifer(Id),
     AmbiguousIdentifer(Id, Source, Source),
     UnrecognizedPrim(String),
-    BlockedAwaiting,
     Limit(Limit),
     DivideByZero,
     AmbiguousOperation,

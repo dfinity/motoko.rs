@@ -2,20 +2,35 @@ use motoko::ast::ToId;
 use motoko::check::assert_vm_eval as assert_;
 use motoko::check::assert_vm_interruption as assert_x;
 use motoko::value::ActorId;
-use motoko::vm_types::Interruption;
+use motoko::vm_types::{Interruption, NumericPointer, Pointer};
 
 use test_log::test; // enable logging output for tests by default.
 
 #[test]
 fn actor_A_public_func_f() {
-    let p = "actor A { public func f () { } }; A.f()";
+    let p = "
+    actor A { public func f () { } };
+    A.f()";
     assert_(p, "()");
 }
 
 #[test]
 fn actor_A_public_func_f_137() {
-    let p = "let x = 137; actor A { public func f () { x } }; A.f()";
+    let p = "
+    let x = 137;
+    actor A { public func f () { x } };
+    A.f()";
     assert_(p, "137");
+}
+
+#[test]
+fn actor_A_public_func_f_dangling() {
+    let i = Interruption::Dangling(Pointer::Numeric(NumericPointer(0)));
+    let p = "
+    var x = 137;
+    actor A { public func f () { x } };
+    A.f()";
+    assert_x(p, &i)
 }
 
 #[test]
@@ -23,7 +38,7 @@ fn actor_A_public_func_f_g() {
     let p = "
     let x = 137;
     actor A { public func f () { x };
-              public func g () { f() } }; 
+              public func g () { f() } };
     A.g()";
     assert_(p, "137");
 }

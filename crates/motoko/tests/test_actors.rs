@@ -44,7 +44,16 @@ fn actor_A_public_func_f_g() {
 }
 
 #[test]
-fn actors_A_public_func_f_fail() {
+fn actor_A_private_func_f_fail() {
+    let i = Interruption::ActorFieldNotPublic(ActorId::Local("A".to_id()), "f".to_id());
+    let p = "
+    actor A { func f () { } };
+    A.f()";
+    assert_x(p, &i);
+}
+
+#[test]
+fn actors_A_missing_func_f_fail() {
     let i = Interruption::ActorFieldNotFound(ActorId::Local("A".to_id()), "f".to_id());
     let p = "
     actor A { };

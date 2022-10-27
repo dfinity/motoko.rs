@@ -305,6 +305,15 @@ pub enum Vis {
     System,
 }
 
+impl Vis {
+    pub fn is_public(&self) -> bool {
+        match self {
+            Vis::Public(..) => true,
+            _ => false,
+        }
+    }
+}
+
 pub type Stab_ = Node<Stab>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

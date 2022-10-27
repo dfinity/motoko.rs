@@ -2063,9 +2063,9 @@ fn check_for_redex<A: ActiveBorrow>(active: &A, limits: &Limits) -> Result<usize
     }
     Ok(redex_bump)
 }
-
 fn active_step<A: Active>(active: &mut A, limits: &Limits) -> Result<Step, Interruption> {
     /* to do -- check for pending send.
+
         if self.check_for_send_limit(limits) {
             return Err(Interruption::Limit(Limit::Send));
         };
@@ -2073,6 +2073,15 @@ fn active_step<A: Active>(active: &mut A, limits: &Limits) -> Result<Step, Inter
             .send
             .checked_add(1)
             .expect("Cannot count sends.");
+
+    fn check_for_send_limit(&self, limits: &Limits) -> bool {
+        if let Some(s) = limits.send {
+            self.counts().send >= s
+        } else {
+            false
+        }
+    }
+
     */
     if let Some(break_span) = check_for_breakpoint(active, limits) {
         return Err(Interruption::Breakpoint(break_span));
@@ -2310,17 +2319,9 @@ impl Core {
         }
     }
 
-    fn check_for_send_limit(&self, limits: &Limits) -> bool {
-        if let Some(s) = limits.send {
-            self.counts().send >= s
-        } else {
-            false
-        }
-    }
-
     fn send(
         &mut self,
-        limits: &Limits,
+        _limits: &Limits,
         am: ActorMethod,
         inst: Option<Inst>,
         v: Value_,
@@ -2329,14 +2330,27 @@ impl Core {
         self.schedule_choice = ScheduleChoice::Actor(am.actor.clone());
         let actor = self.actors.map.get(&am.actor).unwrap();
         let actor_env = actor.env.fast_clone();
-        let f = match actor.def.fields.get_field(self, &am.method).map(|f| &f.def) {
-            Some(&Def::Func(ref f)) => f.clone(),
+        let f = match actor.def.fields.get_field(self, &am.method) {
             None => {
                 return Err(Interruption::ActorFieldNotFound(
                     am.actor.clone(),
                     am.method.clone(),
                 ))
             }
+            Some(f) => f,
+        };
+        let f_is_public = match &f.vis {
+            Some(x) => x.0.is_public(),
+            None => false,
+        };
+        if !f_is_public {
+            return Err(Interruption::ActorFieldNotPublic(
+                am.actor.clone(),
+                am.method.clone(),
+            ));
+        };
+        let f = match &f.def {
+            &Def::Func(ref f) => f.clone(),
             x => {
                 println!("barf on `{:?}'", x);
                 return nyi!(line!());

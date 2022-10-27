@@ -554,6 +554,7 @@ pub enum Interruption {
     ValueError(ValueError),
     EvalInitError(EvalInitError),
     UnboundIdentifer(Id),
+    ActorFieldNotFound(ActorId, Id),
     AmbiguousIdentifer(Id, Source, Source),
     UnrecognizedPrim(String),
     Limit(Limit),

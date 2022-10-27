@@ -1,5 +1,3 @@
-#![feature(is_some_with)]
-
 pub mod ast;
 pub mod ast_traversal;
 #[cfg(feature = "parser")]

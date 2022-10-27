@@ -252,57 +252,6 @@ fn module() {
     assert_(p, p)
 }
 
-#[ignore]
-#[test]
-fn actor() {
-    let p = "actor A { public func f () { } }";
-    assert_(p, p);
-}
-
-#[test]
-fn actor_counter_inc_twice() {
-    let p = "let y = 999;
-             let x = 666;
-             actor Counter = {
-               var x = 0;
-               public func get() /*: async Nat*/ { x };
-               public func inc() { x := x + 1 };
-             };
-             assert (Counter.get() == 0);
-             Counter.inc();
-             assert (Counter.get() == 1);
-             Counter.inc();
-             assert (Counter.get() == 2);
-             assert (y == 999);
-             assert (x == 666);
-             #ok
-";
-    assert_(p, "#ok");
-}
-
-#[test]
-fn actor_upgrade_demo_with_counter_inc() {
-    let p = "actor Counter = {
-               var x = 0;
-               public func get() /*: async Nat*/ { x };
-               public func inc() { x := x + 1 };
-             };
-             assert (Counter.get() == 0);
-             Counter.inc();
-             assert (Counter.get() == 1);
-             actor Counter {
-               var x = 0;
-               public func get() /*: async Nat*/ { x };
-               public func inc() { x := x + 2 };
-             };
-             assert (Counter.get() == 1);
-             Counter.inc();
-             assert (Counter.get() == 3);
-             #ok
-";
-    assert_(p, "#ok");
-}
-
 #[test]
 fn prim_debug_print() {
     assert_("prim \"debugPrint\" \"hello, world\"", "()");

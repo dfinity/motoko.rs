@@ -21,6 +21,15 @@ use num_bigint::{BigUint, ToBigInt};
 use num_traits::ToPrimitive;
 use std::vec::Vec;
 
+macro_rules! nyi {
+    ($line:expr) => {
+        Err(Interruption::NotYetImplemented(NYI {
+            file: file!().to_string(),
+            line: $line,
+        }))
+    };
+}
+
 impl Interruption {
     pub fn is_recoverable(&self) -> bool {
         match self {
@@ -89,14 +98,16 @@ impl Defs {
     }
     fn enter_context(&mut self) -> CtxId {
         let x = self.next_ctx_id;
-        self.next_ctx_id
+        self.next_ctx_id = self
+            .next_ctx_id
             .checked_add(1)
             .expect("Out of def-context ids.");
         let ctx = Ctx {
             parent: Some(self.active_ctx.clone()),
             fields: HashMap::new(),
         };
-        self.map.insert(CtxId(x), ctx);
+        let prev = self.map.insert(CtxId(x), ctx);
+        assert_eq!(prev, None);
         self.active_ctx = CtxId(x);
         CtxId(x)
     }
@@ -288,7 +299,7 @@ impl Active for Core {
             });
             //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
             let mut store = Store::new();
-            let mut env = HashMap::new();
+            let mut env = self.env().clone();
             let ctx = self.defs().map.get(&def.fields).unwrap();
             for (i, field) in ctx.fields.iter() {
                 match &field.def {
@@ -299,10 +310,10 @@ impl Active for Core {
                             Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
                         );
                     }
-                    Def::Func(..) => {
-                        // to do
+                    Def::Func(f) => {
+                        env.insert(i.clone(), f.rec_value.fast_clone());
                     }
-                    _ => todo!(),
+                    _ => return nyi!(line!()),
                 }
             }
             let a = Actor {
@@ -511,15 +522,6 @@ impl Limits {
     }
 }
 
-macro_rules! nyi {
-    ($line:expr) => {
-        Err(Interruption::NotYetImplemented(NYI {
-            file: file!().to_string(),
-            line: $line,
-        }))
-    };
-}
-
 mod def {
     use super::*;
     use crate::ast::{DecField, DecFields};
@@ -537,7 +539,7 @@ mod def {
                         context: active.defs().active_ctx.clone(),
                         function: f.clone(),
                         rec_value: Value::Function(ClosedFunction(Closed {
-                            env: HashMap::new(),
+                            env: active.env().fast_clone(),
                             content: f.clone(),
                         }))
                         .share(),
@@ -2063,6 +2065,15 @@ fn check_for_redex<A: ActiveBorrow>(active: &A, limits: &Limits) -> Result<usize
 }
 
 fn active_step<A: Active>(active: &mut A, limits: &Limits) -> Result<Step, Interruption> {
+    /* to do -- check for pending send.
+        if self.check_for_send_limit(limits) {
+            return Err(Interruption::Limit(Limit::Send));
+        };
+        self.counts()
+            .send
+            .checked_add(1)
+            .expect("Cannot count sends.");
+    */
     if let Some(break_span) = check_for_breakpoint(active, limits) {
         return Err(Interruption::Breakpoint(break_span));
     }
@@ -2314,20 +2325,22 @@ impl Core {
         inst: Option<Inst>,
         v: Value_,
     ) -> Result<Step, Interruption> {
-        if self.check_for_send_limit(limits) {
-            return Err(Interruption::Limit(Limit::Send));
-        };
-        self.counts()
-            .send
-            .checked_add(1)
-            .expect("Cannot count sends.");
         let resp_target = self.schedule_choice.clone();
         self.schedule_choice = ScheduleChoice::Actor(am.actor.clone());
         let actor = self.actors.map.get(&am.actor).unwrap();
         let actor_env = actor.env.fast_clone();
         let f = match actor.def.fields.get_field(self, &am.method).map(|f| &f.def) {
             Some(&Def::Func(ref f)) => f.clone(),
-            _ => return nyi!(line!()),
+            None => {
+                return Err(Interruption::ActorFieldNotFound(
+                    am.actor.clone(),
+                    am.method.clone(),
+                ))
+            }
+            x => {
+                println!("barf on `{:?}'", x);
+                return nyi!(line!());
+            }
         };
         let actor = self.actors.map.get_mut(&am.actor).unwrap();
         assert!(actor.active.is_none());
@@ -2360,7 +2373,7 @@ impl Core {
     pub fn run(&mut self, limits: &Limits) -> Result<Value_, Interruption> {
         loop {
             match self.step(limits) {
-                Ok(Step {}) => {},
+                Ok(Step {}) => {}
                 Err(Interruption::Done(v)) => return Ok(v),
                 Err(i) => return Err(i),
             }

@@ -21,32 +21,20 @@ fn actor_A_public_func_f_137() {
 #[test]
 fn actor_A_public_func_f_g() {
     let p = "
-let x = 137;
-actor A { public func f () { x };
-          public func g () { f() } }; 
-A.g()";
+    let x = 137;
+    actor A { public func f () { x };
+              public func g () { f() } }; 
+    A.g()";
     assert_(p, "137");
 }
 
 #[test]
 fn actors_A_public_func_f_fail() {
     let i = Interruption::ActorFieldNotFound(ActorId::Local("A".to_id()), "f".to_id());
-
     let p = "
     actor A { };
     A.f()";
     assert_x(p, &i);
-}
-
-#[ignore]
-#[test]
-fn actors_A_B_public_func_f_g_h_success() {
-    let p = "
-    actor B { };
-    actor A { public func f () { B.g() } };
-    actor B { public func g () { #ok }; public func h() { A.f() } };
-    B.h()";
-    assert_(p, "#ok");
 }
 
 #[test]
@@ -91,4 +79,35 @@ fn actor_upgrade_demo_with_counter_inc() {
              #ok
 ";
     assert_(p, "#ok");
+}
+
+#[test]
+fn actors_A_B_public_func_f_g() {
+    // Actor A is forward-declared,
+    // then B is defined using A's future API,
+    // then A is defined, exposing API used by B.
+    let p = "
+actor A { };
+actor B { public func f() { A.g() } };
+actor A { public func g() { #ok } };
+B.f()";
+    assert_(p, "#ok");
+}
+
+#[test]
+fn actors_A_B_public_func_f_g_fail() {
+    let i = Interruption::UnboundIdentifer("A".to_id());
+
+    // Actor A is not defined at all.
+    let p = "
+actor B { public func f() { A.g() } };
+B.f()";
+    assert_x(p, &i);
+
+    // Actor A is defined too late, after Actor B.
+    let p = "
+actor B { public func f() { A.g() } };
+actor A { };
+B.f()";
+    assert_x(p, &i);
 }

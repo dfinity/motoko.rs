@@ -2329,14 +2329,24 @@ impl Core {
         self.schedule_choice = ScheduleChoice::Actor(am.actor.clone());
         let actor = self.actors.map.get(&am.actor).unwrap();
         let actor_env = actor.env.fast_clone();
-        let f = match actor.def.fields.get_field(self, &am.method).map(|f| &f.def) {
-            Some(&Def::Func(ref f)) => f.clone(),
+        let f = match actor.def.fields.get_field(self, &am.method) {
             None => {
                 return Err(Interruption::ActorFieldNotFound(
                     am.actor.clone(),
                     am.method.clone(),
                 ))
             }
+            Some(f) => f,
+        };
+        let is_public = f.vis.is_some_and(|x| x.0.is_public());
+        if !is_public {
+            return Err(Interruption::ActorFieldNotPublic(
+                am.actor.clone(),
+                am.method.clone(),
+            ));
+        };
+        let f = match &f.def {
+            &Def::Func(ref f) => f.clone(),
             x => {
                 println!("barf on `{:?}'", x);
                 return nyi!(line!());

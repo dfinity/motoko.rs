@@ -414,7 +414,7 @@ ObjBody: DecFields = {
 Vis_: Vis_ = Node<Vis>;
 
 Vis: Vis = {
-  "public" => Vis::Private,
+  "public" => Vis::Public(None),
   "private" => Vis::Private,
 }
 

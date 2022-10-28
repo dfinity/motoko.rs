@@ -1211,6 +1211,17 @@ mod collection {
     }
 }
 
+fn def_field_value(i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
+    match &fd.def {
+        Def::Actor(a) => Ok(Value::Actor(crate::value::Actor {
+            def: Some(a.clone()),
+            id: ActorId::Local(i.clone()),
+        })
+        .share()),
+        _ => nyi!(line!()),
+    }
+}
+
 fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
@@ -1236,7 +1247,10 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Return(Some(e)) => exp_conts(active, FrameCont::Return, e),
         Var(x) => match active.env().get(x) {
             None => {
-                fn resolve_def<A: ActiveBorrow>(active: &A, x: &Id) -> Result<Step, Interruption> {
+                fn resolve_def<A: ActiveBorrow>(
+                    active: &A,
+                    x: &Id,
+                ) -> Result<FieldDef, Interruption> {
                     match active
                         .defs()
                         .map
@@ -1246,10 +1260,13 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
                         .get(x)
                     {
                         None => Err(Interruption::UnboundIdentifer(x.clone())),
-                        Some(_d) => nyi!(line!()),
+                        Some(d) => Ok(d.clone()),
                     }
                 }
-                resolve_def(active, x)
+                let fd = resolve_def(active, x)?;
+                let v = def_field_value(x, &fd)?;
+                *active.cont() = Cont::Value_(v);
+                Ok(Step {})
                 /*Err(Interruption::UnboundIdentifer(x.clone()))*/
             }
             Some(v) => {

@@ -127,7 +127,10 @@ fn actors_A_B_public_func_f_g_fail() {
 actor B { public func f() { A.g() } };
 B.f()";
     assert_x(p, &i);
+}
 
+#[test]
+fn actors_A_B_public_func_f_g_forward_dec() {
     // Actor A is defined after Actor B, but we permit that using an
     // open-ended top-level context (each actor can see new
     // definitions in the top level context).

@@ -7,7 +7,7 @@ use motoko::vm_types::{Interruption, NumericPointer, Pointer};
 use test_log::test; // enable logging output for tests by default.
 
 #[test]
-fn actor_A_public_func_f() {
+fn actor_a_public_func_f() {
     let p = "
     actor A { public func f () { } };
     A.f()";
@@ -15,7 +15,7 @@ fn actor_A_public_func_f() {
 }
 
 #[test]
-fn actor_A_public_func_f_137() {
+fn actor_a_public_func_f_137() {
     let p = "
     let x = 137;
     actor A { public func f () { x } };
@@ -24,7 +24,7 @@ fn actor_A_public_func_f_137() {
 }
 
 #[test]
-fn actor_A_public_func_f_dangling() {
+fn actor_a_public_func_f_dangling() {
     let i = Interruption::Dangling(Pointer::Numeric(NumericPointer(0)));
     let p = "
     var x = 137;
@@ -34,7 +34,7 @@ fn actor_A_public_func_f_dangling() {
 }
 
 #[test]
-fn actor_A_public_func_f_g() {
+fn actor_a_public_func_f_g() {
     let p = "
     let x = 137;
     actor A { public func f () { x };
@@ -44,7 +44,7 @@ fn actor_A_public_func_f_g() {
 }
 
 #[test]
-fn actor_A_private_func_f_fail() {
+fn actor_a_private_func_f_fail() {
     let i = Interruption::ActorFieldNotPublic(ActorId::Local("A".to_id()), "f".to_id());
     let p = "
     actor A { func f () { } };
@@ -53,7 +53,7 @@ fn actor_A_private_func_f_fail() {
 }
 
 #[test]
-fn actors_A_missing_func_f_fail() {
+fn actors_a_missing_func_f_fail() {
     let i = Interruption::ActorFieldNotFound(ActorId::Local("A".to_id()), "f".to_id());
     let p = "
     actor A { };
@@ -63,81 +63,81 @@ fn actors_A_missing_func_f_fail() {
 
 #[test]
 fn counter_inc_twice() {
-    let p = "let y = 999;
-             let x = 666;
-             actor Counter = {
-               var x = 0;
-               public func get() /*: async Nat*/ { x };
-               public func inc() { x := x + 1 };
-             };
-             assert (Counter.get() == 0);
-             Counter.inc();
-             assert (Counter.get() == 1);
-             Counter.inc();
-             assert (Counter.get() == 2);
-             assert (y == 999);
-             assert (x == 666);
-             #ok
-";
+    let p = "
+    let y = 999;
+    let x = 666;
+    actor Counter = {
+      var x = 0;
+      public func get() /*: async Nat*/ { x };
+      public func inc() { x := x + 1 };
+    };
+    assert (Counter.get() == 0);
+    Counter.inc();
+    assert (Counter.get() == 1);
+    Counter.inc();
+    assert (Counter.get() == 2);
+    assert (y == 999);
+    assert (x == 666);
+    #ok";
     assert_(p, "#ok");
 }
 
 #[test]
 fn actor_upgrade_demo_with_counter_inc() {
-    let p = "actor Counter = {
-               var x = 0;
-               public func get() /*: async Nat*/ { x };
-               public func inc() { x := x + 1 };
-             };
-             assert (Counter.get() == 0);
-             Counter.inc();
-             assert (Counter.get() == 1);
-             actor Counter {
-               var x = 0;
-               public func get() /*: async Nat*/ { x };
-               public func inc() { x := x + 2 };
-             };
-             assert (Counter.get() == 1);
-             Counter.inc();
-             assert (Counter.get() == 3);
-             #ok
-";
+    let p = "
+    actor Counter = {
+      var x = 0;
+      public func get() /*: async Nat*/ { x };
+      public func inc() { x := x + 1 };
+    };
+    assert (Counter.get() == 0);
+    Counter.inc();
+    assert (Counter.get() == 1);
+    actor Counter {
+      var x = 0;
+      public func get() /*: async Nat*/ { x };
+      public func inc() { x := x + 2 };
+    };
+    assert (Counter.get() == 1);
+    Counter.inc();
+    assert (Counter.get() == 3);
+    #ok";
     assert_(p, "#ok");
 }
 
 #[test]
-fn actors_A_B_public_func_f_g() {
+fn actors_a_b_public_func_f_g() {
     // Actor A is forward-declared,
     // then B is defined using A's future API,
     // then A is defined, exposing API used by B.
     let p = "
-actor A { };
-actor B { public func f() { A.g() } };
-actor A { public func g() { #ok } };
-B.f()";
+    actor A { };
+    actor B { public func f() { A.g() } };
+    actor A { public func g() { #ok } };
+    B.f()";
     assert_(p, "#ok");
 }
 
 #[test]
-fn actors_A_B_public_func_f_g_fail() {
+fn actors_a_b_public_func_f_g_fail() {
     let i = Interruption::UnboundIdentifer("A".to_id());
 
     // Actor A is not defined at all.
     let p = "
-actor B { public func f() { A.g() } };
-B.f()";
+    actor B { public func f() { A.g() } };
+    B.f()";
     assert_x(p, &i);
 }
 
 #[test]
-fn actors_A_B_public_func_f_g_forward_dec() {
+fn actors_a_b_public_func_f_g_forward_dec() {
     // Actor A is defined after Actor B, but we permit that using an
     // open-ended top-level context (each actor can see new
     // definitions in the top level context).
     let p = "
-actor B { public func f() { A.g() } };
-actor A { public func g() { #ok } };
-B.f()";
+    actor B { public func f() { A.g() } };
+    actor A { public func g() { #ok } };
+    B.f()";
     assert_(p, "#ok");
 }
 

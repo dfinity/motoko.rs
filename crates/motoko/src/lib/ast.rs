@@ -64,6 +64,8 @@ pub enum Source {
     Unknown,
     Evaluation,
     CoreInit,
+    CoreCreateActor,
+    CoreUpgradeActor,
 }
 
 impl Source {
@@ -94,6 +96,7 @@ impl Source {
             (_, CoreInit) => todo!(),
             (Evaluation, _) => todo!(),
             (_, Evaluation) => todo!(),
+            _ => todo!(),
             // (ExpStep { .. }, _) => todo!(),
             // (_, ExpStep { .. }) => todo!(),
         }
@@ -113,6 +116,8 @@ impl std::fmt::Display for Source {
             Source::Unknown => write!(f, "(unknown source)"),
             Source::Evaluation => write!(f, "(evaluation)"),
             Source::CoreInit => write!(f, "(full program, via core init)"),
+            Source::CoreCreateActor => write!(f, "(Core.create_actor())"),
+            Source::CoreUpgradeActor => write!(f, "(Core.upgrade_actor())"),
         }
     }
 }

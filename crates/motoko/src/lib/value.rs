@@ -146,7 +146,8 @@ pub struct Actor {
 pub enum ActorId {
     /// Actor is identified by a local name in the Agent program that creates it.
     Local(Id),
-    // to do -- case: canister ID and canister alias pair from dfx.json.
+    /// Actor is named by some external source (e.g., `dfx.json`), outside of the source program.
+    Alias(Id),
 }
 
 /// Actor method value.
@@ -230,7 +231,7 @@ pub enum Collection {
 /// Fast randomness, for data used in performance tests.
 /// Not appropriate for security-critical randomness.
 ///
-/// See also https://github.com/dfinity/canister-profiling/tree/main/collections
+/// See also <https://github.com/dfinity/canister-profiling/tree/main/collections>
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct FastRandIter {
     state: Wrapping<u32>,

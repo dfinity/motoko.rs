@@ -2371,7 +2371,7 @@ impl Core {
         def::actor_upgrade(
             self,
             &id,
-            Source::CoreCreateActor,
+            Source::CoreUpgradeActor,
             None,
             None,
             &dfs,

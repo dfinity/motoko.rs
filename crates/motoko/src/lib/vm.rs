@@ -2345,6 +2345,16 @@ impl Core {
         Ok(Self::new(crate::check::parse(s)?))
     }
 
+    /// Create a new actor with the given (unused) `id`, and the definition `def`.
+    pub fn create_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
+        nyi!(line!())
+    }
+
+    /// Upgrade an existing actor with the given `id`, with new definition `def`.
+    pub fn upgrade_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
+        nyi!(line!())
+    }
+
     /// Attempt a single-step of VM, under some limits.
     pub fn step(&mut self, limits: &Limits) -> Result<Step, Interruption> {
         match active_step(self, limits) {

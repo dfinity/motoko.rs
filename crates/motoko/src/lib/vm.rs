@@ -2345,7 +2345,8 @@ impl Core {
         Ok(Self::new(crate::check::parse(s)?))
     }
 
-    fn assert_actor_def(_s: &str) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
+    fn assert_actor_def(s: &str) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
+        let _p = crate::check::parse(s)?;
         nyi!(line!())
     }
 
@@ -2360,8 +2361,23 @@ impl Core {
     }
 
     /// Upgrade an existing actor with the given `id`, with new definition `def`.
-    pub fn upgrade_actor(&mut self, _id: ActorId, _def: &str) -> Result<(), Interruption> {
-        nyi!(line!())
+    pub fn upgrade_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
+        let old_def = if let Some(old) = self.actors.map.get(&id) {
+            old.def.clone()
+        } else {
+            return Err(Interruption::ActorIdNotFound(id));
+        };
+        let (id, dfs) = Self::assert_actor_def(def)?;
+        def::actor_upgrade(
+            self,
+            &id,
+            Source::CoreCreateActor,
+            None,
+            None,
+            &dfs,
+            &old_def,
+        )?;
+        Ok(())
     }
 
     /// Attempt a single-step of VM, under some limits.

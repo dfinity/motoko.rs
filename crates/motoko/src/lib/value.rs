@@ -231,7 +231,7 @@ pub enum Collection {
 /// Fast randomness, for data used in performance tests.
 /// Not appropriate for security-critical randomness.
 ///
-/// See also https://github.com/dfinity/canister-profiling/tree/main/collections
+/// See also <https://github.com/dfinity/canister-profiling/tree/main/collections>
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct FastRandIter {
     state: Wrapping<u32>,

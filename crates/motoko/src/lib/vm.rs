@@ -291,104 +291,84 @@ impl Active for Core {
             Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().counts,
         }
     }
-    fn create(&mut self, name: Option<Id>, def: ActorDef) -> Result<Value_, Interruption> {
-        if let Some(ref name) = name {
-            let v = Value::Actor(crate::value::Actor {
-                def: Some(def.clone()),
-                id: ActorId::Local(name.clone()),
-            });
-            //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
-            let mut store = Store::new();
-            let mut env = self.env().clone();
-            let ctx = self.defs().map.get(&def.fields).unwrap();
-            for (i, field) in ctx.fields.iter() {
-                match &field.def {
-                    Def::Var(v) => {
-                        store.alloc_named(i.clone(), v.fast_clone());
-                        env.insert(
-                            i.clone(),
-                            Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
-                        );
-                    }
-                    Def::Func(f) => {
-                        env.insert(i.clone(), f.rec_value.fast_clone());
-                    }
-                    _ => return nyi!(line!()),
+    fn create(&mut self, name: ActorId, def: ActorDef) -> Result<Value_, Interruption> {
+        let v = Value::Actor(crate::value::Actor {
+            def: Some(def.clone()),
+            id: name.clone(),
+        });
+        //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
+        let mut store = Store::new();
+        let mut env = self.env().clone();
+        let ctx = self.defs().map.get(&def.fields).unwrap();
+        for (i, field) in ctx.fields.iter() {
+            match &field.def {
+                Def::Var(v) => {
+                    store.alloc_named(i.clone(), v.fast_clone());
+                    env.insert(
+                        i.clone(),
+                        Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
+                    );
                 }
+                Def::Func(f) => {
+                    env.insert(i.clone(), f.rec_value.fast_clone());
+                }
+                _ => return nyi!(line!()),
             }
-            let a = Actor {
-                def,
-                env,
-                store,
-                counts: Counts::default(),
-                active: None,
-                awaiting: HashMap::new(),
-            };
-            let a0 = self.actors.map.insert(ActorId::Local(name.clone()), a);
-            if let Some(_a0) = a0 {
-                todo!("upgrade")
-            };
-            Ok(v.share())
-        } else {
-            todo!()
         }
+        let a = Actor {
+            def,
+            env,
+            store,
+            counts: Counts::default(),
+            active: None,
+            awaiting: HashMap::new(),
+        };
+        let a0 = self.actors.map.insert(name, a);
+        if let Some(_a0) = a0 {
+            todo!("upgrade")
+        };
+        Ok(v.share())
     }
 
-    fn upgrade(&mut self, name: Option<Id>, def: ActorDef) -> Result<Value_, Interruption> {
-        if let Some(ref name) = name {
-            let v = Value::Actor(crate::value::Actor {
-                def: Some(def.clone()),
-                id: ActorId::Local(name.clone()),
-            });
-            let mut env = HashMap::new();
-            let mut store = self
-                .actors
-                .map
-                .get(&ActorId::Local(name.clone()))
-                .unwrap()
-                .store
-                .clone();
-            let counts = self
-                .actors
-                .map
-                .get(&ActorId::Local(name.clone()))
-                .unwrap()
-                .counts
-                .clone();
-            let ctx = self.defs().map.get(&def.fields).unwrap();
-            for (i, field) in ctx.fields.iter() {
-                match &field.def {
-                    Def::Var(v) => {
-                        if let None = store.get(&Pointer::Named(NamedPointer(i.clone()))) {
-                            store.alloc_named(i.clone(), v.fast_clone());
-                        } else {
-                            // keep store's current value.
-                            // (even if not stable.)
-                        }
-                        env.insert(
-                            i.clone(),
-                            Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
-                        );
+    fn upgrade(&mut self, name: ActorId, def: ActorDef) -> Result<Value_, Interruption> {
+        let v = Value::Actor(crate::value::Actor {
+            def: Some(def.clone()),
+            id: name.clone(),
+        });
+        let mut env = HashMap::new();
+        let mut store = self.actors.map.get(&name).unwrap().store.clone();
+        let counts = self.actors.map.get(&name).unwrap().counts.clone();
+        let ctx = self.defs().map.get(&def.fields).unwrap();
+        for (i, field) in ctx.fields.iter() {
+            match &field.def {
+                Def::Var(v) => {
+                    if let None = store.get(&Pointer::Named(NamedPointer(i.clone()))) {
+                        store.alloc_named(i.clone(), v.fast_clone());
+                    } else {
+                        // keep store's current value.
+                        // (even if not stable.)
                     }
-                    Def::Func(..) => {
-                        // to do
-                    }
-                    _ => todo!(),
+                    env.insert(
+                        i.clone(),
+                        Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
+                    );
                 }
+                Def::Func(..) => {
+                    // to do
+                }
+                _ => todo!(),
             }
-            let a = Actor {
-                def,
-                env,
-                store,
-                counts,
-                active: None,
-                awaiting: HashMap::new(),
-            };
-            self.actors.map.insert(ActorId::Local(name.clone()), a);
-            Ok(v.share())
-        } else {
-            todo!()
         }
+        let a = Actor {
+            def,
+            env,
+            store,
+            counts,
+            active: None,
+            awaiting: HashMap::new(),
+        };
+        self.actors.map.insert(name, a);
+        Ok(v.share())
     }
 }
 
@@ -582,7 +562,7 @@ mod def {
 
     pub fn actor<A: Active>(
         active: &mut A,
-        id: &Option<Id_>,
+        id: &ActorId,
         source: Source,
         vis: Option<Vis_>,
         stab: Option<Stab_>,
@@ -595,19 +575,23 @@ mod def {
         active.defs().leave_context(&fields);
         let actor = crate::vm_types::def::Actor { fields };
         match id {
-            None => {}
-            Some(x) => {
+            ActorId::Alias(x) => {
                 active
                     .defs()
-                    .insert_field(&x.0, source, vis, stab, Def::Actor(actor.clone()))?
+                    .insert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
+            }
+            ActorId::Local(x) => {
+                active
+                    .defs()
+                    .insert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
             }
         }
-        active.create(id.as_ref().map(|i| i.0.clone()), actor)
+        active.create(id.clone(), actor)
     }
 
     pub fn actor_upgrade<A: Active>(
         active: &mut A,
-        id: &Option<Id_>,
+        id: &ActorId,
         source: Source,
         vis: Option<Vis_>,
         stab: Option<Stab_>,
@@ -621,16 +605,18 @@ mod def {
         active.defs().leave_context(&fields);
         let actor = crate::vm_types::def::Actor { fields };
         match id {
-            None => {
-                unreachable!()
-            }
-            Some(x) => {
+            ActorId::Alias(x) => {
                 active
                     .defs()
-                    .reinsert_field(&x.0, source, vis, stab, Def::Actor(actor.clone()))?
+                    .reinsert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
+            }
+            ActorId::Local(x) => {
+                active
+                    .defs()
+                    .reinsert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
             }
         }
-        active.upgrade(id.as_ref().map(|i| i.0.clone()), actor)
+        active.upgrade(id.clone(), actor)
     }
 }
 
@@ -2249,20 +2235,23 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                     Dec::LetActor(i, _, dfs) => {
                         let v = match i {
                             /* Are we upgrading a local Actor? */
-                            None => def::actor(active, i, dec_.1.clone(), None, None, dfs)?,
+                            None => todo!(),
                             Some(local_name) => {
                                 let ctx_id = active.defs().active_ctx.clone();
                                 let old_def =
                                     ctx_id.get_field(active, &local_name.0).map(|x| x.clone());
 
+                                let id = ActorId::Local(local_name.0.clone());
                                 match old_def {
-                                    None => def::actor(active, i, dec_.1.clone(), None, None, dfs)?,
+                                    None => {
+                                        def::actor(active, &id, dec_.1.clone(), None, None, dfs)?
+                                    }
                                     Some(FieldDef {
                                         def: Def::Actor(old_def),
                                         ..
                                     }) => def::actor_upgrade(
                                         active,
-                                        i,
+                                        &id,
                                         dec_.1.clone(),
                                         None,
                                         None,
@@ -2346,8 +2335,14 @@ impl Core {
     }
 
     fn assert_actor_def(s: &str) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
-        let _p = crate::check::parse(s)?;
-        nyi!(line!())
+        let p = crate::check::parse(s)?;
+        if p.vec.len() != 1 {
+            return Err(Interruption::NotAnActorDefinition);
+        };
+        match &p.vec.get(1).unwrap().0 {
+            Dec::LetActor(id, _, dfs) => Ok((id.clone(), dfs.clone())),
+            _ => Err(Interruption::NotAnActorDefinition),
+        }
     }
 
     /// Create a new actor with the given (unused) `id`, and the definition `def`.
@@ -2355,7 +2350,7 @@ impl Core {
         if let Some(_) = self.actors.map.get(&id) {
             return Err(Interruption::AmbiguousActorId(id));
         };
-        let (id, dfs) = Self::assert_actor_def(def)?;
+        let (_id, dfs) = Self::assert_actor_def(def)?;
         def::actor(self, &id, Source::CoreCreateActor, None, None, &dfs)?;
         Ok(())
     }
@@ -2367,7 +2362,7 @@ impl Core {
         } else {
             return Err(Interruption::ActorIdNotFound(id));
         };
-        let (id, dfs) = Self::assert_actor_def(def)?;
+        let (_id, dfs) = Self::assert_actor_def(def)?;
         def::actor_upgrade(
             self,
             &id,

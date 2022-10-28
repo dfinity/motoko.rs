@@ -465,8 +465,8 @@ pub trait Active: ActiveBorrow {
         self.store().alloc(value)
     }
 
-    fn create(&mut self, name: Option<Id>, actor: def::Actor) -> Result<Value_, Interruption>;
-    fn upgrade(&mut self, name: Option<Id>, actor: def::Actor) -> Result<Value_, Interruption>;
+    fn create(&mut self, id: ActorId, actor: def::Actor) -> Result<Value_, Interruption>;
+    fn upgrade(&mut self, id: ActorId, actor: def::Actor) -> Result<Value_, Interruption>;
 }
 
 /// Non-exclusive read access to the "active" components of the VM.
@@ -554,6 +554,7 @@ pub enum Interruption {
     ValueError(ValueError),
     EvalInitError(EvalInitError),
     UnboundIdentifer(Id),
+    NotAnActorDefinition,
     AmbiguousActorId(ActorId),
     ActorIdNotFound(ActorId),
     ActorFieldNotFound(ActorId, Id),

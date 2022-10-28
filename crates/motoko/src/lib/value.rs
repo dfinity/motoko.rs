@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut, ToId};
 use crate::dynamic::Dynamic;
 use crate::shared::{FastClone, Share, Shared};
-use crate::vm_types::{def::Actor as ActorDef, Env};
+use crate::vm_types::{def::Actor as ActorDef, def::CtxId, Env};
 
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -325,6 +325,7 @@ pub enum FastRandIterFunction {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Closed<X> {
+    pub ctx: CtxId,
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub env: Env,
     pub content: X,

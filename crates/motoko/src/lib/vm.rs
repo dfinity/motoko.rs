@@ -2336,10 +2336,10 @@ impl Core {
 
     fn assert_actor_def(s: &str) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
         let p = crate::check::parse(s)?;
-        if p.vec.len() != 1 {
+        if p.vec.is_empty() {
             return Err(Interruption::NotAnActorDefinition);
         };
-        match &p.vec.get(1).unwrap().0 {
+        match &p.vec[p.vec.len() - 1].0 {
             Dec::LetActor(id, _, dfs) => Ok((id.clone(), dfs.clone())),
             _ => Err(Interruption::NotAnActorDefinition),
         }

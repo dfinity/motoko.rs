@@ -146,7 +146,8 @@ pub struct Actor {
 pub enum ActorId {
     /// Actor is identified by a local name in the Agent program that creates it.
     Local(Id),
-    // to do -- case: canister ID and canister alias pair from dfx.json.
+    /// Actor is named by some external source (e.g., `dfx.json`), outside of the source program.
+    Alias(Id),
 }
 
 /// Actor method value.

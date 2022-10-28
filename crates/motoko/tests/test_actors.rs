@@ -127,11 +127,24 @@ fn actors_A_B_public_func_f_g_fail() {
 actor B { public func f() { A.g() } };
 B.f()";
     assert_x(p, &i);
+}
 
-    // Actor A is defined too late, after Actor B.
+#[test]
+fn actors_A_B_public_func_f_g_forward_dec() {
+    // Actor A is defined after Actor B, but we permit that using an
+    // open-ended top-level context (each actor can see new
+    // definitions in the top level context).
     let p = "
 actor B { public func f() { A.g() } };
-actor A { };
+actor A { public func g() { #ok } };
 B.f()";
-    assert_x(p, &i);
+    assert_(p, "#ok");
+}
+
+#[test]
+fn actor_forward_decl() {
+    let p = "
+    actor A { public func f () { g() }; public func g() { #ok } };
+    A.f()";
+    assert_(p, "#ok");
 }

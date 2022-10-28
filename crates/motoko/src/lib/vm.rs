@@ -539,6 +539,7 @@ mod def {
                         context: active.defs().active_ctx.clone(),
                         function: f.clone(),
                         rec_value: Value::Function(ClosedFunction(Closed {
+                            ctx: active.defs().active_ctx.clone(),
                             env: active.env().fast_clone(),
                             content: f.clone(),
                         }))
@@ -1210,6 +1211,17 @@ mod collection {
     }
 }
 
+fn def_field_value(i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
+    match &fd.def {
+        Def::Actor(a) => Ok(Value::Actor(crate::value::Actor {
+            def: Some(a.clone()),
+            id: ActorId::Local(i.clone()),
+        })
+        .share()),
+        _ => nyi!(line!()),
+    }
+}
+
 fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
@@ -1222,6 +1234,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Function(f) => {
             let env = active.env().fast_clone();
             *active.cont() = cont_value(Value::Function(ClosedFunction(Closed {
+                ctx: active.defs().active_ctx.clone(),
                 env,
                 content: f.clone(), // TODO: `Shared<Function>`?
             })));
@@ -1233,7 +1246,29 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Return(None) => return_(active, Value::Unit.share()),
         Return(Some(e)) => exp_conts(active, FrameCont::Return, e),
         Var(x) => match active.env().get(x) {
-            None => Err(Interruption::UnboundIdentifer(x.clone())),
+            None => {
+                fn resolve_def<A: ActiveBorrow>(
+                    active: &A,
+                    x: &Id,
+                ) -> Result<FieldDef, Interruption> {
+                    match active
+                        .defs()
+                        .map
+                        .get(&active.defs().active_ctx)
+                        .unwrap()
+                        .fields
+                        .get(x)
+                    {
+                        None => Err(Interruption::UnboundIdentifer(x.clone())),
+                        Some(d) => Ok(d.clone()),
+                    }
+                }
+                let fd = resolve_def(active, x)?;
+                let v = def_field_value(x, &fd)?;
+                *active.cont() = Cont::Value_(v);
+                Ok(Step {})
+                /*Err(Interruption::UnboundIdentifer(x.clone()))*/
+            }
             Some(v) => {
                 *active.cont() = Cont::Value_(v.fast_clone());
                 Ok(Step {})
@@ -2259,6 +2294,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                     Dec::Func(f) => {
                         let id = f.name.clone();
                         let v = Value::Function(ClosedFunction(Closed {
+                            ctx: active.defs().active_ctx.clone(),
                             env: active.env().fast_clone(),
                             content: f.clone(),
                         }))

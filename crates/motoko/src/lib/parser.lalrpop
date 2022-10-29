@@ -139,12 +139,72 @@ pub Pat: Pat = {
 // --- Types --- //
 
 #[inline]
+TypeNullary_: Type_ = Node<TypeNullary>;
+
+pub TypeNullary: Type = {
+    "(" <tfs:Delim0<TypeItem_, ",">> ")" => todo!(),
+    "Nat" => Type::Prim(PrimType::Nat),
+    "Nat8" => Type::Prim(PrimType::Nat8),
+    "Nat16" => Type::Prim(PrimType::Nat16),
+    "Nat32" => Type::Prim(PrimType::Nat32),
+    "Int" => Type::Prim(PrimType::Int),
+    "Int8" => Type::Prim(PrimType::Int8),
+    "Int16" => Type::Prim(PrimType::Int16),
+    "Int32" => Type::Prim(PrimType::Int32),
+    // path
+    // record
+    // TypeObj
+    // TypVariant
+}
+
+#[inline]
+TypeUn_: Type_ = Node<TypeUn>;
+
+pub TypeUn: Type = {
+    TypeNullary,
+    "?" TypeUn_ => todo!(),
+}
+
+#[inline]
+TypePre_: Type_ = Node<TypePre>;
+
+pub TypePre: Type = {
+    TypeUn,
+    "prim" <id:Id_> => PrimType::from_ident(id.0.clone()).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
+    "async" <t:TypePre_> => Type::Async(t),
+    // actor
+    // class
+    // object
+}
+
+#[inline]
+TypeNoBin_: Type_ = Node<TypeNoBin>;
+
+pub TypeNoBin: Type = {
+    TypePre,
+    // arrow
+}
+
+#[inline]
 Type_: Type_ = Node<Type>;
 
 pub Type: Type = {
-    "(" ")" => Type::Prim(PrimType::Unit),
-    <id:Id_> => PrimType::from_ident(id.0.clone()).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
-    // TODO
+    TypeNoBin,
+}
+
+#[inline]
+TypeItem_: Type_ = Node<TypeItem>;
+
+pub TypeItem: Type = {
+    <id:Id_> ":" <t:Type_> => todo!(),
+    Type,
+}
+
+#[inline]
+TypeArgs_: Type_ = Node<TypeArgs>;
+
+pub TypeArgs: Type = {
+    "<" <tfs:Delim0<Type_, ",">> ">" => todo!(),
 }
 
 // --- Programs --- //

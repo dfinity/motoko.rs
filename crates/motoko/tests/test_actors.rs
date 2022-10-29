@@ -68,7 +68,7 @@ fn counter_inc_twice() {
     let x = 666;
     actor Counter = {
       var x = 0;
-      public func get() /*: async Nat*/ { x };
+      public func get() : async Nat { x };
       public func inc() { x := x + 1 };
     };
     assert (Counter.get() == 0);
@@ -87,7 +87,7 @@ fn actor_upgrade_demo_with_counter_inc() {
     let p = "
     actor Counter = {
       var x = 0;
-      public func get() /*: async Nat*/ { x };
+      public func get() : async Nat { x };
       public func inc() { x := x + 1 };
     };
     assert (Counter.get() == 0);
@@ -95,7 +95,7 @@ fn actor_upgrade_demo_with_counter_inc() {
     assert (Counter.get() == 1);
     actor Counter {
       var x = 0;
-      public func get() /*: async Nat*/ { x };
+      public func get() : async Nat { x };
       public func inc() { x := x + 2 };
     };
     assert (Counter.get() == 1);

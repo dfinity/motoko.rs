@@ -393,7 +393,8 @@ pub enum Type {
     // Variant(Vec<>),
     Tuple(Delim<Type_>),
     Function(Option<SortPat>, TypeBinds, Delim<Type_>, Type_),
-    Async(Type_, Type_),
+    // Async(Type_, Type_), -- to do -- use scope variables
+    Async(Type_),
     And(Type_, Type_),
     Or(Type_, Type_),
     Paren(Type_),

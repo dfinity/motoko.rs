@@ -391,9 +391,9 @@ impl<'a> Traverse for Loc<&'a Type> {
                 ts.vec.iter().for_each(|t| f(&t.tree()));
                 f(&t.tree());
             }
-            Type::Async(t1, t2) => {
+            Type::Async(t1 /*, t2*/) => {
                 f(&t1.tree());
-                f(&t2.tree());
+                //                f(&t2.tree());
             }
             Type::And(t1, t2) => {
                 f(&t1.tree());

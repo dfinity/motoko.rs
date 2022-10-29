@@ -358,8 +358,8 @@ impl ToDoc for Type {
             Optional(t) => str("?").append(t.doc()),
             Tuple(d) => tuple(d),
             Function(_, _, _, _) => todo!(),
-            // Async(s, t) => kwd("async").append(t.doc()),
-            Async(_, _) => unimplemented!(), // scope?
+            Async(t) => kwd("async").append(t.doc()),
+            //Async(_, _) => unimplemented!(), // scope?
             And(e1, e2) => bin_op(e1, str("and"), e2),
             Or(e1, e2) => bin_op(e1, str("or"), e2),
             Paren(e) => enclose("(", e.doc(), ")"),

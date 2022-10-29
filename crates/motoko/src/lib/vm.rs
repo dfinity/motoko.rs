@@ -2356,6 +2356,11 @@ impl Core {
         }
     }
 
+    /// Call an actor method.
+    pub fn call(&mut self, id: ActorId, method: &str, arg: Value_) -> Result<Value_, Interruption> {
+        todo!()
+    }
+
     /// Create a new actor with the given (unused) `id`, and the definition `def`.
     pub fn create_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
         if let Some(_) = self.actors.map.get(&id) {

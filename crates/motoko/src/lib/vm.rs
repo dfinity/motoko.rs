@@ -2345,6 +2345,17 @@ impl Core {
         }
     }
 
+    /// Set the actor `id` to the given `definition`, regardless of whether `id` is defined already or not.
+    /// If not defined, this is the same as `create_actor`.  
+    /// Otherwise, it is the same as `update_actor`.
+    pub fn set_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
+        if self.actors.map.get(&id).is_none() {
+            self.create_actor(id, def)
+        } else {
+            self.upgrade_actor(id, def)
+        }
+    }
+
     /// Create a new actor with the given (unused) `id`, and the definition `def`.
     pub fn create_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
         if let Some(_) = self.actors.map.get(&id) {

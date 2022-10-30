@@ -149,6 +149,8 @@ pub mod stack {
         Annot(Type_),
         Assign1(Exp_),
         Assign2(Value_),
+        BinAssign1(BinOp, Exp_),
+        BinAssign2(Value_, BinOp),
         Proj(usize),
         Dot(Id_),
         If(Exp_, Option<Exp_>),

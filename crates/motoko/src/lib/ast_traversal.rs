@@ -205,6 +205,10 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 f(&e1.tree());
                 f(&e2.tree());
             }
+            Exp::BinAssign(e1, _, e2) => {
+                f(&e1.tree());
+                f(&e2.tree());
+            }
             Exp::Array(_, es) => es.vec.iter().for_each(|e| f(&e.tree())),
             Exp::Index(e1, e2) => {
                 f(&e1.tree());

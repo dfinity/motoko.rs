@@ -1334,6 +1334,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             exp_conts(active, FrameCont::Annot(t.fast_clone()), e)
         }
         Assign(e1, e2) => exp_conts(active, FrameCont::Assign1(e2.fast_clone()), e1),
+        BinAssign(e1, b, e2) => exp_conts(
+            active,
+            FrameCont::BinAssign1(b.clone(), e2.fast_clone()),
+            e1,
+        ),
         Proj(e1, i) => exp_conts(active, FrameCont::Proj(*i), e1),
         Dot(e1, f) => exp_conts(active, FrameCont::Dot(f.fast_clone()), e1),
         If(e1, e2, e3) => exp_conts(active, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
@@ -1572,6 +1577,8 @@ fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, 
             BinOp2(_, _) => true,
             Assign1(_) => false,
             Assign2(_) => true,
+            BinAssign1(..) => false,
+            BinAssign2(..) => true,
             Idx1(_) => false,
             Idx2(_) => true,
             Let(_, _) => true,
@@ -1690,6 +1697,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             Ok(Step {})
         }
         Assign1(e2) => exp_conts(active, Assign2(v), &e2),
+        BinAssign1(b, e2) => exp_conts(active, BinAssign2(v, b), &e2),
         Assign2(v1) => match &*v1 {
             Value::Pointer(p) => {
                 active.store().mutate(p.clone(), v)?;
@@ -1703,6 +1711,21 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             }
             _ => Err(Interruption::TypeMismatch),
         },
+        BinAssign2(v1, bop) => {
+            let v1d = match &*v1 {
+                Value::Pointer(p) => active.deref(p)?,
+                _ => return nyi!(line!()),
+            };
+            let v3 = binop(&active.cont_prim_type(), bop, v1d.clone(), v.clone())?;
+            match &*v1 {
+                Value::Pointer(p) => {
+                    active.store().mutate(p.clone(), v3.share())?;
+                    *active.cont() = cont_value(Value::Unit);
+                    Ok(Step {})
+                }
+                _ => return nyi!(line!()),
+            }
+        }
         Idx1(e2) => exp_conts(active, Idx2(v), &e2),
         Idx2(v1) => {
             if let Some(Frame {
@@ -2186,6 +2209,11 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         // Case: Assignment to a pointer.
                         Some(Frame {
                             cont: FrameCont::Assign1(_),
+                            ..
+                        }) => return stack_cont(active, v),
+                        // Case: Binary-op + Assignment to a pointer.
+                        Some(Frame {
+                            cont: FrameCont::BinAssign1(..),
                             ..
                         }) => return stack_cont(active, v),
                         // Case: Array-indexing with a pointer.

@@ -46,6 +46,11 @@ fn vm_binop() {
 }
 
 #[test]
+fn vm_bin_assign() {
+    assert_("var x = 0; x += 1; x", "1");
+}
+
+#[test]
 fn vm_switch() {
     assert_("switch (#apple) { case (#apple) { 42 } }", "42");
     assert_("switch (#apple(42)) { case (#apple(x)) { x } }", "42")

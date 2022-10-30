@@ -446,6 +446,7 @@ pub enum Exp {
     Variant(Id_, Option<Exp_>),
     Dot(Exp_, Id_),
     Assign(Exp_, Exp_),
+    BinAssign(Exp_, BinOp, Exp_),
     Array(Mut, Delim<Exp_>),
     Index(Exp_, Exp_),
     Function(Function),

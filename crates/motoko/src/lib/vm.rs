@@ -2357,8 +2357,30 @@ impl Core {
     }
 
     /// Call an actor method.
-    pub fn call(&mut self, id: ActorId, method: &str, arg: Value_) -> Result<Value_, Interruption> {
-        todo!()
+    pub fn call(
+        &mut self,
+        id: &ActorId,
+        method: &Id,
+        arg: Value_,
+        limits: &Limits,
+    ) -> Result<Value_, Interruption> {
+        self.assert_idle_agent()?;
+        let fn_v = {
+            let f = self.get_public_actor_method(id, method)?;
+            match &f.def {
+                Def::Func(f) => f.rec_value.fast_clone(),
+                _ => return Err(Interruption::TypeMismatch),
+            }
+        };
+        self.stack().push_front(Frame {
+            env: HashMap::new(),
+            cont: FrameCont::Call2(fn_v, None),
+            source: Source::CoreCall,
+            cont_prim_type: None,
+        });
+        *self.cont() = Cont::Value_(arg);
+        *self.cont_source() = Source::CoreCall;
+        self.run(limits)
     }
 
     /// Create a new actor with the given (unused) `id`, and the definition `def`.
@@ -2399,6 +2421,25 @@ impl Core {
             Err(Interruption::Response(r)) => self.response(limits, r),
             Err(other_interruption) => return Err(other_interruption),
         }
+    }
+
+    fn get_public_actor_method(&mut self, a: &ActorId, m: &Id) -> Result<FieldDef, Interruption> {
+        let actor = match self.actors.map.get(a) {
+            Some(a) => a,
+            None => return Err(Interruption::ActorIdNotFound(a.clone())),
+        };
+        let f = match actor.def.fields.get_field(self, &m) {
+            None => return Err(Interruption::ActorFieldNotFound(a.clone(), m.clone())),
+            Some(f) => f,
+        };
+        let f_is_public = match &f.vis {
+            Some(x) => x.0.is_public(),
+            None => false,
+        };
+        if !f_is_public {
+            return Err(Interruption::ActorFieldNotPublic(a.clone(), m.clone()));
+        };
+        Ok(f.clone())
     }
 
     fn send(

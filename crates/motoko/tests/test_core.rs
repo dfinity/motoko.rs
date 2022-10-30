@@ -6,7 +6,7 @@ use motoko::vm_types::{Core, Limits};
 use motoko::ToMotoko;
 
 #[test]
-fn actor_upgrade_demo_with_counter_inc() {
+fn core_set_actor_call() {
     let mut core = Core::empty();
     let id = ActorId::Alias("Counter".to_id());
 

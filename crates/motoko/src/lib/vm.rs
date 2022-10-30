@@ -511,7 +511,7 @@ mod def {
         source: &Source,
         df: &DecField,
     ) -> Result<(), Interruption> {
-        println!("{:?} -- {:?} ", source, df);
+        //println!("{:?} -- {:?} ", source, df);
         match &df.dec.0 {
             Dec::Func(f) => {
                 if let Some(name) = f.name.clone() {
@@ -2387,19 +2387,17 @@ impl Core {
     /// Call an actor method.
     pub fn call(
         &mut self,
-        id: &ActorId,
+        actor: &ActorId,
         method: &Id,
         arg: Value_,
         limits: &Limits,
     ) -> Result<Value_, Interruption> {
         self.assert_idle_agent()?;
-        let fn_v = {
-            let f = self.get_public_actor_field(id, method)?;
-            match &f.def {
-                Def::Func(f) => f.rec_value.fast_clone(),
-                _ => return Err(Interruption::TypeMismatch),
-            }
-        };
+        let fn_v = Value::ActorMethod(ActorMethod {
+            actor: actor.clone(),
+            method: method.clone(),
+        })
+        .share();
         self.stack().push_front(Frame {
             env: HashMap::new(),
             cont: FrameCont::Call2(fn_v, None),

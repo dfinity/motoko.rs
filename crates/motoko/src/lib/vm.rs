@@ -2345,6 +2345,44 @@ impl Core {
         }
     }
 
+    /// Set the actor `id` to the given `definition`, regardless of whether `id` is defined already or not.
+    /// If not defined, this is the same as `create_actor`.  
+    /// Otherwise, it is the same as `update_actor`.
+    pub fn set_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
+        if self.actors.map.get(&id).is_none() {
+            self.create_actor(id, def)
+        } else {
+            self.upgrade_actor(id, def)
+        }
+    }
+
+    /// Call an actor method.
+    pub fn call(
+        &mut self,
+        id: &ActorId,
+        method: &Id,
+        arg: Value_,
+        limits: &Limits,
+    ) -> Result<Value_, Interruption> {
+        self.assert_idle_agent()?;
+        let fn_v = {
+            let f = self.get_public_actor_field(id, method)?;
+            match &f.def {
+                Def::Func(f) => f.rec_value.fast_clone(),
+                _ => return Err(Interruption::TypeMismatch),
+            }
+        };
+        self.stack().push_front(Frame {
+            env: HashMap::new(),
+            cont: FrameCont::Call2(fn_v, None),
+            source: Source::CoreCall,
+            cont_prim_type: None,
+        });
+        *self.cont() = Cont::Value_(arg);
+        *self.cont_source() = Source::CoreCall;
+        self.run(limits)
+    }
+
     /// Create a new actor with the given (unused) `id`, and the definition `def`.
     pub fn create_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
         if let Some(_) = self.actors.map.get(&id) {
@@ -2385,6 +2423,25 @@ impl Core {
         }
     }
 
+    fn get_public_actor_field(&self, a: &ActorId, m: &Id) -> Result<FieldDef, Interruption> {
+        let actor = match self.actors.map.get(a) {
+            Some(a) => a,
+            None => return Err(Interruption::ActorIdNotFound(a.clone())),
+        };
+        let f = match actor.def.fields.get_field(self, &m) {
+            None => return Err(Interruption::ActorFieldNotFound(a.clone(), m.clone())),
+            Some(f) => f,
+        };
+        let f_is_public = match &f.vis {
+            Some(x) => x.0.is_public(),
+            None => false,
+        };
+        if !f_is_public {
+            return Err(Interruption::ActorFieldNotPublic(a.clone(), m.clone()));
+        };
+        Ok(f.clone())
+    }
+
     fn send(
         &mut self,
         _limits: &Limits,
@@ -2396,33 +2453,13 @@ impl Core {
         self.schedule_choice = ScheduleChoice::Actor(am.actor.clone());
         let actor = self.actors.map.get(&am.actor).unwrap();
         let actor_env = actor.env.fast_clone();
-        let f = match actor.def.fields.get_field(self, &am.method) {
-            None => {
-                return Err(Interruption::ActorFieldNotFound(
-                    am.actor.clone(),
-                    am.method.clone(),
-                ))
-            }
-            Some(f) => f,
-        };
-        let f_is_public = match &f.vis {
-            Some(x) => x.0.is_public(),
-            None => false,
-        };
-        if !f_is_public {
-            return Err(Interruption::ActorFieldNotPublic(
-                am.actor.clone(),
-                am.method.clone(),
-            ));
-        };
-        let f = match &f.def {
-            &Def::Func(ref f) => f.clone(),
-            x => {
-                println!("barf on `{:?}'", x);
-                return nyi!(line!());
+        let f = {
+            let f = self.get_public_actor_field(&am.actor, &am.method)?;
+            match &f.def {
+                Def::Func(f) => f.clone(),
+                _ => return Err(Interruption::TypeMismatch),
             }
         };
-        let actor = self.actors.map.get_mut(&am.actor).unwrap();
         assert!(actor.active.is_none());
         let mut activation = Activation::new();
         activation.stack.push_front(Frame {
@@ -2431,6 +2468,7 @@ impl Core {
             env: actor.env.fast_clone(),
             cont: FrameCont::Respond(resp_target),
         });
+        let actor = self.actors.map.get_mut(&am.actor).unwrap();
         actor.active = Some(activation);
         call_function_def(self, actor_env, &f, inst, v)
     }

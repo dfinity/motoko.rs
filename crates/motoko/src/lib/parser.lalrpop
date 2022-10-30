@@ -142,7 +142,8 @@ pub Pat: Pat = {
 TypeNullary_: Type_ = Node<TypeNullary>;
 
 pub TypeNullary: Type = {
-    "(" <tfs:Delim0<TypeItem_, ",">> ")" => todo!(),
+    "(" <tfs:Delim1<TypeItem_, ",">> ")" => todo!(),
+    "(" ")" => Type::Prim(PrimType::Unit),
     "Bool" => Type::Prim(PrimType::Bool),
     "Nat" => Type::Prim(PrimType::Nat),
     "Nat8" => Type::Prim(PrimType::Nat8),

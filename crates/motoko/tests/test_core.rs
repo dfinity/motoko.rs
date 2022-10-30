@@ -25,7 +25,7 @@ fn actor_upgrade_demo_with_counter_inc() {
         core.call(
             &id,
             &"get".to_id(),
-            0_u32.to_motoko().unwrap().share(),
+            ().to_motoko().unwrap().share(),
             &Limits::none()
         ),
         eval("0")
@@ -45,7 +45,7 @@ fn actor_upgrade_demo_with_counter_inc() {
         core.call(
             &id,
             &"get".to_id(),
-            0_u32.to_motoko().unwrap().share(),
+            ().to_motoko().unwrap().share(),
             &Limits::none()
         ),
         eval("1")
@@ -66,7 +66,7 @@ fn actor_upgrade_demo_with_counter_inc() {
         core.call(
             &id,
             &"get".to_id(),
-            0_u32.to_motoko().unwrap().share(),
+            ().to_motoko().unwrap().share(),
             &Limits::none()
         ),
         eval("1")
@@ -86,7 +86,7 @@ fn actor_upgrade_demo_with_counter_inc() {
         core.call(
             &id,
             &"get".to_id(),
-            0_u32.to_motoko().unwrap().share(),
+            ().to_motoko().unwrap().share(),
             &Limits::none()
         ),
         eval("3")

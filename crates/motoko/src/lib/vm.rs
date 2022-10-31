@@ -12,8 +12,8 @@ use crate::vm_types::{
     def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, Counts,
-    DebugPrintLine, Env, Interruption, Limit, Limits, NamedPointer, Pointer, Response,
-    ScheduleChoice, Stack, Step, NYI,
+    DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Pointer,
+    Response, ScheduleChoice, Stack, Step, NYI,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -297,16 +297,21 @@ impl Active for Core {
             id: name.clone(),
         });
         //let def = self.defs().map.get(&CtxId(0)).unwrap().fields.get(name).unwrap().def.clone();
-        let mut store = Store::new();
+        let mut store = Store::new(ScheduleChoice::Actor(name.clone()));
         let mut env = self.env().clone();
         let ctx = self.defs().map.get(&def.fields).unwrap();
         for (i, field) in ctx.fields.iter() {
             match &field.def {
                 Def::Var(v) => {
                     store.alloc_named(i.clone(), v.fast_clone());
+                    let owner = ScheduleChoice::Actor(name.clone());
                     env.insert(
                         i.clone(),
-                        Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
+                        Value::Pointer(Pointer {
+                            owner,
+                            local: LocalPointer::Named(NamedPointer(i.clone())),
+                        })
+                        .share(),
                     );
                 }
                 Def::Func(f) => {
@@ -342,16 +347,23 @@ impl Active for Core {
         for (i, field) in ctx.fields.iter() {
             match &field.def {
                 Def::Var(v) => {
-                    if let None = store.get(&Pointer::Named(NamedPointer(i.clone()))) {
-                        store.alloc_named(i.clone(), v.fast_clone());
-                    } else {
-                        // keep store's current value.
-                        // (even if not stable.)
+                    match store.get(&LocalPointer::Named(NamedPointer(i.clone()))) {
+                        None => {
+                            let p = store.alloc_named(i.clone(), v.fast_clone());
+                            let pv = Value::Pointer(p).share();
+                            env.insert(i.clone(), pv);
+                        }
+                        Some(_) => {
+                            let p = Pointer {
+                                owner: ScheduleChoice::Actor(name.clone()),
+                                local: LocalPointer::Named(NamedPointer(i.clone())),
+                            };
+                            let pv = Value::Pointer(p).share();
+                            // keep store's current value.
+                            // (even if not stable.)
+                            env.insert(i.clone(), pv);
+                        }
                     }
-                    env.insert(
-                        i.clone(),
-                        Value::Pointer(Pointer::Named(NamedPointer(i.clone()))).share(),
-                    );
                 }
                 Def::Func(..) => {
                     // to do
@@ -622,7 +634,7 @@ mod def {
 
 fn agent_init(prog: Prog) -> Agent {
     let mut a = Agent {
-        store: Store::new(),
+        store: Store::new(ScheduleChoice::Agent),
         //debug_print_out: Vector::new(),
         counts: Counts::default(),
         active: Activation::new(),
@@ -2584,7 +2596,7 @@ impl Core {
 
     #[inline]
     pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
-        self.store().dealloc(pointer)
+        self.store().dealloc(&pointer.local)
     }
 
     // to do -- rename this to "define" or "bind" ("assign" connotes mutation).

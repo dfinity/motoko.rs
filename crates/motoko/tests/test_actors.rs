@@ -2,7 +2,7 @@ use motoko::ast::ToId;
 use motoko::check::assert_vm_eval as assert_;
 use motoko::check::assert_vm_interruption as assert_x;
 use motoko::value::ActorId;
-use motoko::vm_types::{Interruption, NumericPointer, Pointer};
+use motoko::vm_types::{Interruption, LocalPointer, NumericPointer, Pointer, ScheduleChoice};
 
 use test_log::test; // enable logging output for tests by default.
 
@@ -25,7 +25,11 @@ fn actor_a_public_func_f_137() {
 
 #[test]
 fn actor_a_public_func_f_dangling() {
-    let i = Interruption::Dangling(Pointer::Numeric(NumericPointer(0)));
+    let p = Pointer {
+        local: LocalPointer::Numeric(NumericPointer(0)),
+        owner: ScheduleChoice::Agent,
+    };
+    let i = Interruption::NotOwner(p);
     let p = "
     var x = 137;
     actor A { public func f () { x } };

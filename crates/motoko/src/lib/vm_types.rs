@@ -85,7 +85,13 @@ pub struct NumericPointer(pub usize);
 pub struct NamedPointer(pub Id);
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Pointer {
+pub struct Pointer {
+    pub owner: ScheduleChoice,
+    pub local: LocalPointer,
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub enum LocalPointer {
     Numeric(NumericPointer),
     Named(NamedPointer),
 }
@@ -234,48 +240,62 @@ pub type Stack = stack::Frames;
 pub type Env = HashMap<Id, Value_>;
 
 /// Store holds mutable variables, mutable arrays and mutable records.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Store {
+    owner: ScheduleChoice,
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
-    map: HashMap<Pointer, Value_>,
+    map: HashMap<LocalPointer, Value_>,
     next_pointer: usize,
 }
 impl Store {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(owner: ScheduleChoice) -> Self {
+        Store {
+            owner,
+            map: HashMap::new(),
+            next_pointer: 0,
+        }
     }
 
     fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
         let value = value.into();
-        let ptr = Pointer::Numeric(NumericPointer(self.next_pointer));
+        let ptr = LocalPointer::Numeric(NumericPointer(self.next_pointer));
         self.next_pointer = self.next_pointer.checked_add(1).expect("Out of pointers");
         self.map.insert(ptr.clone(), value);
-        ptr
+        Pointer {
+            owner: self.owner.clone(),
+            local: ptr,
+        }
     }
 
     pub fn alloc_named(&mut self, name: Id, value: impl Into<Value_>) -> Pointer {
         let value = value.into();
-        let ptr = Pointer::Named(NamedPointer(name));
+        let ptr = LocalPointer::Named(NamedPointer(name));
         let prev = self.map.insert(ptr.clone(), value);
         assert_eq!(prev, None);
-        ptr
+        Pointer {
+            owner: self.owner.clone(),
+            local: ptr,
+        }
     }
 
-    pub fn dealloc(&mut self, pointer: &Pointer) -> Option<Value_> {
+    pub fn dealloc(&mut self, pointer: &LocalPointer) -> Option<Value_> {
         self.map.remove(pointer)
     }
 
-    pub fn get(&self, pointer: &Pointer) -> Option<&Value_> {
+    pub fn get(&self, pointer: &LocalPointer) -> Option<&Value_> {
         self.map.get(pointer)
     }
 
-    pub fn get_mut(&mut self, pointer: &Pointer) -> Option<&mut Value_> {
+    pub fn get_mut(&mut self, pointer: &LocalPointer) -> Option<&mut Value_> {
         self.map.get_mut(pointer)
     }
 
     pub fn mutate(&mut self, pointer: Pointer, value: Value_) -> Result<(), Interruption> {
+        if &pointer.owner != &self.owner {
+            return Err(Interruption::NotOwner(pointer));
+        };
         // it is an error to mutate an unallocated pointer.
-        match self.map.get_mut(&pointer) {
+        match self.map.get_mut(&pointer.local) {
             None => return Err(Interruption::Dangling(pointer)),
             Some(v) => *v = value,
         };
@@ -288,9 +308,12 @@ impl Store {
         index: Value_,
         value: Value_,
     ) -> Result<(), Interruption> {
+        if &pointer.owner != &self.owner {
+            return Err(Interruption::NotOwner(pointer));
+        };
         // it is an error to mutate an unallocated pointer.
         let pointer_ref = self
-            .get_mut(&pointer)
+            .get_mut(&pointer.local)
             .ok_or(Interruption::Dangling(pointer))?;
 
         match &**pointer_ref {
@@ -427,7 +450,7 @@ pub struct Core {
 }
 
 /// The current/last/next schedule choice, depending on context.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ScheduleChoice {
     Agent,
     Actor(ActorId),
@@ -485,8 +508,11 @@ pub trait ActiveBorrow {
     fn debug_print_out<'a>(&'a self) -> &'a Vector<DebugPrintLine>;
     fn counts<'a>(&'a self) -> &'a Counts;
     fn deref(&self, pointer: &Pointer) -> Result<Value_, Interruption> {
+        if &pointer.owner != self.schedule_choice() {
+            return Err(Interruption::NotOwner(pointer.clone()));
+        };
         self.store()
-            .get(pointer)
+            .get(&pointer.local)
             .ok_or_else(|| Interruption::Dangling(pointer.clone()))
             .map(|v| v.fast_clone())
     }
@@ -548,6 +574,7 @@ pub enum Interruption {
     Response(Response),
     Breakpoint(Breakpoint),
     Dangling(Pointer),
+    NotOwner(Pointer),
     TypeMismatch,
     NonLiteralInit(Source),
     NoMatchingCase,

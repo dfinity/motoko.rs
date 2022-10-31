@@ -14,7 +14,6 @@ fn assert<T: Debug + Eq + Serialize + DeserializeOwned>(input: &str, value: T, d
     assert_eq!(format!("{:?}", result.to_motoko().unwrap()), debug_str);
 }
 
-#[ignore]
 #[test]
 fn convert_struct() {
     #[derive(Debug, PartialEq, Deserialize)]
@@ -36,7 +35,6 @@ fn convert_struct() {
     assert_eq!(expected, item);
 }
 
-#[ignore]
 #[test]
 fn roundtrip_struct_enum() {
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -71,7 +69,6 @@ fn roundtrip_struct_enum() {
     );
 }
 
-#[ignore]
 #[test]
 fn roundtrip_value() {
     assert("#Unit", ().to_motoko().unwrap(), "Variant(\"Unit\", None)");

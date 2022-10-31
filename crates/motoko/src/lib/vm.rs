@@ -2404,7 +2404,7 @@ impl Core {
         arg: Value_,
         limits: &Limits,
     ) -> Result<Value_, Interruption> {
-        self.assert_idle_agent()?;
+        // self.assert_idle_agent()?;
         let fn_v = Value::ActorMethod(ActorMethod {
             actor: actor.clone(),
             method: method.clone(),

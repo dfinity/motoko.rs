@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use motoko::shared::Share;
 use motoko::value::ToMotoko;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -158,20 +157,20 @@ fn roundtrip_value() {
     //     motoko::value::Value::Pointer(motoko::vm_types::Pointer(123)),
     //     "Variant(\"Pointer\", Some(Pointer(Pointer(123))))",
     // );
-    assert(
-        "#Index(123, #Nat 1)",
-        // (123_usize, 1_usize).to_motoko().unwrap(),
-        motoko::value::Value::Index(
-            motoko::vm_types::Pointer {
-                owner: motoko::vm_types::ScheduleChoice::Agent,
-                local: motoko::vm_types::LocalPointer::Numeric(motoko::vm_types::NumericPointer(
-                    123,
-                )),
-            },
-            1_usize.to_motoko().unwrap().share(),
-        ),
-        "Variant(\"Index\", Some(Tuple([Nat(123), Variant(\"Nat\", Some(Nat(1)))])))",
-    );
+    // assert(
+    //     "#Index(123, #Nat 1)",
+    //     // (123_usize, 1_usize).to_motoko().unwrap(),
+    //     motoko::value::Value::Index(
+    //         motoko::vm_types::Pointer {
+    //             owner: motoko::vm_types::ScheduleChoice::Agent,
+    //             local: motoko::vm_types::LocalPointer::Numeric(motoko::vm_types::NumericPointer(
+    //                 123,
+    //             )),
+    //         },
+    //         1_usize.to_motoko().unwrap().share(),
+    //     ),
+    //     "Variant(\"Index\", Some(Tuple([Nat(123), Variant(\"Nat\", Some(Nat(1)))])))",
+    // );
     // assert(
     //     "#Function { env = {}; content = { input = (#Wild, { source_type = \"Unknown\" }); exp = (#Literal(#Unit), { source_type = \"Unknown\" }) } }",
     //     (motoko::value::Closed {

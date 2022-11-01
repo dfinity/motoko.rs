@@ -362,7 +362,7 @@ pub enum PrimType {
 }
 
 impl PrimType {
-    pub fn from_ident(i: Id) -> Option<PrimType> {
+    pub fn from_ident(i: &Id) -> Option<PrimType> {
         use PrimType::*;
         Some(match i.string.as_str() {
             "Bool" => Bool,

@@ -144,19 +144,7 @@ TypeNullary_: Type_ = Node<TypeNullary>;
 pub TypeNullary: Type = {
     "(" <tfs:Delim1<TypeItem_, ",">> ")" => todo!(),
     "(" ")" => Type::Prim(PrimType::Unit),
-    "Bool" => Type::Prim(PrimType::Bool),
-    "Nat" => Type::Prim(PrimType::Nat),
-    "Nat8" => Type::Prim(PrimType::Nat8),
-    "Nat16" => Type::Prim(PrimType::Nat16),
-    "Nat32" => Type::Prim(PrimType::Nat32),
-    "Nat64" => Type::Prim(PrimType::Nat64),
-    "Int" => Type::Prim(PrimType::Int),
-    "Int8" => Type::Prim(PrimType::Int8),
-    "Int16" => Type::Prim(PrimType::Int16),
-    "Int32" => Type::Prim(PrimType::Int32),
-    "Int64" => Type::Prim(PrimType::Int64),
-    "Principal" => Type::Prim(PrimType::Principal),
-    "Text" => Type::Prim(PrimType::Text),
+    <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| /* TODO */ Type::Unknown(id)),
     // path
     // record
     // TypeObj
@@ -176,7 +164,7 @@ TypePre_: Type_ = Node<TypePre>;
 
 pub TypePre: Type = {
     TypeUn,
-    "prim" <id:Id_> => PrimType::from_ident(id.0.clone()).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
+    "prim" <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
     "async" <t:TypePre_> => Type::Async(t),
     // actor
     // class

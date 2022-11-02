@@ -13,6 +13,44 @@ use crate::{
 };
 use crate::{Share, Value};
 
+#[macro_export]
+macro_rules! type_mismatch_ {
+    () => {
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(None))
+    };
+    ($file:expr, $line:expr) => {
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
+            name: None,
+            description: None,
+            file: $file.to_string(),
+            line: $line,
+        })))
+    };
+    ($file:expr, $line:expr, $name:expr) => {
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
+            name: Some($name),
+            description: None,
+            file: $file.to_string(),
+            line: $line,
+        })))
+    };
+    ($file:expr, $line:expr, $name:expr, $description:expr) => {
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
+            name: Some($name),
+            description: Some($description),
+            file: $file.to_string(),
+            line: $line,
+        })))
+    };
+}
+
+#[macro_export]
+macro_rules! type_mismatch {
+    ($file:expr, $line:expr) => {
+        return Err($crate::type_mismatch_!($file, $line))
+    };
+}
+
 pub mod def {
     use crate::ast::{Id, Source, Stab_, Vis_};
     use im_rc::HashMap;
@@ -322,7 +360,7 @@ impl Store {
                     Value::Nat(n) => n
                         .to_usize()
                         .ok_or(Interruption::ValueError(crate::value::ValueError::BigInt))?,
-                    _ => Err(Interruption::TypeMismatch)?,
+                    _ => type_mismatch!(file!(), line!()),
                 };
                 let mut a = a.clone();
                 if i < a.len() {
@@ -337,7 +375,7 @@ impl Store {
                 d.fast_clone().dynamic_mut().set_index(self, index, value)?;
                 Ok(())
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!())
         }
     }
 }
@@ -565,6 +603,9 @@ pub struct Response {
 
 pub type RespTarget = ScheduleChoice;
 
+#[derive(Clone, Debug, Serialize, Deserialize, Eq)]
+pub struct OptionCoreSource (pub Option<CoreSource>);
+
 // interruptions are events that prevent steppping from progressing.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "interruption_type", content = "value")]
@@ -575,7 +616,7 @@ pub enum Interruption {
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     NotOwner(Pointer),
-    TypeMismatch,
+    TypeMismatch(OptionCoreSource),
     NonLiteralInit(Source),
     NoMatchingCase,
     #[cfg(feature = "parser")]
@@ -597,7 +638,7 @@ pub enum Interruption {
     IndexOutOfBounds,
     NoDoQuestBangNull,
     MisplacedReturn,
-    NotYetImplemented(NYI),
+    NotYetImplemented(CoreSource),
     Unknown,
     Impossible,
     Other(String),
@@ -621,6 +662,16 @@ impl From<EvalInitError> for Interruption {
     }
 }
 
+impl PartialEq for OptionCoreSource {
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (None, _) => true,
+            (_, None) => true,
+            (Some(x), Some(y)) => x == y
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "evaliniterror_type", content = "value")]
 pub enum EvalInitError {
@@ -630,7 +681,9 @@ pub enum EvalInitError {
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, Deserialize)]
-pub struct NYI {
+pub struct CoreSource {
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub file: String,
     pub line: u32,
 }

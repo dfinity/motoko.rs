@@ -13,7 +13,7 @@ use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, Counts,
     DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Pointer,
-    Response, ScheduleChoice, Stack, Step, NYI,
+    Response, ScheduleChoice, Stack, Step, CoreSource
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -21,9 +21,13 @@ use num_bigint::{BigUint, ToBigInt};
 use num_traits::ToPrimitive;
 use std::vec::Vec;
 
+use crate::{type_mismatch, type_mismatch_};
+
 macro_rules! nyi {
     ($line:expr) => {
-        Err(Interruption::NotYetImplemented(NYI {
+        Err(Interruption::NotYetImplemented(CoreSource {
+            name: None,
+            description: None,
             file: file!().to_string(),
             line: $line,
         }))
@@ -659,10 +663,10 @@ fn binop(
     use BinOp::*;
     use Value::*;
     if let Unit = &*v1 {
-        return Err(Interruption::TypeMismatch);
+        type_mismatch!(file!(), line!());
     };
     if let Unit = &*v2 {
-        return Err(Interruption::TypeMismatch);
+        type_mismatch!(file!(), line!());
     };
     match binop {
         Add => match (&*v1, &*v2) {
@@ -800,7 +804,7 @@ fn opaque_iter_next<A: Active>(
             )?;
             Ok(n.map(|v| v.share()))
         }
-        _ => Err(Interruption::TypeMismatch),
+        _ => type_mismatch!(file!(), line!()),
     }
 }
 
@@ -825,7 +829,7 @@ fn cont_for_call_dot_next<A: Active>(
             Ok(Step {})
         }
         _ => {
-            let v_next_func = v.get_field_or("next", Interruption::TypeMismatch)?;
+            let v_next_func = v.get_field_or("next", type_mismatch_!(file!(), line!()))?;
             let env = active.env().fast_clone();
             let source = active.cont_source().clone();
             active.stack().push_front(Frame {
@@ -986,7 +990,7 @@ fn call_function_def<A: Active>(
         }); // to match with Return, if any.
         Ok(Step {})
     } else {
-        Err(Interruption::TypeMismatch)
+        type_mismatch!(file!(), line!())
     }
 }
 
@@ -1014,7 +1018,7 @@ fn call_function<A: Active>(
         }); // to match with Return, if any.
         Ok(Step {})
     } else {
-        Err(Interruption::TypeMismatch)
+        type_mismatch!(file!(), line!())
     }
 }
 
@@ -1038,7 +1042,7 @@ fn call_cont<A: Active>(
                     Ok(Step {})
                 }
                 Value::ActorMethod(am) => Err(Interruption::Send(am.clone(), inst, args_value)),
-                _ => Err(Interruption::TypeMismatch),
+                _ => type_mismatch!(file!(), line!())
             }
         }
     }
@@ -1061,7 +1065,7 @@ fn assert_value_is_optional<'a>(v: &'a Value) -> Result<Option<&'a Value_>, Inte
     match v {
         Value::Option(v) => Ok(Some(v)),
         Value::Null => Ok(None),
-        _ => Err(Interruption::TypeMismatch),
+        _ => type_mismatch!(file!(), line!()),
     }
 }
 
@@ -1079,7 +1083,7 @@ fn assert_value_is_option_u32<'a>(v: &'a Value) -> Result<Option<u32>, Interrupt
 fn assert_value_is_opaque_pointer(v: &Value) -> Result<Pointer, Interruption> {
     match v {
         Value::Opaque(p) => Ok(p.clone()),
-        _ => Err(Interruption::TypeMismatch),
+        _ => type_mismatch!(file!(), line!()),
     }
 }
 
@@ -1103,7 +1107,7 @@ mod collection {
                 *active.cont() = cont_value(Value::Opaque(ptr));
                 Ok(Step {})
             } else {
-                Err(Interruption::TypeMismatch)
+                type_mismatch!(file!(), line!())
             }
         }
 
@@ -1121,7 +1125,7 @@ mod collection {
                     *active.cont() = cont_value(n);
                     Ok(Step {})
                 }
-                _ => Err(Interruption::TypeMismatch),
+                _ => type_mismatch!(file!(), line!()),
             }
         }
     }
@@ -1136,7 +1140,7 @@ mod collection {
                 *active.cont() = cont_value(Value::Collection(Collection::HashMap(HashMap::new())));
                 Ok(Step {})
             } else {
-                Err(Interruption::TypeMismatch)
+                type_mismatch!(file!(), line!())
             }
         }
         pub fn put<A: Active>(active: &mut A, v: Value_) -> Result<Step, Interruption> {
@@ -1151,7 +1155,7 @@ mod collection {
                             Some(old) => (hm, Value::Option(old)),
                         }
                     } else {
-                        return Err(Interruption::TypeMismatch);
+                        type_mismatch!(file!(), line!());
                     }
                 };
                 // Note for later: immutable map updates are adding extra overhead here
@@ -1161,7 +1165,7 @@ mod collection {
                 *active.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
-                Err(Interruption::TypeMismatch)
+                type_mismatch!(file!(), line!())
             }
         }
         pub fn get<A: Active>(active: &mut A, v: Value_) -> Result<Step, Interruption> {
@@ -1175,13 +1179,13 @@ mod collection {
                             Some(v) => Value::Option(v.fast_clone()),
                         }
                     } else {
-                        return Err(Interruption::TypeMismatch);
+                        type_mismatch!(file!(), line!());
                     }
                 };
                 *active.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
-                Err(Interruption::TypeMismatch)
+                type_mismatch!(file!(), line!())
             }
         }
         pub fn remove<A: Active>(active: &mut A, v: Value_) -> Result<Step, Interruption> {
@@ -1195,7 +1199,7 @@ mod collection {
                             Some(v) => (hm, Value::Option(v)),
                         }
                     } else {
-                        return Err(Interruption::TypeMismatch);
+                        type_mismatch!(file!(), line!());
                     }
                 };
                 let hm = Value::Collection(Collection::HashMap(hm));
@@ -1203,7 +1207,7 @@ mod collection {
                 *active.cont() = cont_value(ret);
                 Ok(Step {})
             } else {
-                Err(Interruption::TypeMismatch)
+                type_mismatch!(file!(), line!())
             }
         }
     }
@@ -1655,7 +1659,7 @@ fn stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Interruption
         /* fast-path: avoid popping top stack frame. */
         match &*v {
             Value::Unit => (),
-            _ => return Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         };
         match opaque_iter_next(active, &ptr)? {
             None => {
@@ -1668,7 +1672,7 @@ fn stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Interruption
                     *active.env() = env;
                     exp_cont(active, &body)
                 } else {
-                    Err(Interruption::TypeMismatch)
+                    type_mismatch!(file!(), line!())
                 }
             }
         }
@@ -1721,7 +1725,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 *active.cont() = cont_value(Value::Unit);
                 Ok(Step {})
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         BinAssign2(v1, bop) => {
             let v1d = match &*v1 {
@@ -1754,7 +1758,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     Value::Dynamic(_) => Err(Interruption::Other(
                         "Dynamic Rust value without a pointer".to_string(),
                     )),
-                    _ => Err(Interruption::TypeMismatch),
+                    _ => type_mismatch!(file!(), line!()),
                 }
             } else {
                 let v1 = active.deref_value(v1)?;
@@ -1770,7 +1774,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                             cont_value((*d.dynamic().get_index(active.store(), v)?).clone());
                         Ok(Step {})
                     }
-                    _ => Err(Interruption::TypeMismatch),
+                    _ => type_mismatch!(file!(), line!()),
                 }
             }
         }
@@ -1781,7 +1785,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 *active.cont() = cont;
                 Ok(Step {})
             } else {
-                Err(Interruption::TypeMismatch)
+                type_mismatch!(file!(), line!())
             }
         }
         Var(x, cont) => {
@@ -1829,7 +1833,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 Ok(Step {})
             }
             Value::Bool(false) => Err(Interruption::AssertionFailure),
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         Ignore => {
             *active.cont() = cont_value(Value::Unit);
@@ -1908,10 +1912,10 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     *active.cont() = Cont::Value_(vi.fast_clone());
                     Ok(Step {})
                 } else {
-                    Err(Interruption::TypeMismatch)
+                    type_mismatch!(file!(), line!())
                 }
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         Dot(f) => match &*v {
             Value::Object(fs) => {
@@ -1919,7 +1923,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     *active.cont() = Cont::Value_(f.val.fast_clone());
                     Ok(Step {})
                 } else {
-                    Err(Interruption::TypeMismatch)
+                    type_mismatch!(file!(), line!())
                 }
             }
             Value::Dynamic(d) => {
@@ -1943,14 +1947,14 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 // do projection, representing function with special value.
                 Ok(Step {})
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         Debug => match &*v {
             Value::Unit => {
                 *active.cont() = Cont::Value_(v);
                 Ok(Step {})
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         If(e2, e3) => match &*v {
             Value::Bool(b) => {
@@ -1964,7 +1968,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 };
                 Ok(Step {})
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         While1(e1, e2) => match &*v {
             Value::Bool(b) => {
@@ -1975,11 +1979,11 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     Ok(Step {})
                 }
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         While2(e1, e2) => match &*v {
             Value::Unit => exp_conts(active, FrameCont::While1(e1.fast_clone(), e2), &e1),
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         For1(p, body) => {
             /* for-loop state: iterator object is value v */
@@ -2012,14 +2016,14 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     *active.env() = env;
                     exp_conts(active, FrameCont::For3(p, v_iter, body.fast_clone()), &body)
                 } else {
-                    Err(Interruption::TypeMismatch)
+                    type_mismatch!(file!(), line!())
                 }
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         For3(p, v_iter, body) => match &*v {
             Value::Unit => cont_for_call_dot_next(active, p, v_iter, body),
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         And1(e2) => match &*v {
             Value::Bool(b) => {
@@ -2030,14 +2034,14 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     Ok(Step {})
                 }
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         And2 => match &*v {
             Value::Bool(b) => {
                 *active.cont() = cont_value(Value::Bool(*b));
                 Ok(Step {})
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         Or1(e2) => match &*v {
             Value::Bool(b) => {
@@ -2048,21 +2052,21 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     exp_conts(active, FrameCont::Or2, &e2)
                 }
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         Or2 => match &*v {
             Value::Bool(b) => {
                 *active.cont() = cont_value(Value::Bool(*b));
                 Ok(Step {})
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         Not => match &*v {
             Value::Bool(b) => {
                 *active.cont() = cont_value(Value::Bool(!b));
                 Ok(Step {})
             }
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         Opt => {
             *active.cont() = cont_value(Value::Option(v));
@@ -2078,7 +2082,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 Ok(Step {})
             }
             Value::Null => bang_null(active),
-            _ => Err(Interruption::TypeMismatch),
+            _ => type_mismatch!(file!(), line!()),
         },
         Call1(inst, e2) => exp_conts(active, FrameCont::Call2(v, inst), &e2),
         Call2(f, inst) => call_cont(active, f, inst, v),
@@ -2495,7 +2499,7 @@ impl Core {
             let f = self.get_public_actor_field(&am.actor, &am.method)?;
             match &f.def {
                 Def::Func(f) => f.clone(),
-                _ => return Err(Interruption::TypeMismatch),
+                _ => type_mismatch!(file!(), line!()),
             }
         };
         assert!(actor.active.is_none());

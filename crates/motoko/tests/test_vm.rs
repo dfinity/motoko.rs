@@ -1,6 +1,7 @@
 use motoko::check::assert_vm_eval as assert_;
 use motoko::check::assert_vm_interruption as assert_x;
 use motoko::vm_types::Interruption;
+use motoko::type_mismatch_;
 
 use test_log::test; // enable logging output for tests by default.
 
@@ -75,21 +76,21 @@ fn vm_vars() {
     assert_("var x = 1", "()");
     assert_("var x = 1; x", "1");
     assert_("var x = 1; x := 2; x", "2");
-    assert_x("1 := 1", &Interruption::TypeMismatch);
+    assert_x("1 := 1", &type_mismatch_!());
 }
 
 #[test]
 fn vm_tuple_proj() {
     assert_("(1, 2).0", "1");
     assert_("(1, 2).1", "2");
-    assert_x("(1, 2).2", &Interruption::TypeMismatch);
+    assert_x("(1, 2).2", &type_mismatch_!());
 }
 
 #[test]
 fn vm_if_then_else() {
     assert_("if true 1 else 2", "1");
     assert_("if false 1 else 2", "2");
-    assert_x("if 1 2 else 3", &Interruption::TypeMismatch);
+    assert_x("if 1 2 else 3", &type_mismatch_!());
 }
 
 #[test]
@@ -118,8 +119,8 @@ fn vm_not_equals() {
 fn vm_assert() {
     assert_("assert true", "()");
     assert_x("assert false", &Interruption::AssertionFailure);
-    assert_x("assert 0", &Interruption::TypeMismatch);
-    assert_x("assert 1", &Interruption::TypeMismatch);
+    assert_x("assert 0", &type_mismatch_!());
+    assert_x("assert 1", &type_mismatch_!());
 }
 
 #[test]
@@ -133,8 +134,8 @@ fn vm_while() {
         "var x = 0; var y = 1; while (x != 100) { x := x + 1; y := y * 2 }; y",
         "1267650600228229401496703205376",
     );
-    assert_x("while 1 { }", &Interruption::TypeMismatch);
-    assert_x("while true { 1 }", &Interruption::TypeMismatch);
+    assert_x("while 1 { }", &type_mismatch_!());
+    assert_x("while true { 1 }", &type_mismatch_!());
 }
 
 #[test]
@@ -181,13 +182,13 @@ fn vm_records() {
 fn vm_boolean_ops() {
     assert_("false or true", "true");
     assert_("true or (do { while true { } ; false })", "true");
-    assert_x("false or 1", &Interruption::TypeMismatch);
-    assert_x("1 or true", &Interruption::TypeMismatch);
+    assert_x("false or 1", &type_mismatch_!());
+    assert_x("1 or true", &type_mismatch_!());
 
     assert_("true and false", "false");
     assert_("false and (do { while true { } ; false })", "false");
-    assert_x("true and 1", &Interruption::TypeMismatch);
-    assert_x("1 and true", &Interruption::TypeMismatch);
+    assert_x("true and 1", &type_mismatch_!());
+    assert_x("1 and true", &type_mismatch_!());
 
     assert_("not false", "true");
     assert_("not true", "false");
@@ -200,7 +201,7 @@ fn vm_option_monad() {
     assert_("do ? { (?3)! }", "?3");
     assert_("do ? { null! }", "null");
     assert_("do ? { null! ; while true { } }", "null");
-    assert_x("do ? { 3! }", &Interruption::TypeMismatch);
+    assert_x("do ? { 3! }", &type_mismatch_!());
     assert_x("null!", &Interruption::NoDoQuestBangNull);
 }
 
@@ -236,7 +237,7 @@ fn ignore() {
 #[test]
 fn debug() {
     assert_("debug { () }", "()");
-    assert_x("debug { 3 }", &Interruption::TypeMismatch);
+    assert_x("debug { 3 }", &type_mismatch_!());
 }
 
 #[test]

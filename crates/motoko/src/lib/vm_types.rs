@@ -16,10 +16,10 @@ use crate::{Share, Value};
 #[macro_export]
 macro_rules! type_mismatch_ {
     () => {
-        Interruption::TypeMismatch(crate::vm_types::OptionCoreSource(None))
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(None))
     };
     ($file:expr, $line:expr) => {
-        Interruption::TypeMismatch(crate::vm_types::OptionCoreSource(Some(CoreSource {
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
             name: None,
             description: None,
             file: $file.to_string(),
@@ -27,7 +27,7 @@ macro_rules! type_mismatch_ {
         })))
     };
     ($file:expr, $line:expr, $name:expr) => {
-        Interruption::TypeMismatch(crate::vm_types::OptionCoreSource(Some(CoreSource {
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
             name: Some($name),
             description: None,
             file: $file.to_string(),
@@ -35,7 +35,7 @@ macro_rules! type_mismatch_ {
         })))
     };
     ($file:expr, $line:expr, $name:expr, $description:expr) => {
-        Interruption::TypeMismatch(crate::vm_types::OptionCoreSource(Some(CoreSource {
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
             name: Some($name),
             description: Some($description),
             file: $file.to_string(),
@@ -47,7 +47,7 @@ macro_rules! type_mismatch_ {
 #[macro_export]
 macro_rules! type_mismatch {
     ($file:expr, $line:expr) => {
-        return Err(crate::type_mismatch_!($file, $line))
+        return Err($crate::type_mismatch_!($file, $line))
     };
 }
 

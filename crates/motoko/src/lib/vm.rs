@@ -11,9 +11,9 @@ use crate::value::{
 use crate::vm_types::{
     def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef},
     stack::{FieldContext, FieldValue, Frame, FrameCont},
-    Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, Counts,
-    DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Pointer,
-    Response, ScheduleChoice, Stack, Step, CoreSource
+    Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, CoreSource,
+    Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Pointer,
+    Response, ScheduleChoice, Stack, Step,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -30,7 +30,15 @@ macro_rules! nyi {
             description: None,
             file: file!().to_string(),
             line: $line,
-        }))
+        }, None))
+    };
+    ($line:expr, $($mesg:tt)+) => {
+        Err(Interruption::NotYetImplemented(CoreSource {
+            name: None,
+            description: None,
+            file: file!().to_string(),
+            line: $line,
+        }, Some(format!($($mesg)+)) ))
     };
 }
 
@@ -1042,7 +1050,7 @@ fn call_cont<A: Active>(
                     Ok(Step {})
                 }
                 Value::ActorMethod(am) => Err(Interruption::Send(am.clone(), inst, args_value)),
-                _ => type_mismatch!(file!(), line!())
+                _ => type_mismatch!(file!(), line!()),
             }
         }
     }
@@ -1730,7 +1738,13 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         BinAssign2(v1, bop) => {
             let v1d = match &*v1 {
                 Value::Pointer(p) => active.deref(p)?,
-                _ => return nyi!(line!()),
+                x => {
+                    return nyi!(
+                        line!(),
+                        "BinAssign2: expected Value::Pointer, but got {:?}",
+                        x
+                    )
+                }
             };
             let v3 = binop(&active.cont_prim_type(), bop, v1d.clone(), v.clone())?;
             match &*v1 {

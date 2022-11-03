@@ -375,7 +375,7 @@ impl Store {
                 d.fast_clone().dynamic_mut().set_index(self, index, value)?;
                 Ok(())
             }
-            _ => type_mismatch!(file!(), line!())
+            _ => type_mismatch!(file!(), line!()),
         }
     }
 }
@@ -604,7 +604,7 @@ pub struct Response {
 pub type RespTarget = ScheduleChoice;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq)]
-pub struct OptionCoreSource (pub Option<CoreSource>);
+pub struct OptionCoreSource(pub Option<CoreSource>);
 
 // interruptions are events that prevent steppping from progressing.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -638,7 +638,7 @@ pub enum Interruption {
     IndexOutOfBounds,
     NoDoQuestBangNull,
     MisplacedReturn,
-    NotYetImplemented(CoreSource),
+    NotYetImplemented(CoreSource, Option<String>),
     Unknown,
     Impossible,
     Other(String),
@@ -667,7 +667,7 @@ impl PartialEq for OptionCoreSource {
         match (&self.0, &other.0) {
             (None, _) => true,
             (_, None) => true,
-            (Some(x), Some(y)) => x == y
+            (Some(x), Some(y)) => x == y,
         }
     }
 }

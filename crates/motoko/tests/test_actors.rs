@@ -48,6 +48,16 @@ fn actor_a_public_func_f_g() {
 }
 
 #[test]
+fn actor_forward_def_func_g() {
+    let p = "
+    let x = 137;
+    actor A { public func f () { g() };
+              public func g () { x }; };
+    A.f()";
+    assert_(p, "137");
+}
+
+#[test]
 fn actor_a_private_func_f_fail() {
     let i = Interruption::ActorFieldNotPublic(ActorId::Local("A".to_id()), "f".to_id());
     let p = "
@@ -150,5 +160,24 @@ fn actor_forward_decl() {
     let p = "
     actor A { public func f () { g() }; public func g() { #ok } };
     A.f()";
+    assert_(p, "#ok");
+}
+
+#[test]
+fn actor_upgrade_fail() {
+    let p = "
+    actor Counter = {
+      var x = 0;
+      public func get() : async Nat { x };
+      public func inc() { x := x + 1 };
+    };
+    actor Counter = {
+      var x = 0;
+      public func get() : async Nat { x };
+      public func inc2() { x := x + 1 };     
+      public func inc() { inc2() };     
+    };
+    Counter.inc();
+    #ok";
     assert_(p, "#ok");
 }

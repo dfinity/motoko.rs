@@ -1,7 +1,7 @@
 use motoko::check::assert_vm_eval as assert_;
 use motoko::check::assert_vm_interruption as assert_x;
-use motoko::vm_types::Interruption;
 use motoko::type_mismatch_;
+use motoko::vm_types::Interruption;
 
 use test_log::test; // enable logging output for tests by default.
 

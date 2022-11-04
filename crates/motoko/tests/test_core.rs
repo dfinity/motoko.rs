@@ -5,6 +5,8 @@ use motoko::value::ActorId;
 use motoko::vm_types::{Core, Limits};
 use motoko::ToMotoko;
 
+use test_log::test; // enable logging output for tests by default.
+
 #[test]
 fn core_set_actor_call() {
     let mut core = Core::empty();

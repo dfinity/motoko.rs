@@ -93,7 +93,14 @@ pub mod def {
         Actor(Actor),
         Func(Function),
         Value(crate::value::Value_),
-        Var(crate::value::Value_),
+        Var(Var),
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+    pub struct Var {
+        pub owner: super::ScheduleChoice,
+        pub name: Id,
+        pub init: crate::value::Value_,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -104,7 +111,6 @@ pub mod def {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Actor {
-        //pub context: CtxId,
         pub fields: CtxId,
     }
 
@@ -159,7 +165,7 @@ pub enum Cont {
 }
 
 pub mod stack {
-    use super::{Cont, Env, Pointer, RespTarget, Vector};
+    use super::{def::CtxId, Cont, Env, Pointer, RespTarget, Vector};
     use crate::ast::{
         BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, RelOp, Source, Type_,
         UnOp,
@@ -249,6 +255,7 @@ pub mod stack {
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
+        pub context: CtxId,
         #[serde(with = "crate::serde_utils::im_rc_hashmap")]
         pub env: Env,
         pub cont: FrameCont,
@@ -375,7 +382,7 @@ impl Store {
                 d.fast_clone().dynamic_mut().set_index(self, index, value)?;
                 Ok(())
             }
-            _ => type_mismatch!(file!(), line!())
+            _ => type_mismatch!(file!(), line!()),
         }
     }
 }
@@ -604,7 +611,7 @@ pub struct Response {
 pub type RespTarget = ScheduleChoice;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq)]
-pub struct OptionCoreSource (pub Option<CoreSource>);
+pub struct OptionCoreSource(pub Option<CoreSource>);
 
 // interruptions are events that prevent steppping from progressing.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -638,7 +645,7 @@ pub enum Interruption {
     IndexOutOfBounds,
     NoDoQuestBangNull,
     MisplacedReturn,
-    NotYetImplemented(CoreSource),
+    NotYetImplemented(CoreSource, Option<String>),
     Unknown,
     Impossible,
     Other(String),
@@ -667,7 +674,7 @@ impl PartialEq for OptionCoreSource {
         match (&self.0, &other.0) {
             (None, _) => true,
             (_, None) => true,
-            (Some(x), Some(y)) => x == y
+            (Some(x), Some(y)) => x == y,
         }
     }
 }

@@ -1288,6 +1288,21 @@ fn def_field_value(i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
     }
 }
 
+fn resolve_def<A: ActiveBorrow>(
+    active: &A,
+    ctx_id: &CtxId,
+    x: &Id,
+) -> Result<FieldDef, Interruption> {
+    let ctx = active.defs().map.get(&ctx_id).unwrap();
+    match ctx.fields.get(x) {
+        Some(d) => Ok(d.clone()),
+        None => match &ctx.parent {
+            Some(p) => resolve_def(active, p, x),
+            None => Err(Interruption::UnboundIdentifer(x.clone())),
+        },
+    }
+}
+
 fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
@@ -1313,23 +1328,8 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Return(Some(e)) => exp_conts(active, FrameCont::Return, e),
         Var(x) => match active.env().get(x) {
             None => {
-                fn resolve_def<A: ActiveBorrow>(
-                    active: &A,
-                    x: &Id,
-                ) -> Result<FieldDef, Interruption> {
-                    match active
-                        .defs()
-                        .map
-                        .get(&active.defs().active_ctx)
-                        .unwrap()
-                        .fields
-                        .get(x)
-                    {
-                        None => Err(Interruption::UnboundIdentifer(x.clone())),
-                        Some(d) => Ok(d.clone()),
-                    }
-                }
-                let fd = resolve_def(active, x)?;
+                let ctx = active.defs().active_ctx.clone();
+                let fd = resolve_def(active, &ctx, x)?;
                 let v = def_field_value(x, &fd)?;
                 *active.cont() = Cont::Value_(v);
                 Ok(Step {})

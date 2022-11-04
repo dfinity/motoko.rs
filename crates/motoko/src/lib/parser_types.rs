@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 // TODO: move?
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(tag = "syntax_error_type")]
 pub enum SyntaxError {
     InvalidToken {

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ast::{Inst, Mut};
 #[cfg(feature = "parser")]
-use crate::parser_types::SyntaxError;
+use crate::parser_types::SyntaxError as SyntaxErrorCode;
 use crate::shared::FastClone;
 use crate::value::{ActorId, ActorMethod, ValueError};
 use crate::{
@@ -12,6 +12,12 @@ use crate::{
     value::Value_,
 };
 use crate::{Share, Value};
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SyntaxError {
+    pub path: String,
+    pub code: SyntaxErrorCode
+}
 
 #[macro_export]
 macro_rules! type_mismatch_ {
@@ -463,7 +469,7 @@ impl Activation {
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actor {
-    pub filename: String,
+    pub path: String,
     pub def: def::Actor,
     pub env: Env,
     pub store: Store,
@@ -538,13 +544,13 @@ pub trait Active: ActiveBorrow {
 
     fn create(
         &mut self,
-        filename: String,
+        path: String,
         id: ActorId,
         actor: def::Actor,
     ) -> Result<Value_, Interruption>;
     fn upgrade(
         &mut self,
-        filename: String,
+        path: String,
         id: ActorId,
         actor: def::Actor,
     ) -> Result<Value_, Interruption>;

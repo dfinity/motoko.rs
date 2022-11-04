@@ -16,7 +16,7 @@ use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, CoreSource,
     Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Pointer,
-    Response, ScheduleChoice, Stack, Step,
+    Response, ScheduleChoice, Stack, Step, SyntaxError,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -335,7 +335,7 @@ impl Active for Core {
     }
     fn create(
         &mut self,
-        filename: String,
+        path: String,
         name: ActorId,
         def: ActorDef,
     ) -> Result<Value_, Interruption> {
@@ -368,7 +368,7 @@ impl Active for Core {
             }
         }
         let a = Actor {
-            filename,
+            path,
             def,
             env,
             store,
@@ -385,7 +385,7 @@ impl Active for Core {
 
     fn upgrade(
         &mut self,
-        filename: String,
+        path: String,
         name: ActorId,
         def: ActorDef,
     ) -> Result<Value_, Interruption> {
@@ -425,7 +425,7 @@ impl Active for Core {
             }
         }
         let a = Actor {
-            filename,
+            path,
             def,
             env,
             store,
@@ -634,7 +634,7 @@ mod def {
 
     pub fn actor<A: Active>(
         active: &mut A,
-        filename: String,
+        path: String,
         id: &ActorId,
         source: Source,
         vis: Option<Vis_>,
@@ -661,12 +661,12 @@ mod def {
                     .insert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
             }
         }
-        active.create(filename, id.clone(), actor)
+        active.create(path, id.clone(), actor)
     }
 
     pub fn actor_upgrade<A: Active>(
         active: &mut A,
-        filename: String,
+        path: String,
         id: &ActorId,
         source: Source,
         vis: Option<Vis_>,
@@ -694,7 +694,7 @@ mod def {
                     .reinsert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
             }
         }
-        active.upgrade(filename, id.clone(), actor)
+        active.upgrade(path, id.clone(), actor)
     }
 }
 
@@ -2479,8 +2479,11 @@ impl Core {
         Ok(Self::new(crate::check::parse(s)?))
     }
 
-    fn assert_actor_def(s: &str) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
-        let p = crate::check::parse(s)?;
+    fn assert_actor_def(path: String, s: &str) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
+        let p = match crate::check::parse(s) {
+            Err(code) => return Err(Interruption::SyntaxError(SyntaxError{path, code})),
+            Ok(r) => r,
+        };
         if p.vec.is_empty() {
             return Err(Interruption::NotAnActorDefinition);
         };
@@ -2495,14 +2498,14 @@ impl Core {
     /// Otherwise, it is the same as `update_actor`.
     pub fn set_actor(
         &mut self,
-        filename: String,
+        path: String,
         id: ActorId,
         def: &str,
     ) -> Result<(), Interruption> {
         if self.actors.map.get(&id).is_none() {
-            self.create_actor(filename, id, def)
+            self.create_actor(path, id, def)
         } else {
-            self.upgrade_actor(filename, id, def)
+            self.upgrade_actor(path, id, def)
         }
     }
 
@@ -2537,17 +2540,17 @@ impl Core {
     /// Create a new actor with the given (unused) `id`, and the definition `def`.
     pub fn create_actor(
         &mut self,
-        filename: String,
+        path: String,
         id: ActorId,
         def: &str,
     ) -> Result<(), Interruption> {
         if let Some(_) = self.actors.map.get(&id) {
             return Err(Interruption::AmbiguousActorId(id));
         };
-        let (_id, dfs) = Self::assert_actor_def(def)?;
+        let (_id, dfs) = Self::assert_actor_def(path.clone(), def)?;
         def::actor(
             self,
-            filename,
+            path,
             &id,
             Source::CoreCreateActor,
             None,
@@ -2560,7 +2563,7 @@ impl Core {
     /// Upgrade an existing actor with the given `id`, with new definition `def`.
     pub fn upgrade_actor(
         &mut self,
-        filename: String,
+        path: String,
         id: ActorId,
         def: &str,
     ) -> Result<(), Interruption> {
@@ -2569,10 +2572,10 @@ impl Core {
         } else {
             return Err(Interruption::ActorIdNotFound(id));
         };
-        let (_id, dfs) = Self::assert_actor_def(def)?;
+        let (_id, dfs) = Self::assert_actor_def(path.clone(), def)?;
         def::actor_upgrade(
             self,
-            filename,
+            path,
             &id,
             Source::CoreUpgradeActor,
             None,
@@ -2690,7 +2693,8 @@ impl Core {
     pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value_, Interruption> {
         self.assert_idle_agent()
             .map_err(Interruption::EvalInitError)?;
-        let p = crate::check::parse(new_prog_frag).map_err(Interruption::SyntaxError)?;
+        let path = "<anonymous>".to_string();
+        let p = crate::check::parse(new_prog_frag).map_err(|code| Interruption::SyntaxError(SyntaxError{ code, path }))?;
         self.agent.active.cont = Cont::Decs(p.vec);
         self.run(&Limits::none())
     }
@@ -2754,8 +2758,9 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
     info!("eval_limit:");
     info!("  - prog = {}", prog);
     info!("  - limits = {:#?}", limits);
-    use crate::vm_types::Interruption::SyntaxError;
-    let p = crate::check::parse(prog).map_err(SyntaxError)?;
+    //use crate::vm_types::Interruption::SyntaxError;
+    let path = "<anonymous>".to_string();
+    let p = crate::check::parse(prog).map_err(|code| Interruption::SyntaxError(SyntaxError{ code, path }))?;
     info!("eval_limit: parsed.");
     let mut c = Core::new(p);
     let r = c.run(limits);

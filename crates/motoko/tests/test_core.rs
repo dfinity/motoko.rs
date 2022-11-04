@@ -13,6 +13,7 @@ fn core_set_actor_call() {
     let id = ActorId::Alias("Counter".to_id());
 
     core.set_actor(
+        format!("{}:{}", file!(), line!()),
         id.clone(),
         "
       actor {
@@ -54,6 +55,7 @@ fn core_set_actor_call() {
     );
 
     core.set_actor(
+        format!("{}:{}", file!(), line!()),
         id.clone(),
         "
       actor {

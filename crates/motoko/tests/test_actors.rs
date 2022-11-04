@@ -174,10 +174,47 @@ fn actor_upgrade_fail() {
     actor Counter = {
       var x = 0;
       public func get() : async Nat { x };
-      public func inc2() { x := x + 1 };     
-      public func inc() { inc2() };     
+      public func inc2() { x := x + 1 };
+      public func inc() { inc2() };
     };
     Counter.inc();
+    #ok";
+    assert_(p, "#ok");
+}
+
+#[test]
+fn actor_upgrade_field_ordering1() {
+    let p = "
+    actor Counter = {
+      var x = 0;
+      public func get() : async Nat { x };
+      public func inc() { x := x + 1 };
+    };
+    actor Counter = {
+      var x = 0;
+      public func get() : async Nat { x };
+      public func inc2() { x := x + 1 };
+      public func inc() { inc2() };
+    };
+    Counter.inc();
+    #ok";
+    assert_(p, "#ok");
+}
+
+#[test]
+fn actor_upgrade_field_ordering2() {
+    let p = "
+    actor Counter = {
+      var x = 0;
+      public func get() : async Nat { x };
+      public func inc() { x := x + 1 };
+    };
+    actor Counter = {
+      public func get() : async Nat { x };
+      public func inc() { inc2() };
+      public func inc2() { x := x + 1 };
+      var x = 0;
+    };
     #ok";
     assert_(p, "#ok");
 }

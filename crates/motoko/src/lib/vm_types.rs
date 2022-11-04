@@ -93,7 +93,14 @@ pub mod def {
         Actor(Actor),
         Func(Function),
         Value(crate::value::Value_),
-        Var(crate::value::Value_),
+        Var(Var),
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+    pub struct Var {
+        pub owner: super::ScheduleChoice,
+        pub name: Id,
+        pub init: crate::value::Value_,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -104,7 +111,6 @@ pub mod def {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Actor {
-        //pub context: CtxId,
         pub fields: CtxId,
     }
 
@@ -159,7 +165,7 @@ pub enum Cont {
 }
 
 pub mod stack {
-    use super::{Cont, Env, Pointer, RespTarget, Vector};
+    use super::{def::CtxId, Cont, Env, Pointer, RespTarget, Vector};
     use crate::ast::{
         BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, RelOp, Source, Type_,
         UnOp,
@@ -249,6 +255,7 @@ pub mod stack {
     }
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Frame {
+        pub context: CtxId,
         #[serde(with = "crate::serde_utils::im_rc_hashmap")]
         pub env: Env,
         pub cont: FrameCont,

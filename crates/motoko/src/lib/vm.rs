@@ -9,7 +9,10 @@ use crate::value::{
     FastRandIterFunction, HashMapFunction, PrimFunction, Value, ValueError, Value_,
 };
 use crate::vm_types::{
-    def::{Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef},
+    def::{
+        Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef,
+        Var as VarDef,
+    },
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, CoreSource,
     Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Pointer,
@@ -108,6 +111,7 @@ impl Defs {
             next_ctx_id: 1,
         }
     }
+
     fn enter_context(&mut self) -> CtxId {
         let x = self.next_ctx_id;
         self.next_ctx_id = self
@@ -122,6 +126,17 @@ impl Defs {
         assert_eq!(prev, None);
         self.active_ctx = CtxId(x);
         CtxId(x)
+    }
+    fn reenter_context(&mut self, x: &CtxId) -> (CtxId, Ctx) {
+        let new_ctx = Ctx {
+            parent: Some(self.active_ctx.clone()),
+            fields: HashMap::new(),
+        };
+        let old_ctx = self.map.get(x).unwrap().clone();
+        assert_eq!(old_ctx.parent, new_ctx.parent);
+        self.active_ctx = x.clone();
+        self.map.insert(x.clone(), new_ctx);
+        (x.clone(), old_ctx)
     }
     fn insert_field(
         &mut self,
@@ -180,6 +195,21 @@ impl Defs {
 
     fn leave_context(&mut self, sanity_check_active: &CtxId) {
         assert_eq!(&self.active_ctx, sanity_check_active);
+        self.active_ctx = self
+            .map
+            .get(&self.active_ctx)
+            .expect("leave context")
+            .parent
+            .as_ref()
+            .expect("parent context")
+            .clone();
+    }
+    fn report_diff(&self, _old_ctx: &Ctx) {
+        // to do
+    }
+    fn releave_context(&mut self, sanity_check_active: &CtxId, old_ctx: &Ctx) {
+        assert_eq!(&self.active_ctx, sanity_check_active);
+        self.report_diff(old_ctx);
         self.active_ctx = self
             .map
             .get(&self.active_ctx)
@@ -315,7 +345,7 @@ impl Active for Core {
         for (i, field) in ctx.fields.iter() {
             match &field.def {
                 Def::Var(v) => {
-                    store.alloc_named(i.clone(), v.fast_clone());
+                    store.alloc_named(i.clone(), v.init.fast_clone());
                     let owner = ScheduleChoice::Actor(name.clone());
                     env.insert(
                         i.clone(),
@@ -361,7 +391,7 @@ impl Active for Core {
                 Def::Var(v) => {
                     match store.get(&LocalPointer::Named(NamedPointer(i.clone()))) {
                         None => {
-                            let p = store.alloc_named(i.clone(), v.fast_clone());
+                            let p = store.alloc_named(i.clone(), v.init.fast_clone());
                             let pv = Value::Pointer(p).share();
                             env.insert(i.clone(), pv);
                         }
@@ -530,8 +560,9 @@ mod def {
     use super::*;
     use crate::ast::{DecField, DecFields};
 
-    fn insert_field<A: Active>(
+    fn insert_owned_field<A: Active>(
         active: &mut A,
+        def_owner: &ScheduleChoice,
         source: &Source,
         df: &DecField,
     ) -> Result<(), Interruption> {
@@ -567,12 +598,17 @@ mod def {
                     _ => return Err(Interruption::NonLiteralInit(e.1.clone())),
                 };
                 if let Pat::Var(ref x) = p.0 {
+                    let var_def = Def::Var(VarDef {
+                        owner: def_owner.clone(),
+                        name: x.0.clone(),
+                        init: v.share(),
+                    });
                     active.defs().insert_field(
                         &x.0,
                         source.clone(),
                         df.vis.clone(),
                         df.stab.clone(),
-                        Def::Var(v.share()),
+                        var_def,
                     )?;
                     //Ok(Value::Pointer(Pointer::NamedPointer(x.0.clone())))
                     Ok(())
@@ -594,15 +630,17 @@ mod def {
     ) -> Result<Value_, Interruption> {
         let fields = active.defs().enter_context();
         for df in dfs.vec.iter() {
-            insert_field(active, &df.1, &df.0)?;
+            insert_owned_field(active, &ScheduleChoice::Actor(id.clone()), &df.1, &df.0)?;
         }
         active.defs().leave_context(&fields);
         let actor = crate::vm_types::def::Actor { fields };
         match id {
-            ActorId::Alias(x) => {
+            ActorId::Alias(_x) => {
+                /* 20221103
                 active
                     .defs()
                     .insert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
+                */
             }
             ActorId::Local(x) => {
                 active
@@ -620,13 +658,13 @@ mod def {
         vis: Option<Vis_>,
         stab: Option<Stab_>,
         dfs: &DecFields,
-        _old_def: &ActorDef,
+        old_def: &ActorDef,
     ) -> Result<Value_, Interruption> {
-        let fields = active.defs().enter_context();
+        let (fields, old_ctx) = active.defs().reenter_context(&old_def.fields);
         for df in dfs.vec.iter() {
-            insert_field(active, &df.1, &df.0)?;
+            insert_owned_field(active, &ScheduleChoice::Actor(id.clone()), &df.1, &df.0)?;
         }
-        active.defs().leave_context(&fields);
+        active.defs().releave_context(&fields, &old_ctx);
         let actor = crate::vm_types::def::Actor { fields };
         match id {
             ActorId::Alias(x) => {
@@ -754,7 +792,9 @@ fn exp_conts_<A: Active>(
 ) -> Result<Step, Interruption> {
     let env = active.env().fast_clone();
     let cont_prim_type = active.cont_prim_type().clone();
+    let context = active.defs().active_ctx.clone();
     active.stack().push_front(Frame {
+        context,
         env,
         cont: frame_cont,
         cont_prim_type,
@@ -827,7 +867,9 @@ fn cont_for_call_dot_next<A: Active>(
         Value::Dynamic(d) => {
             let env = active.env().fast_clone();
             let source = active.cont_source().clone();
+            let context = active.defs().active_ctx.clone();
             active.stack().push_front(Frame {
+                context,
                 env,
                 cont: FrameCont::For2(p, v, body),
                 cont_prim_type: None,
@@ -840,7 +882,9 @@ fn cont_for_call_dot_next<A: Active>(
             let v_next_func = v.get_field_or("next", type_mismatch_!(file!(), line!()))?;
             let env = active.env().fast_clone();
             let source = active.cont_source().clone();
+            let context = active.defs().active_ctx.clone();
             active.stack().push_front(Frame {
+                context,
                 env,
                 cont: FrameCont::For2(p, v, body),
                 cont_prim_type: None,
@@ -989,8 +1033,11 @@ fn call_function_def<A: Active>(
                 .env()
                 .insert(f.0.clone(), fndef.rec_value.fast_clone())
         });
+        active.defs().active_ctx = fndef.context.clone();
         *active.cont() = Cont::Exp_(fndef.function.exp.fast_clone(), Vector::new());
+        let context = active.defs().active_ctx.clone();
         active.stack().push_front(Frame {
+            context,
             source,
             env: env_saved,
             cont: FrameCont::Call3,
@@ -1018,7 +1065,9 @@ fn call_function<A: Active>(
             .fast_clone()
             .map(|f| active.env().insert(f.0.clone(), value));
         *active.cont() = Cont::Exp_(cf.0.content.exp.fast_clone(), Vector::new());
+        let context = active.defs().active_ctx.clone();
         active.stack().push_front(Frame {
+            context,
             source,
             env: env_saved,
             cont: FrameCont::Call3,
@@ -1228,7 +1277,14 @@ fn def_field_value(i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
             id: ActorId::Local(i.clone()),
         })
         .share()),
-        _ => nyi!(line!()),
+        Def::Func(f) => Ok(f.rec_value.fast_clone()),
+        Def::Value(v) => Ok(v.fast_clone()),
+        Def::Var(v) => Ok(crate::value::Value::Pointer(Pointer {
+            owner: v.owner.clone(),
+            local: LocalPointer::Named(NamedPointer(v.name.clone())),
+        })
+        .share()),
+        Def::Module(..) => nyi!(line!()),
     }
 }
 
@@ -1536,6 +1592,7 @@ fn return_<A: Active>(active: &mut A, v: Value_) -> Result<Step, Interruption> {
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
                 FrameCont::Call3 => {
+                    active.defs().active_ctx = fr.context;
                     *active.env() = fr.env;
                     *active.stack() = stack;
                     *active.cont() = Cont::Value_(v);
@@ -1699,6 +1756,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             *active.env() = frame.env;
         }
     }
+    active.defs().active_ctx = frame.context;
     *active.cont_prim_type() = frame.cont_prim_type;
     *active.cont_source() = frame.source;
     match frame.cont {
@@ -2007,7 +2065,10 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     no need to evaluate general Motoko code for iterator. */
                     let env = active.env().fast_clone();
                     let source = active.cont_source().clone();
+                    let context = active.defs().active_ctx.clone();
+
                     active.stack().push_front(Frame {
+                        context,
                         env,
                         cont: FrameCont::ForOpaqueIter(p, ptr.clone(), body),
                         cont_prim_type: None,
@@ -2201,7 +2262,10 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
             } else {
                 let source = source_from_decs(&decs);
                 let env = active.env().fast_clone();
+                let context = active.defs().active_ctx.clone();
+
                 active.stack().push_front(Frame {
+                    context,
                     env,
                     cont: FrameCont::Decs(decs),
                     source,
@@ -2404,7 +2468,7 @@ impl Core {
     }
 
     /// Set the actor `id` to the given `definition`, regardless of whether `id` is defined already or not.
-    /// If not defined, this is the same as `create_actor`.  
+    /// If not defined, this is the same as `create_actor`.
     /// Otherwise, it is the same as `update_actor`.
     pub fn set_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
         if self.actors.map.get(&id).is_none() {
@@ -2428,7 +2492,10 @@ impl Core {
             method: method.clone(),
         })
         .share();
+        let context = self.defs().active_ctx.clone();
+
         self.stack().push_front(Frame {
+            context,
             env: HashMap::new(),
             cont: FrameCont::Call2(fn_v, None),
             source: Source::CoreCall,
@@ -2505,6 +2572,7 @@ impl Core {
         inst: Option<Inst>,
         v: Value_,
     ) -> Result<Step, Interruption> {
+        let context = self.defs().active_ctx.clone();
         let resp_target = self.schedule_choice.clone();
         self.schedule_choice = ScheduleChoice::Actor(am.actor.clone());
         let actor = self.actors.map.get(&am.actor).unwrap();
@@ -2519,6 +2587,7 @@ impl Core {
         assert!(actor.active.is_none());
         let mut activation = Activation::new();
         activation.stack.push_front(Frame {
+            context,
             source: Source::Evaluation,
             cont_prim_type: None,
             env: actor.env.fast_clone(),

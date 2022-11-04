@@ -463,6 +463,7 @@ impl Activation {
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actor {
+    pub filename: String,
     pub def: def::Actor,
     pub env: Env,
     pub store: Store,
@@ -535,8 +536,18 @@ pub trait Active: ActiveBorrow {
         self.store().alloc(value)
     }
 
-    fn create(&mut self, id: ActorId, actor: def::Actor) -> Result<Value_, Interruption>;
-    fn upgrade(&mut self, id: ActorId, actor: def::Actor) -> Result<Value_, Interruption>;
+    fn create(
+        &mut self,
+        filename: String,
+        id: ActorId,
+        actor: def::Actor,
+    ) -> Result<Value_, Interruption>;
+    fn upgrade(
+        &mut self,
+        filename: String,
+        id: ActorId,
+        actor: def::Actor,
+    ) -> Result<Value_, Interruption>;
 }
 
 /// Non-exclusive read access to the "active" components of the VM.

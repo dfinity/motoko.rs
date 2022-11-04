@@ -333,7 +333,12 @@ impl Active for Core {
             Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().counts,
         }
     }
-    fn create(&mut self, name: ActorId, def: ActorDef) -> Result<Value_, Interruption> {
+    fn create(
+        &mut self,
+        filename: String,
+        name: ActorId,
+        def: ActorDef,
+    ) -> Result<Value_, Interruption> {
         let v = Value::Actor(crate::value::Actor {
             def: Some(def.clone()),
             id: name.clone(),
@@ -363,6 +368,7 @@ impl Active for Core {
             }
         }
         let a = Actor {
+            filename,
             def,
             env,
             store,
@@ -377,7 +383,12 @@ impl Active for Core {
         Ok(v.share())
     }
 
-    fn upgrade(&mut self, name: ActorId, def: ActorDef) -> Result<Value_, Interruption> {
+    fn upgrade(
+        &mut self,
+        filename: String,
+        name: ActorId,
+        def: ActorDef,
+    ) -> Result<Value_, Interruption> {
         let v = Value::Actor(crate::value::Actor {
             def: Some(def.clone()),
             id: name.clone(),
@@ -414,6 +425,7 @@ impl Active for Core {
             }
         }
         let a = Actor {
+            filename,
             def,
             env,
             store,
@@ -622,6 +634,7 @@ mod def {
 
     pub fn actor<A: Active>(
         active: &mut A,
+        filename: String,
         id: &ActorId,
         source: Source,
         vis: Option<Vis_>,
@@ -648,11 +661,12 @@ mod def {
                     .insert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
             }
         }
-        active.create(id.clone(), actor)
+        active.create(filename, id.clone(), actor)
     }
 
     pub fn actor_upgrade<A: Active>(
         active: &mut A,
+        filename: String,
         id: &ActorId,
         source: Source,
         vis: Option<Vis_>,
@@ -680,7 +694,7 @@ mod def {
                     .reinsert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
             }
         }
-        active.upgrade(id.clone(), actor)
+        active.upgrade(filename, id.clone(), actor)
     }
 }
 
@@ -2367,14 +2381,21 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
 
                                 let id = ActorId::Local(local_name.0.clone());
                                 match old_def {
-                                    None => {
-                                        def::actor(active, &id, dec_.1.clone(), None, None, dfs)?
-                                    }
+                                    None => def::actor(
+                                        active,
+                                        format!("<anonymous@{}>", dec_.1),
+                                        &id,
+                                        dec_.1.clone(),
+                                        None,
+                                        None,
+                                        dfs,
+                                    )?,
                                     Some(FieldDef {
                                         def: Def::Actor(old_def),
                                         ..
                                     }) => def::actor_upgrade(
                                         active,
+                                        format!("<anonymous@{}>", dec_.1),
                                         &id,
                                         dec_.1.clone(),
                                         None,
@@ -2472,11 +2493,16 @@ impl Core {
     /// Set the actor `id` to the given `definition`, regardless of whether `id` is defined already or not.
     /// If not defined, this is the same as `create_actor`.
     /// Otherwise, it is the same as `update_actor`.
-    pub fn set_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
+    pub fn set_actor(
+        &mut self,
+        filename: String,
+        id: ActorId,
+        def: &str,
+    ) -> Result<(), Interruption> {
         if self.actors.map.get(&id).is_none() {
-            self.create_actor(id, def)
+            self.create_actor(filename, id, def)
         } else {
-            self.upgrade_actor(id, def)
+            self.upgrade_actor(filename, id, def)
         }
     }
 
@@ -2509,17 +2535,35 @@ impl Core {
     }
 
     /// Create a new actor with the given (unused) `id`, and the definition `def`.
-    pub fn create_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
+    pub fn create_actor(
+        &mut self,
+        filename: String,
+        id: ActorId,
+        def: &str,
+    ) -> Result<(), Interruption> {
         if let Some(_) = self.actors.map.get(&id) {
             return Err(Interruption::AmbiguousActorId(id));
         };
         let (_id, dfs) = Self::assert_actor_def(def)?;
-        def::actor(self, &id, Source::CoreCreateActor, None, None, &dfs)?;
+        def::actor(
+            self,
+            filename,
+            &id,
+            Source::CoreCreateActor,
+            None,
+            None,
+            &dfs,
+        )?;
         Ok(())
     }
 
     /// Upgrade an existing actor with the given `id`, with new definition `def`.
-    pub fn upgrade_actor(&mut self, id: ActorId, def: &str) -> Result<(), Interruption> {
+    pub fn upgrade_actor(
+        &mut self,
+        filename: String,
+        id: ActorId,
+        def: &str,
+    ) -> Result<(), Interruption> {
         let old_def = if let Some(old) = self.actors.map.get(&id) {
             old.def.clone()
         } else {
@@ -2528,6 +2572,7 @@ impl Core {
         let (_id, dfs) = Self::assert_actor_def(def)?;
         def::actor_upgrade(
             self,
+            filename,
             &id,
             Source::CoreUpgradeActor,
             None,

@@ -667,10 +667,12 @@ mod def {
         active.defs().releave_context(&fields, &old_ctx);
         let actor = crate::vm_types::def::Actor { fields };
         match id {
-            ActorId::Alias(x) => {
+            ActorId::Alias(_x) => {
+                /*
                 active
                     .defs()
                     .reinsert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
+                */
             }
             ActorId::Local(x) => {
                 active

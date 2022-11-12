@@ -296,7 +296,7 @@ impl ToDoc for Exp {
             Await(e) => kwd("await").append(e.doc()),
             Assert(e) => kwd("assert").append(e.doc()),
             Annot(e, t) => e.doc().append(" : ").append(t.doc()),
-            Import(s, _) => kwd("import").append(s.doc()), // new permissive syntax?
+            Import(s) => kwd("import").append(s.doc()), // new permissive syntax?
             Throw(e) => kwd("throw").append(e.doc()),
             Try(e, cs) => {
                 let mut doc = kwd("try").append(e.doc());
@@ -335,6 +335,7 @@ impl ToDoc for Dec {
                 .append(e.doc()),
             LetModule(_, _, _) => todo!(),
             LetActor(..) => todo!(),
+            LetImport(..) => todo!(),
             Func(_) => todo!(),
             Var(p, e) => kwd("var")
                 .append(p.doc())

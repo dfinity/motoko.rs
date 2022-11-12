@@ -198,6 +198,7 @@ pub type Dec_ = Node<Dec>;
 pub enum Dec {
     Exp(Exp_),
     Let(Pat_, Exp_),
+    LetImport(Pat_, Sugar, String),
     LetModule(Option<Id_>, Sugar, DecFields),
     LetActor(Option<Id_>, Sugar, DecFields),
     Func(Function),
@@ -469,7 +470,8 @@ pub enum Exp {
     Await(Exp_),
     Assert(Exp_),
     Annot(Exp_, Type_),
-    Import(Id_, ResolvedImport),
+    //Import(Id_, ResolvedImport),
+    Import(String),
     Throw(Exp_),
     Try(Exp_, Vec<Case_>),
     Ignore(Exp_),

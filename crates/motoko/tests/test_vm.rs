@@ -251,13 +251,6 @@ fn for_() {
         "var x = 13; var c = 0; let i = { next = func () { if (x == 0) { null } else { x := x - 1; c := c + 1; ?x } } }; for (j in i) { let _ = j; }; c", "13");
 }
 
-#[ignore]
-#[test]
-fn module() {
-    let p = "module X { public let x = 5; let y = (1, 2); func f () { } }";
-    assert_(p, p)
-}
-
 #[test]
 fn prim_debug_print() {
     assert_("prim \"debugPrint\" \"hello, world\"", "()");

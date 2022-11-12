@@ -301,7 +301,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 f(&e.tree());
                 f(&t.tree());
             }
-            Exp::Import(_, _) => {}
+            Exp::Import(..) => {}
             Exp::Throw(e) => f(&e.tree()),
             Exp::Try(e, es) => {
                 f(&e.tree());
@@ -323,6 +323,7 @@ impl<'a> Traverse for Loc<&'a Dec> {
             }
             Dec::LetModule(_, _, _) => todo!(),
             Dec::LetActor(_, _, _) => todo!(),
+            Dec::LetImport(_, _, _) => todo!(),
             Dec::Func(_) => todo!(),
             Dec::Var(p, e) => {
                 f(&p.tree());

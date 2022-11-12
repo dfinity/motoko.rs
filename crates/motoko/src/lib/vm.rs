@@ -15,8 +15,8 @@ use crate::vm_types::{
     },
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, CoreSource,
-    Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Pointer,
-    Response, ScheduleChoice, Stack, Step, SyntaxError,
+    Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Paths,
+    Pointer, Response, ScheduleChoice, Stack, Step, SyntaxError,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -2419,6 +2419,9 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                     Dec::LetModule(_i, _, _dfs) => {
                         nyi!(line!())
                     }
+                    Dec::LetImport(p, _, s) => {
+                        nyi!(line!())
+                    }
                     Dec::Var(p, e) => match p.0 {
                         Pat::Var(ref x) => {
                             exp_conts(active, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), e)
@@ -2461,6 +2464,9 @@ impl Core {
             actors: Actors {
                 map: HashMap::new(),
             },
+            paths: Paths {
+                map: HashMap::new(),
+            },
             next_resp_id: 0,
             debug_print_out: Vector::new(),
         }
@@ -2479,9 +2485,12 @@ impl Core {
         Ok(Self::new(crate::check::parse(s)?))
     }
 
-    fn assert_actor_def(path: String, s: &str) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
+    fn assert_actor_def(
+        path: String,
+        s: &str,
+    ) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
         let p = match crate::check::parse(s) {
-            Err(code) => return Err(Interruption::SyntaxError(SyntaxError{path, code})),
+            Err(code) => return Err(Interruption::SyntaxError(SyntaxError { path, code })),
             Ok(r) => r,
         };
         if p.vec.is_empty() {
@@ -2496,17 +2505,17 @@ impl Core {
     /// Set the actor `id` to the given `definition`, regardless of whether `id` is defined already or not.
     /// If not defined, this is the same as `create_actor`.
     /// Otherwise, it is the same as `update_actor`.
-    pub fn set_actor(
-        &mut self,
-        path: String,
-        id: ActorId,
-        def: &str,
-    ) -> Result<(), Interruption> {
+    pub fn set_actor(&mut self, path: String, id: ActorId, def: &str) -> Result<(), Interruption> {
         if self.actors.map.get(&id).is_none() {
             self.create_actor(path, id, def)
         } else {
             self.upgrade_actor(path, id, def)
         }
+    }
+
+    /// Set the path's file content (initially), or re-set it, when it changes.
+    pub fn set_path(&mut self, path: String, file_content: &str) -> Result<(), Interruption> {
+        todo!()
     }
 
     /// Call an actor method.
@@ -2548,15 +2557,7 @@ impl Core {
             return Err(Interruption::AmbiguousActorId(id));
         };
         let (_id, dfs) = Self::assert_actor_def(path.clone(), def)?;
-        def::actor(
-            self,
-            path,
-            &id,
-            Source::CoreCreateActor,
-            None,
-            None,
-            &dfs,
-        )?;
+        def::actor(self, path, &id, Source::CoreCreateActor, None, None, &dfs)?;
         Ok(())
     }
 
@@ -2694,7 +2695,8 @@ impl Core {
         self.assert_idle_agent()
             .map_err(Interruption::EvalInitError)?;
         let path = "<anonymous>".to_string();
-        let p = crate::check::parse(new_prog_frag).map_err(|code| Interruption::SyntaxError(SyntaxError{ code, path }))?;
+        let p = crate::check::parse(new_prog_frag)
+            .map_err(|code| Interruption::SyntaxError(SyntaxError { code, path }))?;
         self.agent.active.cont = Cont::Decs(p.vec);
         self.run(&Limits::none())
     }
@@ -2760,7 +2762,8 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
     info!("  - limits = {:#?}", limits);
     //use crate::vm_types::Interruption::SyntaxError;
     let path = "<anonymous>".to_string();
-    let p = crate::check::parse(prog).map_err(|code| Interruption::SyntaxError(SyntaxError{ code, path }))?;
+    let p = crate::check::parse(prog)
+        .map_err(|code| Interruption::SyntaxError(SyntaxError { code, path }))?;
     info!("eval_limit: parsed.");
     let mut c = Core::new(p);
     let r = c.run(limits);

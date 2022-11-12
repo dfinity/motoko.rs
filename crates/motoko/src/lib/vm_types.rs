@@ -16,7 +16,7 @@ use crate::{Share, Value};
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SyntaxError {
     pub path: String,
-    pub code: SyntaxErrorCode
+    pub code: SyntaxErrorCode,
 }
 
 #[macro_export]
@@ -499,6 +499,7 @@ pub struct Core {
     pub actors: Actors,
     pub next_resp_id: usize,
     pub debug_print_out: Vector<DebugPrintLine>,
+    pub paths: Paths,
 }
 
 /// The current/last/next schedule choice, depending on context.
@@ -513,6 +514,24 @@ pub enum ScheduleChoice {
 pub struct Actors {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub map: HashMap<ActorId, Actor>,
+}
+
+/// The Paths in a Core system (a virtual filesystem).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Paths {
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
+    pub map: HashMap<Path, File>,
+}
+
+/// A Path should adhere to certain rules, not enforced by this type.
+pub type Path = String;
+
+/// The File in a Core system (a virtual filesystem).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct File {
+    pub content: String,
+    /// Each file is a root in the definition database forest.
+    pub def_ctx: def::CtxId,
 }
 
 /// A line of output emitted by prim "debugPrint".

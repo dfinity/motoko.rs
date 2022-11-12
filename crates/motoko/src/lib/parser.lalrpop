@@ -314,6 +314,8 @@ ExpNonDec<B>: Exp = {
     "do" "?" <e:Block_> => Exp::DoOpt(e),
     "assert" <e:ExpNest_> => Exp::Assert(e),
     "debug" <e:ExpNest_> => Exp::Debug(e),
+    "import" <txt:StringLiteral> => Exp::Import(txt),
+
 }
 
 #[inline]
@@ -409,6 +411,7 @@ Dec: Dec = {
 DecNonVar_: Dec_ = Node<DecNonVar>;
 
 DecNonVar: Dec = {
+    "import" <p:PatNullary_> <s:"="?> <txt:StringLiteral> => Dec::LetImport(p, Sugar(s.is_some()), txt),
     "let" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Let(p, e),
     "module" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetModule(i, Sugar(s.is_some()), ob),
     "actor" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetActor(i, Sugar(s.is_some()), ob),

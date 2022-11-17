@@ -66,6 +66,7 @@ pub enum Source {
     CoreInit,
     CoreCreateActor,
     CoreUpgradeActor,
+    CoreSetModule,
     CoreCall,
 }
 
@@ -120,6 +121,7 @@ impl std::fmt::Display for Source {
             Source::CoreCreateActor => write!(f, "(Core.create_actor())"),
             Source::CoreUpgradeActor => write!(f, "(Core.upgrade_actor())"),
             Source::CoreCall => write!(f, "(Core.call())"),
+            Source::CoreSetModule => write!(f, "(Core.set_module())"),
         }
     }
 }

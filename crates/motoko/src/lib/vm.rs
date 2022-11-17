@@ -11,7 +11,7 @@ use crate::value::{
 use crate::vm_types::{
     def::{
         Actor as ActorDef, Ctx, CtxId, Def, Defs, Field as FieldDef, Function as FunctionDef,
-        Var as VarDef,
+        Module as ModuleDef, Var as VarDef,
     },
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, CoreSource,
@@ -333,6 +333,7 @@ impl Active for Core {
             Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().counts,
         }
     }
+
     fn create(
         &mut self,
         path: String,
@@ -435,6 +436,24 @@ impl Active for Core {
         };
         self.actors.map.insert(name, a);
         Ok(v.share())
+    }
+
+    fn create_module(
+        &mut self,
+        _path: String,
+        _id: Option<Id>,
+        module: ModuleDef,
+    ) -> Result<Value_, Interruption> {
+        Ok(crate::value::Value::Module(module).share())
+    }
+
+    fn upgrade_module(
+        &mut self,
+        _path: String,
+        _id: Option<Id>,
+        module: ModuleDef,
+    ) -> Result<Value_, Interruption> {
+        Ok(crate::value::Value::Module(module).share())
     }
 }
 
@@ -572,6 +591,91 @@ mod def {
     use super::*;
     use crate::ast::{DecField, DecFields};
 
+    fn insert_static_field<A: Active>(
+        active: &mut A,
+        source: &Source,
+        df: &DecField,
+    ) -> Result<(), Interruption> {
+        //println!("{:?} -- {:?} ", source, df);
+        match &df.dec.0 {
+            Dec::Func(f) => {
+                if let Some(name) = f.name.clone() {
+                    let f = FunctionDef {
+                        context: active.defs().active_ctx.clone(),
+                        function: f.clone(),
+                        rec_value: Value::Function(ClosedFunction(Closed {
+                            ctx: active.defs().active_ctx.clone(),
+                            env: active.env().fast_clone(),
+                            content: f.clone(),
+                        }))
+                        .share(),
+                    };
+                    active.defs().insert_field(
+                        &name.0,
+                        source.clone(),
+                        df.vis.clone(),
+                        df.stab.clone(),
+                        Def::Func(f),
+                    )?;
+                    Ok(())
+                } else {
+                    nyi!(line!())
+                }
+            }
+            Dec::Var(_p, _e) => Err(Interruption::ModuleNotStatic(source.clone())),
+            Dec::Exp(e) => {
+                if exp_is_static(&e.0) {
+                    // ignore pure expression with no name.
+                    Ok(())
+                } else {
+                    Err(Interruption::ModuleNotStatic(source.clone()))
+                }
+            }
+            Dec::Let(p, e) => {
+                match p.0 {
+                    Pat::Var(ref x) => {
+                        if exp_is_static(&e.0) {
+                            active.defs().insert_field(
+                                &x.0,
+                                source.clone(),
+                                df.vis.clone(),
+                                df.stab.clone(),
+                                Def::StaticValue(e.clone()),
+                            )?;
+                            Ok(())
+                        } else {
+                            Err(Interruption::ModuleNotStatic(source.clone()))
+                        }
+                    }
+                    Pat::Wild => {
+                        if exp_is_static(&e.0) {
+                            // ignore pure expression with no name.
+                            Ok(())
+                        } else {
+                            Err(Interruption::ModuleNotStatic(source.clone()))
+                        }
+                    }
+                    _ => nyi!(line!()),
+                }
+            }
+            Dec::LetImport(_p, _, _url) => {
+                nyi!(line!())
+            }
+            Dec::LetModule(_i, _, _dfs) => {
+                nyi!(line!())
+            }
+            Dec::LetActor(_i, _, _dfs) => {
+                nyi!(line!())
+            }
+            Dec::Type(_id, _typ_binds, _typ) => {
+                nyi!(line!())
+            }
+            Dec::Class(_class) => {
+                nyi!(line!())
+            }
+        }
+    }
+
     fn insert_owned_field<A: Active>(
         active: &mut A,
         def_owner: &ScheduleChoice,
@@ -695,6 +799,89 @@ mod def {
             }
         }
         active.upgrade(path, id.clone(), actor)
+    }
+
+    pub fn module<A: Active>(
+        active: &mut A,
+        path: String,
+        id: &Option<Id_>,
+        source: Source,
+        vis: Option<Vis_>,
+        stab: Option<Stab_>,
+        dfs: &DecFields,
+        ctx_id: Option<CtxId>,
+    ) -> Result<Value_, Interruption> {
+        if let Some(ctx_id) = ctx_id {
+            let (fields, old_ctx) = active.defs().reenter_context(&ctx_id);
+            for df in dfs.vec.iter() {
+                insert_static_field(active, &df.1, &df.0)?;
+            }
+            active.defs().releave_context(&fields, &old_ctx);
+            let module = crate::vm_types::def::Module { fields };
+            match id {
+                None => (),
+                Some(x) => active.defs().reinsert_field(
+                    &x.0,
+                    source,
+                    vis,
+                    stab,
+                    Def::Module(module.clone()),
+                )?,
+            }
+            active.upgrade_module(path, id.as_ref().map(|x| x.0.clone()), module)
+        } else {
+            let fields = active.defs().enter_context();
+            for df in dfs.vec.iter() {
+                insert_static_field(active, &df.1, &df.0)?;
+            }
+            active.defs().leave_context(&fields);
+            let module = crate::vm_types::def::Module { fields };
+            /*
+                    active
+                        .defs()
+                        .insert_field(&x, source, vis, stab, Def::Actor(actor.clone()))?
+            */
+            active.create_module(path, id.as_ref().map(|x| x.0.clone()), module)
+        }
+    }
+}
+
+fn delim_is_static(d: &crate::ast::Delim<Exp_>) -> bool {
+    for e in d.vec.iter() {
+        if !exp_is_static(&e.0) {
+            return false;
+        }
+    }
+    true
+}
+
+// Conservative check if an expression is "static enough".
+// No allocation, looping is permitted in a static expression.
+// (So no Mut::Var fields, and no objects, etc.)
+fn exp_is_static(e: &Exp) -> bool {
+    match e {
+        Exp::Literal(_) => true,
+        Exp::Var(_) => true, // variables reference _values_ in the env.
+        Exp::Un(_, e1) => exp_is_static(&e1.0),
+        Exp::Bin(e1, _, e2) => exp_is_static(&e1.0) & exp_is_static(&e2.0),
+        Exp::Rel(e1, _, e2) => exp_is_static(&e1.0) & exp_is_static(&e2.0),
+        Exp::Opt(e) => exp_is_static(&e.0),
+        Exp::Variant(_, None) => true,
+        Exp::Variant(_, Some(e)) => exp_is_static(&e.0),
+        Exp::Array(Mut::Const, d) => delim_is_static(d),
+        Exp::Tuple(d) => delim_is_static(d),
+        Exp::Not(e) => exp_is_static(&e.0),
+        Exp::And(e1, e2) => exp_is_static(&e1.0) & exp_is_static(&e2.0),
+        Exp::Or(e1, e2) => exp_is_static(&e1.0) & exp_is_static(&e2.0),
+        Exp::If(e1, e2, None) => exp_is_static(&e1.0) & exp_is_static(&e2.0),
+        Exp::If(e1, e2, Some(e3)) => {
+            exp_is_static(&e1.0) & exp_is_static(&e2.0) & exp_is_static(&e3.0)
+        }
+        // Switch -- to do
+        Exp::Ignore(e) => exp_is_static(&e.0),
+        Exp::Annot(e, _) => exp_is_static(&e.0),
+        Exp::Paren(e) => exp_is_static(&e.0),
+        _ => false,
     }
 }
 
@@ -1294,7 +1481,11 @@ fn def_field_value(i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
         })
         .share()),
         Def::Func(f) => Ok(f.rec_value.fast_clone()),
-        Def::Value(v) => Ok(v.fast_clone()),
+        Def::StaticValue(_e) => {
+            // to do -- evaluate the expression,
+            // knowing it's constrained to have no side effects.
+            nyi!(line!())
+        }
         Def::Var(v) => Ok(crate::value::Value::Pointer(Pointer {
             owner: v.owner.clone(),
             local: LocalPointer::Named(NamedPointer(v.name.clone())),
@@ -2014,6 +2205,9 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     type_mismatch!(file!(), line!())
                 }
             }
+            Value::Module(_module_def) => {
+                nyi!(line!())
+            }
             Value::Dynamic(d) => {
                 let f = d.dynamic().get_field(active.store(), f.0.as_str())?;
                 *active.cont() = Cont::Value_(f);
@@ -2416,10 +2610,27 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         *active.cont() = Cont::Decs(decs);
                         Ok(Step {})
                     }
-                    Dec::LetModule(_i, _, _dfs) => {
-                        nyi!(line!())
+                    Dec::LetModule(id, _, dfs) => {
+                        let v = def::module(
+                            active,
+                            format!("<anonymous@{}>", dec_.1),
+                            &id,
+                            dec_.1.clone(),
+                            None,
+                            None,
+                            &dfs,
+                            None,
+                        )?;
+                        match id {
+                            None => (),
+                            Some(i) => {
+                                active.env().insert(i.0.clone(), v);
+                            }
+                        };
+                        *active.cont() = Cont::Decs(decs);
+                        Ok(Step {})
                     }
-                    Dec::LetImport(p, _, s) => {
+                    Dec::LetImport(_p, _, _s) => {
                         nyi!(line!())
                     }
                     Dec::Var(p, e) => match p.0 {
@@ -2502,6 +2713,23 @@ impl Core {
         }
     }
 
+    fn assert_module_def(
+        path: String,
+        s: &str,
+    ) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
+        let p = match crate::check::parse(s) {
+            Err(code) => return Err(Interruption::SyntaxError(SyntaxError { path, code })),
+            Ok(r) => r,
+        };
+        if p.vec.is_empty() {
+            return Err(Interruption::NotAModuleDefinition);
+        };
+        match &p.vec.last().unwrap().0 {
+            Dec::LetModule(id, _, dfs) => Ok((id.clone(), dfs.clone())),
+            _ => Err(Interruption::NotAModuleDefinition),
+        }
+    }
+
     /// Set the actor `id` to the given `definition`, regardless of whether `id` is defined already or not.
     /// If not defined, this is the same as `create_actor`.
     /// Otherwise, it is the same as `update_actor`.
@@ -2514,8 +2742,34 @@ impl Core {
     }
 
     /// Set the path's file content (initially), or re-set it, when it changes.
-    pub fn set_path(&mut self, path: String, file_content: &str) -> Result<(), Interruption> {
-        todo!()
+    ///
+    /// The content must be a module.  For actors, see `set_actor` instead.
+    pub fn set_module(&mut self, path: String, def: &str) -> Result<(), Interruption> {
+        let (id, dfs) = Self::assert_module_def(path.clone(), def)?;
+        if let Some(old) = self.paths.map.get(&path) {
+            def::module(
+                self,
+                path,
+                &id,
+                Source::CoreSetModule,
+                None,
+                None,
+                &dfs,
+                Some(old.def_ctx.clone()),
+            )?;
+        } else {
+            def::module(
+                self,
+                path,
+                &id,
+                Source::CoreSetModule,
+                None,
+                None,
+                &dfs,
+                None,
+            )?;
+        };
+        Ok(())
     }
 
     /// Call an actor method.

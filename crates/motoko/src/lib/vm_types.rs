@@ -98,8 +98,10 @@ pub mod def {
         Module(Module),
         Actor(Actor),
         Func(Function),
-        Value(crate::value::Value_),
         Var(Var),
+        /// We represent "static values" as expressions.
+        /// (to permit variables that mention other static values.)
+        StaticValue(super::Exp_),
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -111,7 +113,6 @@ pub mod def {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Module {
-        //pub parent: CtxId,
         pub fields: CtxId,
     }
 
@@ -573,6 +574,19 @@ pub trait Active: ActiveBorrow {
         id: ActorId,
         actor: def::Actor,
     ) -> Result<Value_, Interruption>;
+
+    fn create_module(
+        &mut self,
+        path: String,
+        id: Option<Id>,
+        module: def::Module,
+    ) -> Result<Value_, Interruption>;
+    fn upgrade_module(
+        &mut self,
+        path: String,
+        id: Option<Id>,
+        module: def::Module,
+    ) -> Result<Value_, Interruption>;
 }
 
 /// Non-exclusive read access to the "active" components of the VM.
@@ -659,6 +673,7 @@ pub enum Interruption {
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     NotOwner(Pointer),
+    ModuleNotStatic(Source),
     TypeMismatch(OptionCoreSource),
     NonLiteralInit(Source),
     NoMatchingCase,
@@ -668,6 +683,7 @@ pub enum Interruption {
     EvalInitError(EvalInitError),
     UnboundIdentifer(Id),
     NotAnActorDefinition,
+    NotAModuleDefinition,
     AmbiguousActorId(ActorId),
     ActorIdNotFound(ActorId),
     ActorFieldNotFound(ActorId, Id),

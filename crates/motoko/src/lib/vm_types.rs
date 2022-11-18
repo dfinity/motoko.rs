@@ -16,7 +16,7 @@ use crate::{Share, Value};
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SyntaxError {
     pub path: String,
-    pub code: SyntaxErrorCode
+    pub code: SyntaxErrorCode,
 }
 
 #[macro_export]
@@ -98,8 +98,10 @@ pub mod def {
         Module(Module),
         Actor(Actor),
         Func(Function),
-        Value(crate::value::Value_),
         Var(Var),
+        /// We represent "static values" as expressions.
+        /// (to permit variables that mention other static values.)
+        StaticValue(CtxId, super::Exp_),
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -111,7 +113,6 @@ pub mod def {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Module {
-        //pub parent: CtxId,
         pub fields: CtxId,
     }
 
@@ -499,6 +500,7 @@ pub struct Core {
     pub actors: Actors,
     pub next_resp_id: usize,
     pub debug_print_out: Vector<DebugPrintLine>,
+    pub paths: Paths,
 }
 
 /// The current/last/next schedule choice, depending on context.
@@ -513,6 +515,24 @@ pub enum ScheduleChoice {
 pub struct Actors {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub map: HashMap<ActorId, Actor>,
+}
+
+/// The Paths in a Core system (a virtual filesystem).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Paths {
+    #[serde(with = "crate::serde_utils::im_rc_hashmap")]
+    pub map: HashMap<Path, File>,
+}
+
+/// A Path should adhere to certain rules, not enforced by this type.
+pub type Path = String;
+
+/// The File in a Core system (a virtual filesystem).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct File {
+    pub content: String,
+    /// Each file is a root in the definition database forest.
+    pub def_ctx: def::CtxId,
 }
 
 /// A line of output emitted by prim "debugPrint".
@@ -553,6 +573,19 @@ pub trait Active: ActiveBorrow {
         path: String,
         id: ActorId,
         actor: def::Actor,
+    ) -> Result<Value_, Interruption>;
+
+    fn create_module(
+        &mut self,
+        path: String,
+        id: Option<Id>,
+        module: def::Module,
+    ) -> Result<Value_, Interruption>;
+    fn upgrade_module(
+        &mut self,
+        path: String,
+        id: Option<Id>,
+        module: def::Module,
     ) -> Result<Value_, Interruption>;
 }
 
@@ -640,6 +673,8 @@ pub enum Interruption {
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     NotOwner(Pointer),
+    ModuleNotStatic(Source),
+    ModuleFieldNotPublic,
     TypeMismatch(OptionCoreSource),
     NonLiteralInit(Source),
     NoMatchingCase,
@@ -649,6 +684,7 @@ pub enum Interruption {
     EvalInitError(EvalInitError),
     UnboundIdentifer(Id),
     NotAnActorDefinition,
+    NotAModuleDefinition,
     AmbiguousActorId(ActorId),
     ActorIdNotFound(ActorId),
     ActorFieldNotFound(ActorId, Id),

@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut, ToId};
 use crate::dynamic::Dynamic;
 use crate::shared::{FastClone, Share, Shared};
-use crate::vm_types::{def::Actor as ActorDef, def::CtxId, Env};
+use crate::vm_types::{def::Actor as ActorDef, def::CtxId, def::Module as ModuleDef, Env};
 
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -130,6 +130,7 @@ pub enum Value {
     // DynamicRef(DynamicRef),
     Actor(Actor),
     ActorMethod(ActorMethod),
+    Module(ModuleDef),
 }
 
 /// Actor value.
@@ -504,6 +505,7 @@ impl Value {
             Value::Index(_, _) => Err(ValueError::ToRust("Index".to_string()))?,
             Value::Function(_) => Err(ValueError::ToRust("Function".to_string()))?,
             Value::PrimFunction(_) => Err(ValueError::ToRust("PrimFunction".to_string()))?,
+            Value::Module(_) => Err(ValueError::ToRust("Module".to_string()))?,
             Value::Collection(c) => match c {
                 Collection::HashMap(m) => Array(
                     m.iter()

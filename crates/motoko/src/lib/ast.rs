@@ -66,6 +66,7 @@ pub enum Source {
     CoreInit,
     CoreCreateActor,
     CoreUpgradeActor,
+    CoreSetModule,
     CoreCall,
 }
 
@@ -120,6 +121,7 @@ impl std::fmt::Display for Source {
             Source::CoreCreateActor => write!(f, "(Core.create_actor())"),
             Source::CoreUpgradeActor => write!(f, "(Core.upgrade_actor())"),
             Source::CoreCall => write!(f, "(Core.call())"),
+            Source::CoreSetModule => write!(f, "(Core.set_module())"),
         }
     }
 }
@@ -198,6 +200,7 @@ pub type Dec_ = Node<Dec>;
 pub enum Dec {
     Exp(Exp_),
     Let(Pat_, Exp_),
+    LetImport(Pat_, Sugar, String),
     LetModule(Option<Id_>, Sugar, DecFields),
     LetActor(Option<Id_>, Sugar, DecFields),
     Func(Function),
@@ -469,7 +472,8 @@ pub enum Exp {
     Await(Exp_),
     Assert(Exp_),
     Annot(Exp_, Type_),
-    Import(Id_, ResolvedImport),
+    //Import(Id_, ResolvedImport),
+    Import(String),
     Throw(Exp_),
     Try(Exp_, Vec<Case_>),
     Ignore(Exp_),

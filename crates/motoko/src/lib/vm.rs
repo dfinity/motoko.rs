@@ -634,13 +634,14 @@ mod def {
             Dec::Let(p, e) => {
                 match p.0 {
                     Pat::Var(ref x) => {
+                        let ctx_id = active.defs().active_ctx.clone();
                         if exp_is_static(&e.0) {
                             active.defs().insert_field(
                                 &x.0,
                                 source.clone(),
                                 df.vis.clone(),
                                 df.stab.clone(),
-                                Def::StaticValue(e.clone()),
+                                Def::StaticValue(ctx_id, e.clone()),
                             )?;
                             Ok(())
                         } else {
@@ -969,18 +970,20 @@ fn relop(
     use Value::*;
     Ok(Bool(match relop {
         Eq => match (&*v1, &*v2) {
+            (Unit, Unit) => true,
             (Bool(b1), Bool(b2)) => b1 == b2,
             (Text(t1), Text(t2)) => t1 == t2,
             (Nat(n1), Nat(n2)) => n1 == n2,
             (Int(i1), Int(i2)) => i1 == i2,
-            _ => nyi!(line!())?,
+            (v1, v2) => v1 == v2, //            _ => nyi!(line!(), "{:?} == {:?}", v1, v2)?,
         },
         Neq => match (&*v1, &*v2) {
+            (Unit, Unit) => false,
             (Bool(b1), Bool(b2)) => b1 != b2,
             (Text(t1), Text(t2)) => t1 == t2,
             (Nat(n1), Nat(n2)) => n1 != n2,
             (Int(i1), Int(i2)) => i1 != i2,
-            _ => nyi!(line!())?,
+            (v1, v2) => v1 != v2, //            _ => nyi!(line!(), "{:?} == {:?}", v1, v2)?,
         },
         _ => nyi!(line!())?,
     }))
@@ -1473,7 +1476,7 @@ mod collection {
     }
 }
 
-fn def_field_value(i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
+fn def_field_value(defs: &Defs, i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
     match &fd.def {
         Def::Actor(a) => Ok(Value::Actor(crate::value::Actor {
             def: Some(a.clone()),
@@ -1481,10 +1484,13 @@ fn def_field_value(i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
         })
         .share()),
         Def::Func(f) => Ok(f.rec_value.fast_clone()),
-        Def::StaticValue(_e) => {
-            // to do -- evaluate the expression,
-            // knowing it's constrained to have no side effects.
-            nyi!(line!())
+        Def::StaticValue(ctx_id, e) => {
+            let mut c = Core::empty();
+            c.defs = defs.clone();
+            c.defs.active_ctx = ctx_id.clone();
+            c.agent.active.cont = Cont::Exp_(e.fast_clone(), Vector::new());
+            let v = c.run(&Limits::none())?;
+            Ok(v)
         }
         Def::Var(v) => Ok(crate::value::Value::Pointer(Pointer {
             owner: v.owner.clone(),
@@ -1498,15 +1504,31 @@ fn def_field_value(i: &Id, fd: &FieldDef) -> Result<Value_, Interruption> {
 fn resolve_def<A: ActiveBorrow>(
     active: &A,
     ctx_id: &CtxId,
+    is_public_projection: bool,
     x: &Id,
 ) -> Result<FieldDef, Interruption> {
     let ctx = active.defs().map.get(&ctx_id).unwrap();
     match ctx.fields.get(x) {
-        Some(d) => Ok(d.clone()),
-        None => match &ctx.parent {
-            Some(p) => resolve_def(active, p, x),
-            None => Err(Interruption::UnboundIdentifer(x.clone())),
-        },
+        Some(d) => {
+            let f_is_public = match &d.vis {
+                Some(x) => x.0.is_public(),
+                None => false,
+            };
+            if is_public_projection && !f_is_public {
+                return Err(Interruption::ModuleFieldNotPublic);
+            };
+            Ok(d.clone())
+        }
+        None => {
+            if is_public_projection {
+                Err(Interruption::UnboundIdentifer(x.clone()))
+            } else {
+                match &ctx.parent {
+                    Some(p) => resolve_def(active, p, false, x),
+                    None => Err(Interruption::UnboundIdentifer(x.clone())),
+                }
+            }
+        }
     }
 }
 
@@ -1536,8 +1558,8 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Var(x) => match active.env().get(x) {
             None => {
                 let ctx = active.defs().active_ctx.clone();
-                let fd = resolve_def(active, &ctx, x)?;
-                let v = def_field_value(x, &fd)?;
+                let fd = resolve_def(active, &ctx, false, x)?;
+                let v = def_field_value(active.defs(), x, &fd)?;
                 *active.cont() = Cont::Value_(v);
                 Ok(Step {})
                 /*Err(Interruption::UnboundIdentifer(x.clone()))*/
@@ -2205,8 +2227,11 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                     type_mismatch!(file!(), line!())
                 }
             }
-            Value::Module(_module_def) => {
-                nyi!(line!())
+            Value::Module(m) => {
+                let fd = resolve_def(active, &m.fields, true, &f.0)?;
+                let v = def_field_value(active.defs(), &f.0, &fd)?;
+                *active.cont() = Cont::Value_(v);
+                Ok(Step {})
             }
             Value::Dynamic(d) => {
                 let f = d.dynamic().get_field(active.store(), f.0.as_str())?;

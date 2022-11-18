@@ -7,24 +7,26 @@ use test_log::test; // enable logging output for tests by default.
 fn module() {
     let p = "
     module M {
-      public let x1 = y;
-      let x2 = (1, 2);
-      func x3 () { };
+      public let x1 = x2;
+      public let x2 = (1, 2);
+      public func x3 () { };
       let _ = 1 + 2 - 4;
       1 + 2 - 4;
       public 1 + 2 - 4;
       public let x4 = #foo(x6);
       public let x5 = #foo(1 + 2);
       public let x6 = #foo(x5);
-      let x7 = [1, 2];
+      public let x7 = [1, 2];
+      public let x8 = z;
+      let z = 0;
     };
-    M.x1;
-    M.x2;
-    M.x3;
-    M.x4;
-    M.x5;
-    M.x6;
-    M.x7;";
+    assert M.x1.0 == 1;
+    assert M.x2.0 == 1;
+    assert M.x3 () == ();
+    assert M.x4 == #foo(#foo(#foo(3)));
+    assert M.x5 == #foo(3);
+    assert M.x6 == #foo(#foo(3));
+    assert M.x7[0] == 1;8 == 0;";
     assert_(p, p)
 }
 

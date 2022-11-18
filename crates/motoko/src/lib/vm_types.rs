@@ -101,7 +101,7 @@ pub mod def {
         Var(Var),
         /// We represent "static values" as expressions.
         /// (to permit variables that mention other static values.)
-        StaticValue(super::Exp_),
+        StaticValue(CtxId, super::Exp_),
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -674,6 +674,7 @@ pub enum Interruption {
     Dangling(Pointer),
     NotOwner(Pointer),
     ModuleNotStatic(Source),
+    ModuleFieldNotPublic,
     TypeMismatch(OptionCoreSource),
     NonLiteralInit(Source),
     NoMatchingCase,

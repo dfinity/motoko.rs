@@ -26,7 +26,8 @@ fn module() {
     assert M.x4 == #foo(#foo(#foo(3)));
     assert M.x5 == #foo(3);
     assert M.x6 == #foo(#foo(3));
-    assert M.x7[0] == 1;8 == 0;";
+    assert M.x7[0] == 1;
+    assert M.x8 == 0;";
     assert_(p, p)
 }
 

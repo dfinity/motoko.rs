@@ -1,6 +1,6 @@
 use candid::parser::value::{IDLArgs, IDLValue, VariantValue};
 use candid::types::Label;
-use im_rc::{HashMap, Vector};
+use im_rc::HashMap;
 
 use crate::ast::{Id, Mut, ToId};
 use crate::value::{FieldValue, Result};

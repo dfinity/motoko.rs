@@ -73,7 +73,7 @@ pub fn to_value(value: IDLValue) -> Result<Value> {
 }
 
 pub fn decode_candid_args(bytes: &[u8]) -> Result<Value> {
-    let args = IDLArgs::from_bytes(bytes).map_err(ValueError::Candid)?;
+    let args = IDLArgs::from_bytes(bytes).map_err(|e| ValueError::Candid(e.to_string()))?;
 
     Ok(Value::Tuple(
         args.args

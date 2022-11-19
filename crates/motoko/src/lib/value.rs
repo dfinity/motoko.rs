@@ -659,7 +659,7 @@ pub enum ValueError {
     Float,
     ToRust(String),
     ToMotoko(String),
-    Candid(candid::Error),
+    Candid(String),
     NotAValue,
 }
 

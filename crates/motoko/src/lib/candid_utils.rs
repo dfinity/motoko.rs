@@ -27,7 +27,6 @@ pub fn to_value(value: IDLValue) -> Result<Value> {
         IDLValue::Bool(b) => Value::Bool(b),
         IDLValue::Null => Value::Null,
         IDLValue::Text(t) => Value::Text(t.into()),
-        // IDLValue::Number(n) => Value::,
         IDLValue::Opt(o) => Value::Option(to_value(*o)?.share()),
         IDLValue::Vec(v) => Value::Array(
             Mut::Const,

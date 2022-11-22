@@ -96,3 +96,62 @@ fn core_set_actor_call() {
         eval("3")
     );
 }
+
+#[test]
+fn core_set_actor_with_ambient_module() {
+    let mut core = Core::empty();
+
+    let id = ActorId::Alias("A".to_id());
+
+    core.set_actor(
+        format!("{}:{}", file!(), line!()),
+        id.clone(),
+        "
+      module M { public func f () { #ok } };
+      actor {
+        public func g() { M.f() };
+    }",
+    )
+    .expect("create");
+
+    assert_eq!(
+        core.call(
+            &id,
+            &"g".to_id(),
+            ().to_motoko().unwrap().share(),
+            &Limits::none()
+        ),
+        eval("#ok")
+    );
+}
+
+#[test]
+fn core_set_module_and_import_it() {
+    let mut core = Core::empty();
+
+    core.set_module("M".to_string(), "module { public func f () { #ok } }")
+        .expect("set_module");
+
+    let id = ActorId::Alias("A".to_id());
+
+    core.set_actor(
+        format!("{}:{}", file!(), line!()),
+        id.clone(),
+        "
+      import M \"M\";
+      actor {
+        public func g() { M.f() };
+    }",
+    )
+    .expect("create");
+
+    assert_eq!(
+        core.call(
+            &id,
+            &"g".to_id(),
+            ().to_motoko().unwrap().share(),
+            &Limits::none()
+        ),
+        eval("#ok")
+    );
+}

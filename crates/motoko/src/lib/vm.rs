@@ -111,32 +111,39 @@ impl Defs {
             next_ctx_id: 1,
         }
     }
-
-    fn enter_context(&mut self) -> CtxId {
+    fn active_context(&self) -> CtxId {
+        self.active_ctx.clone()
+    }
+    fn enter_context(&mut self, is_a_root: bool) -> (CtxId, CtxId) {
         let x = self.next_ctx_id;
         self.next_ctx_id = self
             .next_ctx_id
             .checked_add(1)
             .expect("Out of def-context ids.");
         let ctx = Ctx {
-            parent: Some(self.active_ctx.clone()),
+            parent: if is_a_root {
+                None
+            } else {
+                Some(self.active_ctx.clone())
+            },
             fields: HashMap::new(),
         };
         let prev = self.map.insert(CtxId(x), ctx);
         assert_eq!(prev, None);
+        let saved = self.active_ctx.clone();
         self.active_ctx = CtxId(x);
-        CtxId(x)
+        (saved, CtxId(x))
     }
-    fn reenter_context(&mut self, x: &CtxId) -> (CtxId, Ctx) {
+    fn reenter_context(&mut self, x: &CtxId) -> (CtxId, CtxId, Ctx) {
+        let old_ctx = self.map.get(x).unwrap().clone();
         let new_ctx = Ctx {
-            parent: Some(self.active_ctx.clone()),
+            parent: old_ctx.parent.clone(),
             fields: HashMap::new(),
         };
-        let old_ctx = self.map.get(x).unwrap().clone();
-        assert_eq!(old_ctx.parent, new_ctx.parent);
+        let saved = self.active_ctx.clone();
         self.active_ctx = x.clone();
         self.map.insert(x.clone(), new_ctx);
-        (x.clone(), old_ctx)
+        (saved, x.clone(), old_ctx)
     }
     fn insert_field(
         &mut self,
@@ -168,6 +175,7 @@ impl Defs {
             Ok(())
         }
     }
+    // special-case: for named modules and actors whose new defs over-write prior ones.
     fn reinsert_field(
         &mut self,
         i: &Id,
@@ -193,31 +201,31 @@ impl Defs {
         }
     }
 
-    fn leave_context(&mut self, sanity_check_active: &CtxId) {
+    fn leave_context(&mut self, saved: CtxId, sanity_check_active: &CtxId) {
         assert_eq!(&self.active_ctx, sanity_check_active);
-        self.active_ctx = self
+        if let Some(parent) = self
             .map
             .get(&self.active_ctx)
             .expect("leave context")
             .parent
             .as_ref()
-            .expect("parent context")
-            .clone();
+        {
+            assert_eq!(parent, &saved)
+        }
+        self.active_ctx = saved;
     }
     fn report_diff(&self, _old_ctx: &Ctx) {
         // to do
+        //
+        // compare entries in current context to that of given old context param.
+        // - for entries in both, the current context is the upgraded version, or unchanged version.
+        // - (detecting change vs upgrade requires comparing but ingoring source locations, which can shift).
+        // - for entries in only old context, the new context is deleting them.
+        // - for entries in only the new context, the new context is adding it.
     }
-    fn releave_context(&mut self, sanity_check_active: &CtxId, old_ctx: &Ctx) {
-        assert_eq!(&self.active_ctx, sanity_check_active);
+    fn releave_context(&mut self, saved: CtxId, sanity_check_active: &CtxId, old_ctx: &Ctx) {
         self.report_diff(old_ctx);
-        self.active_ctx = self
-            .map
-            .get(&self.active_ctx)
-            .expect("leave context")
-            .parent
-            .as_ref()
-            .expect("parent context")
-            .clone();
+        self.leave_context(saved, sanity_check_active)
     }
 }
 
@@ -591,7 +599,7 @@ mod def {
     use super::*;
     use crate::ast::{DecField, DecFields};
 
-    fn insert_static_field<A: Active>(
+    pub fn insert_static_field<A: Active>(
         active: &mut A,
         source: &Source,
         df: &DecField,
@@ -746,12 +754,13 @@ mod def {
         stab: Option<Stab_>,
         dfs: &DecFields,
     ) -> Result<Value_, Interruption> {
-        let fields = active.defs().enter_context();
+        let (parent, fields) = active.defs().enter_context(false);
         for df in dfs.vec.iter() {
             insert_owned_field(active, &ScheduleChoice::Actor(id.clone()), &df.1, &df.0)?;
         }
-        active.defs().leave_context(&fields);
-        let actor = crate::vm_types::def::Actor { fields };
+        active.defs().leave_context(parent, &fields);
+        let context = active.defs().active_context();
+        let actor = crate::vm_types::def::Actor { context, fields };
         match id {
             ActorId::Alias(_x) => {
                 /* 20221103
@@ -779,12 +788,13 @@ mod def {
         dfs: &DecFields,
         old_def: &ActorDef,
     ) -> Result<Value_, Interruption> {
-        let (fields, old_ctx) = active.defs().reenter_context(&old_def.fields);
+        let (saved, fields, old_ctx) = active.defs().reenter_context(&old_def.fields);
         for df in dfs.vec.iter() {
             insert_owned_field(active, &ScheduleChoice::Actor(id.clone()), &df.1, &df.0)?;
         }
-        active.defs().releave_context(&fields, &old_ctx);
-        let actor = crate::vm_types::def::Actor { fields };
+        active.defs().releave_context(saved, &fields, &old_ctx);
+        let context = active.defs().active_context();
+        let actor = crate::vm_types::def::Actor { context, fields };
         match id {
             ActorId::Alias(_x) => {
                 /*
@@ -810,15 +820,17 @@ mod def {
         vis: Option<Vis_>,
         stab: Option<Stab_>,
         dfs: &DecFields,
+        // Some(_) means the module is being upgraded.
         ctx_id: Option<CtxId>,
     ) -> Result<Value_, Interruption> {
         if let Some(ctx_id) = ctx_id {
-            let (fields, old_ctx) = active.defs().reenter_context(&ctx_id);
+            let (saved, fields, old_ctx) = active.defs().reenter_context(&ctx_id);
             for df in dfs.vec.iter() {
                 insert_static_field(active, &df.1, &df.0)?;
             }
-            active.defs().releave_context(&fields, &old_ctx);
-            let module = crate::vm_types::def::Module { fields };
+            active.defs().releave_context(saved, &fields, &old_ctx);
+            let context = active.defs().active_context();
+            let module = crate::vm_types::def::Module { context, fields };
             match id {
                 None => (),
                 Some(x) => active.defs().reinsert_field(
@@ -831,12 +843,13 @@ mod def {
             }
             active.upgrade_module(path, id.as_ref().map(|x| x.0.clone()), module)
         } else {
-            let fields = active.defs().enter_context();
+            let (parent, fields) = active.defs().enter_context(false);
             for df in dfs.vec.iter() {
                 insert_static_field(active, &df.1, &df.0)?;
             }
-            active.defs().leave_context(&fields);
-            let module = crate::vm_types::def::Module { fields };
+            active.defs().leave_context(parent, &fields);
+            let context = active.defs().active_context();
+            let module = crate::vm_types::def::Module { context, fields };
             /*
                     active
                         .defs()
@@ -2724,34 +2737,44 @@ impl Core {
     fn assert_actor_def(
         path: String,
         s: &str,
-    ) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
+    ) -> Result<(Vector<Dec_>, Option<Id_>, crate::ast::DecFields), Interruption> {
         let p = match crate::check::parse(s) {
             Err(code) => return Err(Interruption::SyntaxError(SyntaxError { path, code })),
             Ok(r) => r,
         };
         if p.vec.is_empty() {
-            return Err(Interruption::NotAnActorDefinition);
+            return Err(Interruption::MissingActorDefinition);
         };
-        match &p.vec.last().unwrap().0 {
-            Dec::LetActor(id, _, dfs) => Ok((id.clone(), dfs.clone())),
-            _ => Err(Interruption::NotAnActorDefinition),
+        let mut vec = p.vec.clone();
+        let last = vec.pop_back();
+        match last {
+            Some(d) => match &d.0 {
+                Dec::LetActor(id, _, dfs) => Ok((vec, id.clone(), dfs.clone())),
+                _ => Err(Interruption::NotAnActorDefinition),
+            },
+            None => unreachable!(),
         }
     }
 
     fn assert_module_def(
         path: String,
         s: &str,
-    ) -> Result<(Option<Id_>, crate::ast::DecFields), Interruption> {
+    ) -> Result<(Vector<Dec_>, Option<Id_>, crate::ast::DecFields), Interruption> {
         let p = match crate::check::parse(s) {
             Err(code) => return Err(Interruption::SyntaxError(SyntaxError { path, code })),
             Ok(r) => r,
         };
         if p.vec.is_empty() {
-            return Err(Interruption::NotAModuleDefinition);
+            return Err(Interruption::MissingModuleDefinition);
         };
-        match &p.vec.last().unwrap().0 {
-            Dec::LetModule(id, _, dfs) => Ok((id.clone(), dfs.clone())),
-            _ => Err(Interruption::NotAModuleDefinition),
+        let mut vec = p.vec.clone();
+        let last = vec.pop_back();
+        match last {
+            Some(d) => match &d.0 {
+                Dec::LetModule(id, _, dfs) => Ok((vec, id.clone(), dfs.clone())),
+                _ => Err(Interruption::NotAModuleDefinition),
+            },
+            None => unreachable!(),
         }
     }
 
@@ -2770,9 +2793,20 @@ impl Core {
     ///
     /// The content must be a module.  For actors, see `set_actor` instead.
     pub fn set_module(&mut self, path: String, def: &str) -> Result<(), Interruption> {
-        let (id, dfs) = Self::assert_module_def(path.clone(), def)?;
-        if let Some(old) = self.paths.map.get(&path) {
-            def::module(
+        let (decs, id, dfs) = Self::assert_module_def(path.clone(), def)?;
+        let old = self.paths.map.get(&path).map(|x| x.clone());
+        if let Some(old) = old {
+            let (saved, ctxid, old_ctx) = self.defs().reenter_context(&old.context);
+            for dec in decs.iter() {
+                let dec = dec.clone();
+                let df = crate::ast::DecField {
+                    vis: None,
+                    stab: None,
+                    dec,
+                };
+                def::insert_static_field(self, &df.dec.1, &df)?;
+            }
+            let v = def::module(
                 self,
                 path,
                 &id,
@@ -2780,10 +2814,22 @@ impl Core {
                 None,
                 None,
                 &dfs,
-                Some(old.def_ctx.clone()),
+                Some(old.module.clone()),
             )?;
+            self.defs().releave_context(saved, &ctxid, &old_ctx);
+            v
         } else {
-            def::module(
+            let (saved, ctxid) = self.defs().enter_context(true);
+            for dec in decs.iter() {
+                let dec = dec.clone();
+                let df = crate::ast::DecField {
+                    vis: None,
+                    stab: None,
+                    dec,
+                };
+                def::insert_static_field(self, &df.dec.1, &df)?;
+            }
+            let v = def::module(
                 self,
                 path,
                 &id,
@@ -2793,6 +2839,8 @@ impl Core {
                 &dfs,
                 None,
             )?;
+            self.defs().leave_context(saved, &ctxid);
+            v
         };
         Ok(())
     }
@@ -2835,8 +2883,19 @@ impl Core {
         if let Some(_) = self.actors.map.get(&id) {
             return Err(Interruption::AmbiguousActorId(id));
         };
-        let (_id, dfs) = Self::assert_actor_def(path.clone(), def)?;
+        let (decs, _id, dfs) = Self::assert_actor_def(path.clone(), def)?;
+        let (saved, new_root) = self.defs().enter_context(true);
+        for dec in decs.iter() {
+            let dec = dec.clone();
+            let df = crate::ast::DecField {
+                vis: None,
+                stab: None,
+                dec,
+            };
+            def::insert_static_field(self, &df.dec.1, &df)?;
+        }
         def::actor(self, path, &id, Source::CoreCreateActor, None, None, &dfs)?;
+        self.defs().leave_context(saved, &new_root);
         Ok(())
     }
 
@@ -2852,7 +2911,17 @@ impl Core {
         } else {
             return Err(Interruption::ActorIdNotFound(id));
         };
-        let (_id, dfs) = Self::assert_actor_def(path.clone(), def)?;
+        let (decs, _id, dfs) = Self::assert_actor_def(path.clone(), def)?;
+        let (saved, ctxid, old_ctx) = self.defs().reenter_context(&old_def.context);
+        for dec in decs.iter() {
+            let dec = dec.clone();
+            let df = crate::ast::DecField {
+                vis: None,
+                stab: None,
+                dec,
+            };
+            def::insert_static_field(self, &df.dec.1, &df)?;
+        }
         def::actor_upgrade(
             self,
             path,
@@ -2863,6 +2932,7 @@ impl Core {
             &dfs,
             &old_def,
         )?;
+        self.defs().releave_context(saved, &ctxid, &old_ctx);
         Ok(())
     }
 

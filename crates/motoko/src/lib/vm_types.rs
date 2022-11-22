@@ -113,11 +113,13 @@ pub mod def {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Module {
+        pub context: CtxId,
         pub fields: CtxId,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
     pub struct Actor {
+        pub context: CtxId,
         pub fields: CtxId,
     }
 
@@ -521,18 +523,20 @@ pub struct Actors {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Paths {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
-    pub map: HashMap<Path, File>,
+    pub map: HashMap<Path, ModuleFile>,
 }
 
 /// A Path should adhere to certain rules, not enforced by this type.
 pub type Path = String;
 
-/// The File in a Core system (a virtual filesystem).
+/// The file representation for a module.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct File {
+pub struct ModuleFile {
     pub content: String,
     /// Each file is a root in the definition database forest.
-    pub def_ctx: def::CtxId,
+    pub context: def::CtxId,
+    /// Within the file's root context, the module is defined (after all imports).
+    pub module: def::CtxId,
 }
 
 /// A line of output emitted by prim "debugPrint".
@@ -683,8 +687,10 @@ pub enum Interruption {
     ValueError(ValueError),
     EvalInitError(EvalInitError),
     UnboundIdentifer(Id),
+    MissingActorDefinition,
     NotAnActorDefinition,
     NotAModuleDefinition,
+    MissingModuleDefinition,
     AmbiguousActorId(ActorId),
     ActorIdNotFound(ActorId),
     ActorFieldNotFound(ActorId, Id),

@@ -50,9 +50,9 @@ pub fn to_value(value: IDLValue) -> Result<Value> {
         IDLValue::Variant(VariantValue(field, _)) => {
             Value::Variant(resolve_id(field.id)?, Some(to_value(field.val)?.share()))
         }
-        IDLValue::Principal(_) => todo!(), // TODO
-        IDLValue::Service(_) => todo!(),   // TODO
-        IDLValue::Func(_, _) => todo!(),
+        IDLValue::Principal(_) => Err(ValueError::Candid("TODO: Principal".to_string()))?,
+        IDLValue::Service(_) => Err(ValueError::Candid("TODO: Service".to_string()))?,
+        IDLValue::Func(_, _) => Err(ValueError::Candid("TODO: Func".to_string()))?,
         IDLValue::None => Value::Null,
         IDLValue::Nat(i) => Value::Nat(i.0),
         IDLValue::Nat8(i) => Value::Nat(i.into()),  // TODO

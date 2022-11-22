@@ -659,6 +659,7 @@ pub enum ValueError {
     Float,
     ToRust(String),
     ToMotoko(String),
+    Candid(String),
     NotAValue,
 }
 

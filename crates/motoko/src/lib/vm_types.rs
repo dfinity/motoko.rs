@@ -502,7 +502,7 @@ pub struct Core {
     pub actors: Actors,
     pub next_resp_id: usize,
     pub debug_print_out: Vector<DebugPrintLine>,
-    pub paths: Paths,
+    pub module_files: ModuleFiles,
 }
 
 /// The current/last/next schedule choice, depending on context.
@@ -519,11 +519,12 @@ pub struct Actors {
     pub map: HashMap<ActorId, Actor>,
 }
 
-/// The Paths in a Core system (a virtual filesystem).
+/// The ModuleFiles in a Core system (a virtual filesystem).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Paths {
+pub struct ModuleFiles {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub map: HashMap<Path, ModuleFile>,
+    pub queue: Vector<Path>,
 }
 
 /// A Path should adhere to certain rules, not enforced by this type.
@@ -537,6 +538,8 @@ pub struct ModuleFile {
     pub context: def::CtxId,
     /// Within the file's root context, the module is defined (after all imports).
     pub module: def::CtxId,
+    // /// Module definition.
+    // pub def: def::Module,
 }
 
 /// A line of output emitted by prim "debugPrint".
@@ -551,6 +554,7 @@ pub struct DebugPrintLine {
 /// Exclusive write access to the "active" components of the VM.
 pub trait Active: ActiveBorrow {
     fn defs<'a>(&'a mut self) -> &'a mut def::Defs;
+    fn module_files<'a>(&'a mut self) -> &'a mut ModuleFiles;
     fn ctx_id<'a>(&'a mut self) -> &'a mut def::CtxId;
     //fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice;
     fn cont<'a>(&'a mut self) -> &'a mut Cont;
@@ -677,6 +681,7 @@ pub enum Interruption {
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     NotOwner(Pointer),
+    ModuleFileNotFound(Path),
     ModuleNotStatic(Source),
     ModuleFieldNotPublic,
     TypeMismatch(OptionCoreSource),

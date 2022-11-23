@@ -15,8 +15,8 @@ use crate::vm_types::{
     },
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, CoreSource,
-    Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, NamedPointer, Paths,
-    Pointer, Response, ScheduleChoice, Stack, Step, SyntaxError,
+    Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, ModuleFile,
+    ModuleFiles, NamedPointer, Pointer, Response, ScheduleChoice, Stack, Step, SyntaxError,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -235,6 +235,9 @@ impl Active for Core {
     }
     fn defs<'a>(&'a mut self) -> &'a mut Defs {
         &mut self.defs
+    }
+    fn module_files<'a>(&'a mut self) -> &'a mut ModuleFiles {
+        &mut self.module_files
     }
     //fn schedule_choice<'a>(&'a self) -> &'a ScheduleChoice {
     //&self.schedule_choice
@@ -693,8 +696,28 @@ mod def {
                     _ => nyi!(line!()),
                 }
             }
-            Dec::LetImport(_p, _, _url) => {
-                nyi!(line!())
+            Dec::LetImport(p, _, path) => {
+                if let Pat::Var(x) = p.0.clone() {
+                    let path = format!("{}", &path[1..path.len() - 1]);
+                    let mf = active.module_files().map.get(&path).map(|x| x.clone());
+                    if let Some(module_file) = mf {
+                        active.defs().insert_field(
+                            &x.0,
+                            source.clone(),
+                            df.vis.clone(),
+                            df.stab.clone(),
+                            Def::Module(ModuleDef {
+                                context: module_file.context,
+                                fields: module_file.module,
+                            }),
+                        )?;
+                        Ok(())
+                    } else {
+                        Err(Interruption::ModuleFileNotFound(path.to_string()))
+                    }
+                } else {
+                    nyi!(line!())
+                }
             }
             Dec::LetActor(_i, _, _dfs) => {
                 nyi!(line!())
@@ -2736,8 +2759,9 @@ impl Core {
             actors: Actors {
                 map: HashMap::new(),
             },
-            paths: Paths {
+            module_files: ModuleFiles {
                 map: HashMap::new(),
+                queue: Vector::new(),
             },
             next_resp_id: 0,
             debug_print_out: Vector::new(),
@@ -2817,7 +2841,7 @@ impl Core {
     /// The content must be a module.  For actors, see `set_actor` instead.
     pub fn set_module(&mut self, path: String, def: &str) -> Result<(), Interruption> {
         let (decs, id, dfs) = Self::assert_module_def(path.clone(), def)?;
-        let old = self.paths.map.get(&path).map(|x| x.clone());
+        let old = self.module_files.map.get(&path).map(|x| x.clone());
         if let Some(old) = old {
             let (saved, ctxid, old_ctx) = self.defs().reenter_context(&old.context);
             for dec in decs.iter() {
@@ -2854,7 +2878,7 @@ impl Core {
             }
             let v = def::module(
                 self,
-                path,
+                path.clone(),
                 &id,
                 Source::CoreSetModule,
                 None,
@@ -2863,6 +2887,18 @@ impl Core {
                 None,
             )?;
             self.defs().leave_context(saved, &ctxid);
+            if let Value::Module(m) = &*v {
+                self.module_files.map.insert(
+                    path.clone(),
+                    ModuleFile {
+                        content: def.to_string(),
+                        context: m.context.clone(),
+                        module: m.fields.clone(),
+                    },
+                );
+            } else {
+                unreachable!()
+            };
             v
         };
         Ok(())

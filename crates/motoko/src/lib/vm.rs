@@ -609,7 +609,7 @@ mod def {
             Dec::LetModule(id, _, dfs) => {
                 let v = module(
                     active,
-                    format!(""),
+                    format!("<anonymous@{}>", &df.dec.1),
                     id,
                     df.dec.1.clone(),
                     df.vis.clone(),

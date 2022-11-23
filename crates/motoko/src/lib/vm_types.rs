@@ -551,7 +551,7 @@ pub struct ModuleFile {
 /// The field file_content is the original string.
 /// The other fields come from parsing it and matching the AST.
 ///
-/// This representation is a status ensures that once imported, the
+/// This representation is a status which ensures that once imported, the
 /// module will have the correct AST form of a module.  But, it may
 /// define fields incorrectly or import incorrectly, resulting in
 /// still-latent Interruptions.

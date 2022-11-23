@@ -218,3 +218,16 @@ fn actor_upgrade_field_ordering2() {
     #ok";
     assert_(p, "#ok");
 }
+
+#[test]
+fn actor_uses_global_module() {
+    let p = "
+    module M {
+      public func f () { #ok };
+    };
+    actor A = {
+      public func g() { M.f() };
+    };
+    A.g()";
+    assert_(p, "#ok");
+}

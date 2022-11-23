@@ -16,7 +16,8 @@ use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, CoreSource,
     Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, ModuleFile,
-    ModuleFiles, NamedPointer, Pointer, Response, ScheduleChoice, Stack, Step, SyntaxError,
+    ModuleFileInit, ModuleFileState, ModuleFiles, NamedPointer, Pointer, Response, ScheduleChoice,
+    Stack, Step, SyntaxError,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -700,21 +701,74 @@ mod def {
                 if let Pat::Var(x) = p.0.clone() {
                     let path = format!("{}", &path[1..path.len() - 1]);
                     let mf = active.module_files().map.get(&path).map(|x| x.clone());
-                    if let Some(module_file) = mf {
-                        active.defs().insert_field(
-                            &x.0,
-                            source.clone(),
-                            df.vis.clone(),
-                            df.stab.clone(),
-                            Def::Module(ModuleDef {
-                                context: module_file.context,
-                                fields: module_file.module,
-                            }),
-                        )?;
-                        Ok(())
-                    } else {
-                        Err(Interruption::ModuleFileNotFound(path.to_string()))
-                    }
+                    let mf = match mf {
+                        None => return Err(Interruption::ModuleFileNotFound(path.to_string())),
+                        Some(ModuleFileState::Init(init)) => {
+                            // if a module imports itself, directly or indirectly, we we diverge without cycle detection.
+                            // so, detect a cycle by tracking import paths.
+                            let contains_this_path =
+                                active.module_files().import_stack.contains(&path);
+                            if contains_this_path {
+                                let mut stack = active.module_files().import_stack.clone();
+                                stack.push_back(path.clone());
+                                return Err(Interruption::ImportCycle(stack));
+                            } else {
+                                active.module_files().import_stack.push_back(path.clone());
+                            };
+                            let (saved, ctxid) = active.defs().enter_context(true);
+                            for dec in init.outer_decs.iter() {
+                                let dec = dec.clone();
+                                let df = crate::ast::DecField {
+                                    vis: None,
+                                    stab: None,
+                                    dec,
+                                };
+                                def::insert_static_field(active, &df.dec.1, &df)?;
+                            }
+                            let v = def::module(
+                                active,
+                                path.clone(),
+                                &init.id,
+                                Source::CoreSetModule,
+                                None,
+                                None,
+                                &init.fields,
+                                None,
+                            )?;
+                            active.defs().leave_context(saved, &ctxid);
+                            if let Some(top_path) = active.module_files().import_stack.pop_back() {
+                                assert_eq!(top_path, path)
+                            } else {
+                                unreachable!()
+                            };
+                            if let Value::Module(m) = &*v {
+                                let mf = ModuleFile {
+                                    file_content: init.file_content.clone(),
+                                    context: m.context.clone(),
+                                    module: m.fields.clone(),
+                                };
+                                active
+                                    .module_files()
+                                    .map
+                                    .insert(path.clone(), ModuleFileState::Defined(mf.clone()));
+                                mf
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                        Some(ModuleFileState::Defined(mf)) => mf,
+                    };
+                    active.defs().insert_field(
+                        &x.0,
+                        source.clone(),
+                        df.vis.clone(),
+                        df.stab.clone(),
+                        Def::Module(ModuleDef {
+                            context: mf.context,
+                            fields: mf.module,
+                        }),
+                    )?;
+                    Ok(())
                 } else {
                     nyi!(line!())
                 }
@@ -1331,6 +1385,7 @@ fn call_function<A: Active>(
             .map(|f| active.env().insert(f.0.clone(), value));
         *active.cont() = Cont::Exp_(cf.0.content.exp.fast_clone(), Vector::new());
         let context = active.defs().active_ctx.clone();
+        active.defs().active_ctx = cf.0.ctx.clone();
         active.stack().push_front(Frame {
             context,
             source,
@@ -2761,7 +2816,7 @@ impl Core {
             },
             module_files: ModuleFiles {
                 map: HashMap::new(),
-                queue: Vector::new(),
+                import_stack: Vector::new(),
             },
             next_resp_id: 0,
             debug_print_out: Vector::new(),
@@ -2803,10 +2858,7 @@ impl Core {
         }
     }
 
-    fn assert_module_def(
-        path: String,
-        s: &str,
-    ) -> Result<(Vector<Dec_>, Option<Id_>, crate::ast::DecFields), Interruption> {
+    fn assert_module_def(path: String, s: &str) -> Result<ModuleFileInit, Interruption> {
         let p = match crate::check::parse(s) {
             Err(code) => return Err(Interruption::SyntaxError(SyntaxError { path, code })),
             Ok(r) => r,
@@ -2818,7 +2870,12 @@ impl Core {
         let last = vec.pop_back();
         match last {
             Some(d) => match &d.0 {
-                Dec::LetModule(id, _, dfs) => Ok((vec, id.clone(), dfs.clone())),
+                Dec::LetModule(id, _, dfs) => Ok(ModuleFileInit {
+                    file_content: s.to_string(),
+                    outer_decs: vec,
+                    id: id.clone(),
+                    fields: dfs.clone(),
+                }),
                 _ => Err(Interruption::NotAModuleDefinition),
             },
             None => unreachable!(),
@@ -2839,12 +2896,12 @@ impl Core {
     /// Set the path's file content (initially), or re-set it, when it changes.
     ///
     /// The content must be a module.  For actors, see `set_actor` instead.
-    pub fn set_module(&mut self, path: String, def: &str) -> Result<(), Interruption> {
-        let (decs, id, dfs) = Self::assert_module_def(path.clone(), def)?;
+    pub fn set_module(&mut self, path: String, file_content: &str) -> Result<(), Interruption> {
+        let init = Self::assert_module_def(path.clone(), file_content)?;
         let old = self.module_files.map.get(&path).map(|x| x.clone());
-        if let Some(old) = old {
+        if let Some(ModuleFileState::Defined(old)) = old {
             let (saved, ctxid, old_ctx) = self.defs().reenter_context(&old.context);
-            for dec in decs.iter() {
+            for dec in init.outer_decs.iter() {
                 let dec = dec.clone();
                 let df = crate::ast::DecField {
                     vis: None,
@@ -2853,53 +2910,21 @@ impl Core {
                 };
                 def::insert_static_field(self, &df.dec.1, &df)?;
             }
-            let v = def::module(
+            def::module(
                 self,
                 path,
-                &id,
+                &init.id,
                 Source::CoreSetModule,
                 None,
                 None,
-                &dfs,
+                &init.fields,
                 Some(old.module.clone()),
             )?;
             self.defs().releave_context(saved, &ctxid, &old_ctx);
-            v
         } else {
-            let (saved, ctxid) = self.defs().enter_context(true);
-            for dec in decs.iter() {
-                let dec = dec.clone();
-                let df = crate::ast::DecField {
-                    vis: None,
-                    stab: None,
-                    dec,
-                };
-                def::insert_static_field(self, &df.dec.1, &df)?;
-            }
-            let v = def::module(
-                self,
-                path.clone(),
-                &id,
-                Source::CoreSetModule,
-                None,
-                None,
-                &dfs,
-                None,
-            )?;
-            self.defs().leave_context(saved, &ctxid);
-            if let Value::Module(m) = &*v {
-                self.module_files.map.insert(
-                    path.clone(),
-                    ModuleFile {
-                        content: def.to_string(),
-                        context: m.context.clone(),
-                        module: m.fields.clone(),
-                    },
-                );
-            } else {
-                unreachable!()
-            };
-            v
+            self.module_files
+                .map
+                .insert(path.clone(), ModuleFileState::Init(init));
         };
         Ok(())
     }

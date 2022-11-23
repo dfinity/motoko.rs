@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod ast_traversal;
+pub mod candid_utils;
 #[cfg(feature = "parser")]
 pub mod check;
 pub mod convert;

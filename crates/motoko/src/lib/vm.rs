@@ -606,6 +606,32 @@ mod def {
     ) -> Result<(), Interruption> {
         //println!("{:?} -- {:?} ", source, df);
         match &df.dec.0 {
+            Dec::LetModule(id, _, dfs) => {
+                let v = module(
+                    active,
+                    format!(""),
+                    id,
+                    df.dec.1.clone(),
+                    df.vis.clone(),
+                    df.stab.clone(),
+                    dfs,
+                    None,
+                )?;
+                if let Some(id) = id {
+                    if let Value::Module(m) = &*v {
+                        active.defs().insert_field(
+                            &id.0,
+                            source.clone(),
+                            df.vis.clone(),
+                            df.stab.clone(),
+                            Def::Module(m.clone()),
+                        )?;
+                    };
+                    Ok(())
+                } else {
+                    unreachable!()
+                }
+            }
             Dec::Func(f) => {
                 if let Some(name) = f.name.clone() {
                     let f = FunctionDef {
@@ -668,9 +694,6 @@ mod def {
                 }
             }
             Dec::LetImport(_p, _, _url) => {
-                nyi!(line!())
-            }
-            Dec::LetModule(_i, _, _dfs) => {
                 nyi!(line!())
             }
             Dec::LetActor(_i, _, _dfs) => {
@@ -1510,7 +1533,7 @@ fn def_field_value(defs: &Defs, i: &Id, fd: &FieldDef) -> Result<Value_, Interru
             local: LocalPointer::Named(NamedPointer(v.name.clone())),
         })
         .share()),
-        Def::Module(..) => nyi!(line!()),
+        Def::Module(m) => Ok(Value::Module(m.clone()).share()),
     }
 }
 

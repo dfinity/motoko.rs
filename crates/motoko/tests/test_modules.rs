@@ -35,7 +35,7 @@ fn module() {
 fn nested_module() {
     let p = "
     module M {
-      module M {
+      public module M {
         public let x1 = x2;
         public let x2 = (1, 2);
         public func x3 () { };

@@ -2,7 +2,7 @@ use motoko::ast::ToId;
 use motoko::eval;
 use motoko::shared::Share;
 use motoko::value::ActorId;
-use motoko::vm_types::{Core, Limits};
+use motoko::vm_types::{Core, Interruption, Limits};
 use motoko::ToMotoko;
 
 use test_log::test; // enable logging output for tests by default.
@@ -154,4 +154,16 @@ fn core_set_module_and_import_it() {
         ),
         eval("#ok")
     );
+}
+
+#[test]
+fn module_file_not_found() {
+    let mut core = Core::empty();
+    let id = ActorId::Alias("A".to_id());
+    let r = core.set_actor(
+        format!("{}:{}", file!(), line!()),
+        id.clone(),
+        "import M \"M\"; actor { }",
+    );
+    assert_eq!(r, Err(Interruption::ModuleFileNotFound("M".to_string())))
 }

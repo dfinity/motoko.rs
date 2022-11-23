@@ -157,6 +157,20 @@ fn core_set_module_and_import_it() {
 }
 
 #[test]
+fn not_a_module_definition() {
+    let mut core = Core::empty();
+    let r = core.set_module("M".to_string(), "137");
+    assert_eq!(r, Err(Interruption::NotAModuleDefinition))
+}
+
+#[test]
+fn missing_module_definition() {
+    let mut core = Core::empty();
+    let r = core.set_module("M".to_string(), "");
+    assert_eq!(r, Err(Interruption::MissingModuleDefinition))
+}
+
+#[test]
 fn module_file_not_found() {
     let mut core = Core::empty();
     let id = ActorId::Alias("A".to_id());

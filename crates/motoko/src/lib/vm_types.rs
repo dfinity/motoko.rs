@@ -523,23 +523,50 @@ pub struct Actors {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleFiles {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
-    pub map: HashMap<Path, ModuleFile>,
-    pub queue: Vector<Path>,
+    pub map: HashMap<Path, ModuleFileState>,
+    pub import_stack: Vector<Path>,
 }
 
 /// A Path should adhere to certain rules, not enforced by this type.
 pub type Path = String;
 
 /// The file representation for a module.
+///
+/// This representation is a status that ensures that the module was
+/// imported and defined successfully.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleFile {
-    pub content: String,
+    pub file_content: String,
     /// Each file is a root in the definition database forest.
     pub context: def::CtxId,
     /// Within the file's root context, the module is defined (after all imports).
     pub module: def::CtxId,
     // /// Module definition.
     // pub def: def::Module,
+}
+
+/// The initialization-phase file representation for a module, before
+/// being imported.
+///
+/// The field file_content is the original string.
+/// The other fields come from parsing it and matching the AST.
+///
+/// This representation is a status ensures that once imported, the
+/// module will have the correct AST form of a module.  But, it may
+/// define fields incorrectly or import incorrectly, resulting in
+/// still-latent Interruptions.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ModuleFileInit {
+    pub file_content: String,
+    pub outer_decs: Vector<Dec_>,
+    pub id: Option<Id_>,
+    pub fields: crate::ast::DecFields,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ModuleFileState {
+    Init(ModuleFileInit),
+    Defined(ModuleFile),
 }
 
 /// A line of output emitted by prim "debugPrint".
@@ -681,6 +708,7 @@ pub enum Interruption {
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     NotOwner(Pointer),
+    ImportCycle(Vector<Path>),
     ModuleFileNotFound(Path),
     ModuleNotStatic(Source),
     ModuleFieldNotPublic,

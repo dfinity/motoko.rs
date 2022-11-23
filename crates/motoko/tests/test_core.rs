@@ -181,3 +181,88 @@ fn module_file_not_found() {
     );
     assert_eq!(r, Err(Interruption::ModuleFileNotFound("M".to_string())))
 }
+
+#[test]
+fn core_set_actor_call_set_module() {
+    let mut core = Core::empty();
+    let id = ActorId::Alias("Counter".to_id());
+
+    core.set_module("M".to_string(), "module { public func inc (x) { x + 1 } }")
+        .expect("set_module");
+
+    core.set_actor(
+        format!("{}:{}", file!(), line!()),
+        id.clone(),
+        "
+      import M \"M\";
+      actor {
+        var x = 0;
+        public func get() : async Nat { x };
+        public func inc() { x := M.inc(x) };
+    }",
+    )
+    .expect("create");
+
+    assert_eq!(
+        core.call(
+            &id,
+            &"get".to_id(),
+            ().to_motoko().unwrap().share(),
+            &Limits::none()
+        ),
+        eval("0")
+    );
+
+    assert_eq!(
+        core.call(
+            &id,
+            &"inc".to_id(),
+            ().to_motoko().unwrap().share(),
+            &Limits::none()
+        ),
+        eval("()")
+    );
+
+    assert_eq!(
+        core.call(
+            &id,
+            &"get".to_id(),
+            ().to_motoko().unwrap().share(),
+            &Limits::none()
+        ),
+        eval("1")
+    );
+
+    core.set_module("M".to_string(), "module { public func inc (x) { x + 2 } }")
+        .expect("set_module");
+
+    assert_eq!(
+        core.call(
+            &id,
+            &"get".to_id(),
+            ().to_motoko().unwrap().share(),
+            &Limits::none()
+        ),
+        eval("1")
+    );
+
+    assert_eq!(
+        core.call(
+            &id,
+            &"inc".to_id(),
+            ().to_motoko().unwrap().share(),
+            &Limits::none()
+        ),
+        eval("()")
+    );
+
+    assert_eq!(
+        core.call(
+            &id,
+            &"get".to_id(),
+            ().to_motoko().unwrap().share(),
+            &Limits::none()
+        ),
+        eval("3")
+    );
+}

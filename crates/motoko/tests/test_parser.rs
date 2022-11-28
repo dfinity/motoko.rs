@@ -29,6 +29,27 @@ fn test_actor() {
 }
 
 #[test]
+fn test_generic_identity_function() {
+    assert_parse_ok("func f<T>(x : T) : T { x }");
+}
+
+#[test]
+fn test_generic_pair_function() {
+    assert_parse_ok("func f<X, Y>(x : X, y : Y) : (X, Y) { (x, y) }");
+}
+
+#[test]
+fn test_generic_record_function() {
+    assert_parse_ok("func f<X, Y>(x : X, y : Y) : {#first; #second : Y} { (x, y) }");
+}
+
+#[test]
+fn test_generic_application() {
+    assert_parse_ok("f<Nat>(3)");
+    assert_parse_ok("f<Nat, Text>(3, \"balloons\")");
+}
+
+#[test]
 fn test_query_func() {
     assert_parse_ok("actor { public query func f() : async Nat { 1 } }");
 }

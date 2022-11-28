@@ -40,7 +40,7 @@ fn test_generic_pair_function() {
 
 #[test]
 fn test_generic_record_function() {
-    assert_parse_ok("func f<X, Y>(x : X, y : Y) : {#first; #second : Y} { (x, y) }");
+    assert_parse_ok("func f<X, Y>(x : X, y : Y) : {#first : X; #second : Y} { (x, y) }");
 }
 
 #[test]

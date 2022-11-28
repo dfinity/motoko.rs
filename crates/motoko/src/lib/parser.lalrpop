@@ -449,10 +449,10 @@ DecNonVar: Dec = {
     "let" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Let(p, e),
     "module" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetModule(i, Sugar(s.is_some()), ob),
     "actor" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetActor(i, Sugar(s.is_some()), ob),
-    <sp:SortPatOpt> "func" <i:(Id_)?> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func(Function {
+    <sp:SharedPatOpt> "func" <i:(Id_)?> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func(Function {
         name: i, shared: sp, binds: None, input: p, output: t.map(|t|{t.1}), sugar: Sugar(false), exp: b,
     }),
-    <sp:SortPatOpt> "func" <i:(Id_?)> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func(Function {
+    <sp:SharedPatOpt> "func" <i:(Id_?)> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func(Function {
         name: i, shared: sp, binds: None, input: p, output: t.map(|t|{t.1}), sugar: Sugar(true), exp: e,
     }),
     // type
@@ -460,8 +460,18 @@ DecNonVar: Dec = {
     // actor class
 }
 
-SortPatOpt: Option<SortPat> = {
-    => None
+#[inline]
+SharedPatOpt: Option<SortPat> = {
+    => None,
+  "shared" => None, // to do -- produce AST.
+  "shared" "query" <op:PatOpt> => None, // to do -- produce AST.
+  "query" <op:PatOpt> => None, // to do -- produce AST.
+}
+
+#[inline]
+PatOpt: Option<Pat> = {
+ PatPlain => None, // to do
+  => None
 }
 
 #[inline]

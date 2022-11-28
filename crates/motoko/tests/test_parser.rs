@@ -1,5 +1,43 @@
 use motoko::check::{assert_parse as assert_to, assert_roundtrip as assert_};
 
+fn assert_parse_ok(s: &str) {
+    motoko::check::parse(s).expect("assert_parse_ok");
+}
+
+fn assert_parse_err(s: &str) {
+    match motoko::check::parse(s) {
+        Err(_e) => {}
+        Ok(_) => {
+            unreachable!("expected syntax error, not an 'OK parse'.")
+        }
+    }
+}
+
+#[test]
+fn test_actor() {
+    assert_parse_ok("actor { }");
+}
+
+#[test]
+fn test_query_func() {
+    assert_parse_ok("actor { public query func f() : async Nat { 1 } }");
+}
+
+#[test]
+fn test_shared_func() {
+    assert_parse_ok("actor { public shared func f() : async Nat { 1 } }");
+}
+
+#[test]
+fn test_shared_query_func() {
+    assert_parse_ok("actor { public shared func f() : async Nat { 1 } }");
+}
+
+#[test]
+fn test_query_shared_func_err() {
+    assert_parse_err("actor { public query shared func f() : async Nat { 1 } }");
+}
+
 #[test]
 fn test_option() {
     assert_("?1");

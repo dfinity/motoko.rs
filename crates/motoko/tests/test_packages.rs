@@ -1,4 +1,4 @@
-use motoko::{package::get_base_library};
+use motoko::package::get_base_library;
 
 use test_log::test;
 

@@ -14,6 +14,16 @@ fn assert_parse_err(s: &str) {
 }
 
 #[test]
+fn test_type_decl() {
+    assert_("type T = ()");
+    assert_("type T = {}"); // note that "{} cannot produce type ()".
+    assert_("type T = {#banana}");
+    assert_("type T = {#banana : Nat}");
+    assert_("type T = {banana : Nat}");
+    assert_("type T = {banana : Nat, apple : Text}");
+}
+
+#[test]
 fn test_actor() {
     assert_parse_ok("actor { }");
 }
@@ -248,6 +258,28 @@ fn test_record() {
 #[test]
 fn test_assign() {
     assert_("x := 3");
+}
+
+#[test]
+fn test_bin_assign() {
+    assert_parse_ok("x += 3");
+    assert_parse_ok("x -= 3");
+    assert_parse_ok("x *= 3");
+    assert_parse_ok("x /= 3");
+    assert_parse_ok("x %= 3");
+    assert_parse_ok("x **= 3");
+    assert_parse_ok("x &= 3");
+    assert_parse_ok("x |= 3");
+    assert_parse_ok("x ^= 3");
+    assert_parse_ok("x <<= 3");
+    assert_parse_ok("x >>= 3");
+    assert_parse_ok("x <<>= 3");
+    assert_parse_ok("x <>>= 3");
+    assert_parse_ok("x +%= 3");
+    assert_parse_ok("x -%= 3");
+    assert_parse_ok("x *%= 3");
+    assert_parse_ok("x **%= 3");
+    assert_parse_ok("x #= 3");
 }
 
 #[test]

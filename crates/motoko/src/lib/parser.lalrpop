@@ -332,7 +332,7 @@ ExpNonDec_<B>: Exp_ = Node<ExpNonDec<B>>;
 ExpNonDec<B>: Exp = {
     ExpBin<B>,
     <e1:ExpBin_<B>> ":=" <e2:Exp_<Ob>> => Exp::Assign(e1, e2),
-    <e1:ExpBin_<B>> "+=" <e2:ExpUn_<Ob>> => Exp::BinAssign(e1, BinOp::Add, e2),
+    <e1:ExpBin_<B>> <b:BinAssign> <e2:ExpUn_<Ob>> => Exp::BinAssign(e1, b, e2),
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
     // TODO: possibly use lookahead / lookbehind (=>@L, =>@R) for if without else
     // if without an else -- TEMP -- using placeholder token here but it doesn't belong.
@@ -350,6 +350,28 @@ ExpNonDec<B>: Exp = {
     "debug" <e:ExpNest_> => Exp::Debug(e),
     "import" <txt:StringLiteral> => Exp::Import(txt),
 
+}
+
+#[inline]
+BinAssign: BinOp = {
+  "+=" => BinOp::Add,
+  "-=" => BinOp::Sub,
+  "*=" => BinOp::Mul,
+  "/=" => BinOp::Div,
+  "%=" => BinOp::Mod,
+  "**=" => BinOp::Pow,
+  "&=" => BinOp::BitAnd,
+  "|=" => BinOp::BitOr,
+  "^=" => BinOp::Xor,
+  "<<=" => BinOp::ShL,
+  ">>=" => BinOp::ShR,
+  "<<>=" => BinOp::RotL,
+  "<>>=" => BinOp::RotR,
+  "+%=" => BinOp::WAdd,
+  "-%=" => BinOp::WSub,
+  "*%=" => BinOp::WMul,
+  "**%=" => BinOp::WPow,
+  "#=" => BinOp::Cat,
 }
 
 #[inline]

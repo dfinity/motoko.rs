@@ -204,8 +204,15 @@ TypeNullary_: Type_ = Node<TypeNullary>;
 pub TypeNullary: Type = {
     "(" <ts:Delim1<TypeItem_, ",">> ")" => Type::Tuple(ts),
     "(" ")" => Type::Prim(PrimType::Unit),
-    <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| /* TODO */ Type::Unknown(id)),
-    <p:TypePath_> "." <id:Id_> => Type::Path(TypePath::Dot(p, id)),
+    <id:Id_> <ta:TypeArgs> => {
+        // assuming here that no primitive types are parameterized by type args.
+        if let None = ta {
+            PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Path(TypePath::Id(id), None))
+        } else {
+            Type::Path(TypePath::Id(id), ta)
+        }
+    },
+    <p:TypePath_> "." <id:Id_> <ta:TypeArgs> => Type::Path(TypePath::Dot(p, id), ta),
     "[" <vo:VarOpt> <t:Type_> "]" => Type::Array(vo, t),
     TypeObj,
     TypeVariant
@@ -261,6 +268,11 @@ TypeItem_: Type_ = Node<TypeItem>;
 pub TypeItem: Type = {
     <id:Id_> ":" <t:Type_> => Type::Item(id, t),
     Type,
+}
+
+pub TypeArgs: Option<Delim<Type_>> = {
+    => None,
+    "<" <d:Delim0<Type_, ",">> ">" => Some(d)
 }
 
 // --- Programs --- //

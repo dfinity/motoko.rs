@@ -405,7 +405,7 @@ pub type Type_ = Node<Type>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Type {
     Item(Id_, Type_),
-    Path(TypePath),
+    Path(TypePath, Option<Delim<Type_>>),
     Prim(PrimType),
     Object(ObjSort, TypeFields),
     Array(Mut, Type_),

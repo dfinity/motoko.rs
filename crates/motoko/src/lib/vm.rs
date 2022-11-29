@@ -1804,9 +1804,10 @@ fn pattern_matches_temps(pat: &Pat, v: Value_) -> Option<Vec<Value_>> {
 fn pattern_matches_temps_(pat: &Pat, v: Value_, mut out: Vec<Value_>) -> Option<Vec<Value_>> {
     match (pat, &*v) {
         (Pat::Wild, _) => Some(out),
+        (Pat::Annot(_), _) => Some(out),
         (Pat::Literal(Literal::Unit), Value::Unit) => Some(out),
         (Pat::Paren(p), _) => pattern_matches_temps_(&p.0, v, out),
-        (Pat::Annot(p, _), _) => pattern_matches_temps_(&p.0, v, out),
+        (Pat::AnnotPat(p, _), _) => pattern_matches_temps_(&p.0, v, out),
         (Pat::Var(_x), _) => {
             unreachable!()
         }
@@ -1857,7 +1858,8 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
         (Pat::Wild, _) => Some(env),
         (Pat::Literal(Literal::Unit), Value::Unit) => Some(env),
         (Pat::Paren(p), _) => pattern_matches(env, &p.0, v),
-        (Pat::Annot(p, _), _) => pattern_matches(env, &p.0, v),
+        (Pat::Annot(_), _) => Some(env),
+        (Pat::AnnotPat(p, _), _) => pattern_matches(env, &p.0, v),
         (Pat::Var(x), _) => {
             let mut env = env;
             env.insert(x.0.clone(), v);

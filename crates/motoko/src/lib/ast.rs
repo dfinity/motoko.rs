@@ -294,7 +294,7 @@ pub type PatField_ = Node<PatField>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct PatField {
     pub id: Id_,
-    pub pat: Pat_,
+    pub pat: Option<Pat>,
 }
 
 pub type TypeField_ = Node<TypeField>;
@@ -510,17 +510,20 @@ pub enum Pat {
     Wild,
     Var(Id_),
     Literal(Literal),
-    Signed(UnOp, Pat_),
+    UnOpLiteral(UnOp_, Literal_),
     Tuple(Delim<Pat_>),
     Object(PatFields),
     Optional(Pat_),
     Variant(Id_, Option<Pat_>),
     Alt(Delim<Pat_>),
-    Annot(Pat_, Type_),
+    AnnotPat(Pat_, Type_),
+    Annot(Type_),
     Paren(Pat_),
     // used by the VM to pattern-match values.
     TempVar(u16),
 }
+
+pub type UnOp_ = Node<UnOp>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum UnOp {

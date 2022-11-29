@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
+use crate::ast::{Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -110,6 +110,9 @@ Id_: Id_ = Node<Id>;
 
 // --- Literals --- //
 
+#[inline]
+Literal_: Node<Literal> = Node<Literal>;
+
 pub Literal: Literal = {
     "null" => Literal::Null,
     "true" => Literal::Bool(true),
@@ -144,22 +147,27 @@ PatNullary_: Pat_ = Node<PatNullary>;
 
 PatNullary: Pat = {
     PatPlain,
-    // to do -- copy more cases from parser.mly
+    "{" <d:Delim0<PatField_, ";">> "}" => Pat::Object(d),
 }
 
 #[inline]
 PatBin_: Pat_ = Node<PatBin>;
 
 PatBin: Pat = {
-    <p:PatBin_> ":" <t:Type_> => Pat::Annot(p, t),
     PatUn,
-    // to do -- copy more cases from parser.mly
+    <p:PatBin_> ":" <t:Type_> => Pat::AnnotPat(p, t),
+    // to do -- PatBin OR PatBin
 }
+
+#[inline]
+PatUn_: Pat_ = Node<PatUn>;
 
 PatUn: Pat = {
     PatNullary,
     "#" <s:Id_> => Pat::Variant(s, None),
     "#" <s:Id_> <p:PatNullary_> => Pat::Variant(s, Some(p)),
+    "?" <p:PatUn_> => Pat::Optional(p),
+    <u:UnOp_> <l:Literal_> => Pat::UnOpLiteral(u, l),
 
 }
 
@@ -168,6 +176,21 @@ Pat_: Pat_ = Node<Pat>;
 
 pub Pat: Pat = {
     PatBin,
+}
+
+#[inline]
+PatField_: PatField_ = Node<PatField>;
+
+PatField: PatField = {
+    <id:Id_> => PatField{ id, pat:None },
+    <id:Id_> ":" <t:Type_> => PatField{ id:id.clone(), pat:Some(Pat::Annot(t)) },
+    <id:Id_> "=" <pat:Pat> => PatField{ id, pat:Some(pat) },
+    <id:Id_> ":" <t:Type_> "=" <pat:Pat_> => PatField{ id, pat:Some(Pat::AnnotPat(pat, t ))}
+}
+
+PatOpt: Pat = {
+    PatPlain,
+    => Pat::Wild,
 }
 
 // --- Types --- //
@@ -550,17 +573,14 @@ FuncSortOpt: Option<SortPat> = {
 }
 
 #[inline]
-PatOpt: Option<Pat> = {
- PatPlain => None, // to do
-  => None
-}
-
-#[inline]
 DecVar_: Dec_ = Node<DecVar>;
 
 DecVar: Dec = {
     "var" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Var(p, e),
 }
+
+#[inline]
+UnOp_: Node<UnOp> = Node<UnOp>;
 
 UnOp: UnOp = {
     "+" => UnOp::Pos,

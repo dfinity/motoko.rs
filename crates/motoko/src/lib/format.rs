@@ -346,10 +346,7 @@ impl ToDoc for Dec {
                 .append(bind(b))
                 .append(" = ")
                 .append(t.doc()),
-            Type(i, None, t) => kwd("type")
-                .append(i.doc())
-                .append(" = ")
-                .append(t.doc()),
+            Type(i, None, t) => kwd("type").append(i.doc()).append(" = ").append(t.doc()),
             Class(_) => todo!(),
         }
     }
@@ -423,8 +420,8 @@ impl ToDoc for Pat {
         match self {
             Wild => str("_"),
             Var(s) => s.doc(),
-            Literal(l) => l.doc(),
-            Signed(u, p) => u.doc().append(p.doc()),
+            UnOpLiteral(u, l) => todo!(),
+            Literal(l) => todo!(),
             Tuple(ps) => tuple(ps),
             Object(_) => todo!(),
             Optional(p) => str("?").append(p.doc()),
@@ -432,7 +429,8 @@ impl ToDoc for Pat {
                 .append(s.doc())
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
             Alt(d) => delim_left(d, " |"),
-            Annot(p, t) => p.doc().append(" : ").append(t.doc()),
+            Annot(t) => todo!(),
+            AnnotPat(p, t) => todo!(),
             Paren(p) => enclose("(", p.doc(), ")"),
             TempVar(_) => unimplemented!(),
         }

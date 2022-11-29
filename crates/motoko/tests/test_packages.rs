@@ -9,17 +9,26 @@ fn parse_base_library() {
 
     let mut files = base.files.into_iter().collect::<Vec<_>>();
     files.sort_by_cached_key(|(path, _)| path.clone());
-    let mut success = true;
+    let total = files.len();
+    let mut count = 0;
+    let mut error_count = 0;
     for (path, file) in files {
+        count += 1;
         match motoko::check::parse(&file.content) {
-            Ok(_) => println!("✅ {}", path),
+            Ok(_) => println!(" {}. ✅ {}", count, path),
             Err(i) => {
-                success = false;
-                println!("❌ {} : {:?}", path, i)
+                error_count += 1;
+                println!(" {}. ❌ {} : {:?}", count, path, i)
             }
         }
     }
-    assert!(success);
+    println!("Attempted to parse {} modules.", total);
+    if error_count > 0 {
+        println!("  But, found {} modules did not parse.", error_count);
+    } else {
+        println!("  Success!");
+    }
+    assert_eq!(total - error_count, total);
 }
 
 // #[test]

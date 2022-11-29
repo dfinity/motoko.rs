@@ -365,8 +365,8 @@ impl<'a> Traverse for Loc<&'a Pat> {
             Pat::Wild => {}
             Pat::Var(_) => {}
             Pat::TempVar(_) => {}
-            Pat::Literal(_) => {}
-            Pat::Signed(_, p) => f(&p.tree()),
+            Pat::Literal(..) => {}
+            Pat::UnOpLiteral(..) => {}
             Pat::Tuple(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
             Pat::Object(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
             Pat::Optional(p) => f(&p.tree()),
@@ -376,8 +376,11 @@ impl<'a> Traverse for Loc<&'a Pat> {
                 }
             }
             Pat::Alt(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
-            Pat::Annot(p, t) => {
+            Pat::AnnotPat(p, t) => {
                 f(&p.tree());
+                f(&t.tree());
+            }
+            Pat::Annot(t) => {
                 f(&t.tree());
             }
             Pat::Paren(p) => f(&p.tree()),
@@ -433,7 +436,7 @@ impl<'a> Traverse for Loc<&'a DecField> {
 
 impl<'a> Traverse for Loc<&'a PatField> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
-        f(&self.0.pat.tree());
+        todo!()
     }
 }
 

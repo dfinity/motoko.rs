@@ -396,11 +396,7 @@ impl<'a> Traverse for Loc<&'a Type> {
             Type::Array(_, t) => f(&t.tree()),
             Type::Optional(t) => f(&t.tree()),
             Type::Tuple(ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
-            Type::Function(_, tbs, ts, t) => {
-                tbs.vec.iter().for_each(|t| f(&t.tree()));
-                ts.vec.iter().for_each(|t| f(&t.tree()));
-                f(&t.tree());
-            }
+            Type::Function(_, tbs, ts, t) => todo!(),
             Type::Async(t1 /*, t2*/) => {
                 f(&t1.tree());
                 //                f(&t2.tree());

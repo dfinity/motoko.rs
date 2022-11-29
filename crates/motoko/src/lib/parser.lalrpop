@@ -244,7 +244,8 @@ TypeNoBin_: Type_ = Node<TypeNoBin>;
 
 pub TypeNoBin: Type = {
     TypePre,
-    // arrow
+    <fso:FuncSortOpt> <tps:TypeParamsOpt> <t1:TypeUn_> "->" <t2:TypeNoBin_> =>
+        Type::Function(fso, tps, t1, t2),
 }
 
 #[inline]
@@ -507,8 +508,8 @@ DecNonVar: Dec = {
     <sp:SharedPatOpt> "func" <i:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func(Function {
         name: i, shared: sp, binds: tpo, input: p, output: t.map(|t|{t.1}), sugar: Sugar(false), exp: b,
     }),
-    <sp:SharedPatOpt> "func" <i:(Id_?)> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func(Function {
-        name: i, shared: sp, binds: None, input: p, output: t.map(|t|{t.1}), sugar: Sugar(true), exp: e,
+    <sp:SharedPatOpt> "func" <i:(Id_?)> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func(Function {
+        name: i, shared: sp, binds: tpo, input: p, output: t.map(|t|{t.1}), sugar: Sugar(true), exp: e,
     }),
     "type" <id:Id_> <tps:TypeParamsOpt> "=" <t:Type_> => Dec::Type(id, tps, t),
     // TODO -- 20221128-1816.
@@ -528,6 +529,12 @@ SharedPatOpt: Option<SortPat> = {
   "shared" => None, // to do -- produce AST.
   "shared" "query" <op:PatOpt> => None, // to do -- produce AST.
   "query" <op:PatOpt> => None, // to do -- produce AST.
+}
+
+#[inline]
+FuncSortOpt: Option<SortPat> = {
+  <q:"query"?> => None, // to do -- produce AST.
+  "shared" <q:"query"?> => None, // to do -- produce AST.
 }
 
 #[inline]

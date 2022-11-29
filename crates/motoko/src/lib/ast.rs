@@ -412,7 +412,7 @@ pub enum Type {
     Optional(Type_),
     Variant(Delim<TypeTag_>),
     Tuple(Delim<Type_>),
-    Function(Option<SortPat>, TypeBinds, Delim<Type_>, Type_),
+    Function(Option<SortPat>, Option<TypeBinds>, Type_, Type_),
     // Async(Type_, Type_), -- to do -- use scope variables
     Async(Type_),
     And(Type_, Type_),

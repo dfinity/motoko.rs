@@ -444,7 +444,10 @@ impl ToDoc for Case {
 
 impl ToDoc for TypeField {
     fn doc(&self) -> RcDoc {
-        self.id.doc().append(" = ").append(self.typ.doc())
+        match self {
+            TypeField::Val(vtf) => vtf.id.doc().append(" : ").append(vtf.typ.doc()),
+            _ => todo!(),
+        }
     }
 }
 

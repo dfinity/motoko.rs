@@ -300,10 +300,24 @@ pub struct PatField {
 pub type TypeField_ = Node<TypeField>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct TypeField {
+pub enum TypeField {
+    Val(ValTypeField),
+    Type, // to do -- represent AST here.
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct ValTypeField {
     pub mut_: Mut,
     pub id: Id_,
     pub typ: Type_,
+}
+
+pub type TypeTag_ = Node<TypeTag>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct TypeTag {
+    pub id: Id_,
+    pub typ: Option<Type_>,
 }
 
 pub type Vis_ = Node<Vis>;
@@ -390,12 +404,13 @@ pub type Type_ = Node<Type>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Type {
-    // Path (type path)?
+    Item(Id_, Type_),
+    Path(TypePath),
     Prim(PrimType),
     Object(ObjSort, TypeFields),
     Array(Mut, Delim<Type_>),
     Optional(Type_),
-    // Variant(Vec<>),
+    Variant(Delim<TypeTag_>),
     Tuple(Delim<Type_>),
     Function(Option<SortPat>, TypeBinds, Delim<Type_>, Type_),
     // Async(Type_, Type_), -- to do -- use scope variables
@@ -405,6 +420,14 @@ pub enum Type {
     Paren(Type_),
     Unknown(Id_),
     Known(Id_, Type_),
+}
+
+pub type TypePath_ = Node<TypePath>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum TypePath {
+    Id(Id_),
+    Dot(TypePath_, Id_),
 }
 
 pub type Inst = Delim<Type_>;

@@ -438,7 +438,10 @@ impl<'a> Traverse for Loc<&'a PatField> {
 
 impl<'a> Traverse for Loc<&'a TypeField> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
-        f(&self.0.typ.tree());
+        match &self.0 {
+            TypeField::Val(vtf) => f(&vtf.typ.tree()),
+            _ => todo!(),
+        }
     }
 }
 

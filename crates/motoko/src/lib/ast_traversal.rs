@@ -330,7 +330,9 @@ impl<'a> Traverse for Loc<&'a Dec> {
                 f(&e.tree());
             }
             Dec::Type(_, ts, t) => {
-                ts.vec.iter().for_each(|ts| f(&ts.tree()));
+                if let Some(ts) = ts {
+                    ts.vec.iter().for_each(|ts| f(&ts.tree()));
+                };
                 f(&t.tree());
             }
             Dec::Class(Class {

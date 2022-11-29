@@ -341,9 +341,13 @@ impl ToDoc for Dec {
                 .append(p.doc())
                 .append(str(" = "))
                 .append(e.doc()),
-            Type(i, b, t) => kwd("type")
+            Type(i, Some(b), t) => kwd("type")
                 .append(i.doc())
                 .append(bind(b))
+                .append(" = ")
+                .append(t.doc()),
+            Type(i, None, t) => kwd("type")
+                .append(i.doc())
                 .append(" = ")
                 .append(t.doc()),
             Class(_) => todo!(),

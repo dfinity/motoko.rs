@@ -205,7 +205,7 @@ pub enum Dec {
     LetActor(Option<Id_>, Sugar, DecFields),
     Func(Function),
     Var(Pat_, Exp_),
-    Type(TypId_, TypeBinds, Type_),
+    Type(TypId_, Option<TypeBinds>, Type_),
     Class(Class),
 }
 

@@ -408,7 +408,7 @@ pub enum Type {
     Path(TypePath),
     Prim(PrimType),
     Object(ObjSort, TypeFields),
-    Array(Mut, Delim<Type_>),
+    Array(Mut, Type_),
     Optional(Type_),
     Variant(Delim<TypeTag_>),
     Tuple(Delim<Type_>),

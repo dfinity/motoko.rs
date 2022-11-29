@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, Exp, Exp_, ExpField, Function, Type, Type_, TypeField, TypeField_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
+use crate::ast::{Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -174,7 +174,7 @@ pub Pat: Pat = {
 
 
 TypeObj: Type = {
-    "{" <tfs:Delim0<TypeField_, ";">> "}" => Type::Object(tfs),
+    "{" <tfs:Delim0<TypeField_, ";">> "}" => Type::Object(ObjSort::Object, tfs),
 }
 
 TypeVariant: Type = {
@@ -190,7 +190,7 @@ TypeTag: TypeTag = {
 }
 
 #[inline]
-TypeField_: Type_ = Node<TypeField>;
+TypeField_: TypeField_ = Node<TypeField>;
 
 TypeField: TypeField = {
 //    "type" <id:Id_> <tps:TypeParamsOpt> "=" <t:Type_> => TypeField::Type,
@@ -206,7 +206,7 @@ pub TypeNullary: Type = {
     "(" ")" => Type::Prim(PrimType::Unit),
     <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| /* TODO */ Type::Unknown(id)),
     <p:TypePath_> "." <id:Id_> => Type::Path(TypePath::Dot(p, id)),
-    "[" <vo:VarOpt> <t:Type> "]" => Type::Array(vo, t),
+    "[" <vo:VarOpt> <t:Type_> "]" => Type::Array(vo, t),
     TypeObj,
     TypeVariant
 }

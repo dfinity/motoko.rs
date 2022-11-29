@@ -387,8 +387,11 @@ impl<'a> Traverse for Loc<&'a Type> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         match &self.0 {
             Type::Prim(_) => todo!(),
+            Type::Path(..) => todo!(),
+            Type::Item(..) => todo!(),
+            Type::Variant(..) => todo!(),
             Type::Object(_, ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
-            Type::Array(_, ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
+            Type::Array(_, t) => f(&t.tree()),
             Type::Optional(t) => f(&t.tree()),
             Type::Tuple(ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
             Type::Function(_, tbs, ts, t) => {

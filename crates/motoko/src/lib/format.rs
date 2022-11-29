@@ -357,7 +357,7 @@ impl ToDoc for Type {
         match self {
             Prim(p) => p.doc(),
             Object(s, fs) => s.doc().append(RcDoc::space()).append(field_block(fs)),
-            Array(m, d) => array(m, d),
+            Array(_m, _t) => todo!(),
             Optional(t) => str("?").append(t.doc()),
             Tuple(d) => tuple(d),
             Function(_, _, _, _) => todo!(),
@@ -368,6 +368,9 @@ impl ToDoc for Type {
             Paren(e) => enclose("(", e.doc(), ")"),
             Unknown(id) => id.doc(),
             Known(id, t) => id.doc().append(" : ").append(t.doc()),
+            Path(..) => todo!(),
+            Item(..) => todo!(),
+            Variant(..) => todo!(),
         }
     }
 }

@@ -342,14 +342,10 @@ ExpPost<B>: Exp = {
     <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Index(e1, e2),
     <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
     <e1:ExpPost_<B>> "." <i:Id_> => Exp::Dot(e1, i),
-    <e1:ExpPost_<B>> <inst:Inst> <e2:ExpNullary_<Ob>> => Exp::Call(e1, inst, e2),
+// to do -- this production rule conflicts with < and > relational binops.
+//    <e1:ExpPost_<B>> "<" <inst:Delim0<Type_, ",">> ">" <e2:ExpNullary_<Ob>> => Exp::Call(e1, Some(inst), e2),
+    <e1:ExpPost_<B>> <e2:ExpNullary_<Ob>> => Exp::Call(e1, None, e2),
     <e:ExpPost_<B>> "!" => Exp::Bang(e),
-}
-
-#[inline]
-Inst: Option<Delim<Type_>> = {
-    => None,
-  "<" <ts:Delim0<Type_, ",">> ">" => Some(ts),
 }
 
 ExpUn<B>: Exp = {
@@ -465,7 +461,7 @@ BinAssign: BinOp = {
 ExpBin0000_<B>: Exp_ = Node<ExpBin0000<B>>;
 
 ExpBin0000<B>: Exp = {
-    <e:ExpBin0000_<B>> ":" <t:Type_> => Exp::Annot(e, t),
+    <e:ExpBin000_<B>> ":" <t:Type_> => Exp::Annot(e, t),
     ExpBin000<B>,
 }
 
@@ -489,12 +485,13 @@ ExpBin00<B>: Exp = {
 ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 
 ExpBin<B>: Exp = {
-    <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
-    <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
-    <e1:ExpBin_<B>> "<" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
-    <e1:ExpBin_<B>> "<=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
-    <e1:ExpBin_<B>> ">" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
-    <e1:ExpBin_<B>> ">=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Ge, e2),
+    <e1:ExpBin0_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
+    <e1:ExpBin0_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
+    <e1:ExpBin0_<B>> "<=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
+    <e1:ExpBin0_<B>> ">=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Ge, e2),
+  // to do -- how to include these without ambiguity?
+    <e1:ExpBin0_<B>> "<" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
+    <e1:ExpBin0_<B>> ">" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
     ExpBin0<B>,
 }
 
@@ -550,10 +547,10 @@ ExpBin4<B>: Exp = {
 ExpBin5_<B>: Exp_ = Node<ExpBin5<B>>;
 
 ExpBin5<B>: Exp = {
-    <e1:ExpBin5_<B>> "<<" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
-    <e1:ExpBin5_<B>> ">>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
-    <e1:ExpBin5_<B>> "<<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
-    <e1:ExpBin5_<B>> "<>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
+    <e1:ExpBin6_<B>> "<<" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
+    <e1:ExpBin6_<B>> ">>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
+    <e1:ExpBin6_<B>> "<<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
+    <e1:ExpBin6_<B>> "<>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
     ExpBin6<B>,
 }
 

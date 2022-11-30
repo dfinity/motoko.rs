@@ -356,6 +356,7 @@ impl<'a> Traverse for Loc<&'a Dec> {
                 }
                 fields.vec.iter().for_each(|d| f(&d.tree()));
             }
+            _ => todo!(),
         }
     }
 }

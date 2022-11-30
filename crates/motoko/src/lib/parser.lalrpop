@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
+use crate::ast::{Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -606,24 +606,51 @@ DecNonVar_: Dec_ = Node<DecNonVar>;
 DecNonVar: Dec = {
     "import" <p:PatNullary_> <s:"="?> <txt:StringLiteral> => Dec::LetImport(p, Sugar(s.is_some()), txt),
     "let" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Let(p, e),
+    "type" <id:Id_> <tps:TypeParamsOpt> "=" <t:Type_> => Dec::Type(id, tps, t),
+    <sp:SharedPatOpt> "class" <oso:ObjSortOpt> <id1:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" <Type_>)?> "=" <id2:(Id_)?> <b:ObjBody> => Dec::Class(Class {
+        shared: sp,
+        sort: oso,
+        typ_id: id1,
+        binds: tpo,
+        input: p,
+        typ: t,
+        name: id2,
+        fields: b
+    }),
     "module" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetModule(i, Sugar(s.is_some()), ob),
     "actor" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetActor(i, Sugar(s.is_some()), ob),
+    "object" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetObject(i, Sugar(s.is_some()), ob),
     <sp:SharedPatOpt> "func" <i:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func(Function {
         name: i, shared: sp, binds: tpo, input: p, output: t.map(|t|{t.1}), sugar: Sugar(false), exp: b,
     }),
-    <sp:SharedPatOpt> "func" <i:(Id_?)> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func(Function {
+    <sp:SharedPatOpt> "func" <i:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func(Function {
         name: i, shared: sp, binds: tpo, input: p, output: t.map(|t|{t.1}), sugar: Sugar(true), exp: e,
     }),
-    "type" <id:Id_> <tps:TypeParamsOpt> "=" <t:Type_> => Dec::Type(id, tps, t),
-    // TODO -- 20221128-1816.
-    // class
-    // actor class
+    <sp:SharedPatOpt> "class" <oso:ObjSortOpt> <id:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" <Type_>)?> <b:ObjBody> => Dec::Class(Class {
+        shared: sp,
+        sort: oso,
+        typ_id: id,
+        binds: tpo,
+        input: p,
+        typ: t,
+        name: None,
+        fields: b
+    })
+}
+
+ObjSortOpt: Option<ObjSort> = {
+ => None,
+ "object" => Some(ObjSort::Object),
+ "module" => Some(ObjSort::Module),
+ "actor"  => Some(ObjSort::Actor),
 }
 
 #[inline]
 TypeParamsOpt: Option<Delim<TypeBind_>> = {
     => None,
-    "<" <ts:Delim0<Type, ",">> ">" => None // to do -- produce AST.
+    " <" <ts:Delim0<Type, ",">> ">" => None, // to do -- produce AST.
+    "<" <ts:Delim0<Type, ",">> ">" => None, // to do -- produce AST.
+
 }
 
 #[inline]

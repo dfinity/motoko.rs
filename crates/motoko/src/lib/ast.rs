@@ -203,6 +203,7 @@ pub enum Dec {
     LetImport(Pat_, Sugar, String),
     LetModule(Option<Id_>, Sugar, DecFields),
     LetActor(Option<Id_>, Sugar, DecFields),
+    LetObject(Option<Id_>, Sugar, DecFields),
     Func(Function),
     Var(Pat_, Exp_),
     Type(TypId_, Option<TypeBinds>, Type_),
@@ -212,11 +213,11 @@ pub enum Dec {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Class {
     pub shared: Option<SortPat>,
-    pub typ_id: TypId_,
+    pub sort: Option<ObjSort>,
+    pub typ_id: Option<TypId_>,
     pub binds: Option<TypeBinds>,
     pub input: Pat_,
     pub typ: Option<Type_>,
-    pub sort: ObjSort,
     pub name: Option<Id_>,
     pub fields: DecFields,
 }

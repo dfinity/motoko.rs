@@ -349,6 +349,7 @@ impl ToDoc for Dec {
                 .append(t.doc()),
             Type(i, None, t) => kwd("type").append(i.doc()).append(" = ").append(t.doc()),
             Class(_) => todo!(),
+            _ => todo!(),
         }
     }
 }

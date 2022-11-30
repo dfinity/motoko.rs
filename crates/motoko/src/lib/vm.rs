@@ -776,6 +776,9 @@ mod def {
             Dec::LetActor(_i, _, _dfs) => {
                 nyi!(line!())
             }
+            Dec::LetObject(_i, _, _dfs) => {
+                nyi!(line!())
+            }
             Dec::Type(_id, _typ_binds, _typ) => {
                 nyi!(line!())
             }
@@ -2750,6 +2753,9 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         };
                         *active.cont() = Cont::Decs(decs);
                         Ok(Step {})
+                    }
+                    Dec::LetObject(id, _, dfs) => {
+                        nyi!(line!())
                     }
                     Dec::LetModule(id, _, dfs) => {
                         let v = def::module(

@@ -318,7 +318,6 @@ ExpPlain_: Exp_ = Node<ExpPlain>;
 ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
     "(" <es:Delim1<Exp_<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
-    // "`" "(" <e:Exp<Ob>> ")" => e,
 }
 
 #[inline]
@@ -467,7 +466,7 @@ BinAssign: BinOp = {
 ExpBin0000_<B>: Exp_ = Node<ExpBin0000<B>>;
 
 ExpBin0000<B>: Exp = {
-    <e:ExpBin000_<B>> ":" <t:Type_> => Exp::Annot(e, t),
+    <e:ExpBin0000_<B>> ":" <t:TypeNoBin_> => Exp::Annot(e, t),
     ExpBin000<B>,
 }
 
@@ -496,9 +495,8 @@ ExpBin<B>: Exp = {
     <e1:ExpBin0_<B>> " <=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
     <e1:ExpBin0_<B>> "<=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
     <e1:ExpBin0_<B>> ">=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Ge, e2),
-    // to do -- how can we recognize the space before a '<' token?
-    <e1:ExpBin0_<B>> " <" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
-    <e1:ExpBin0_<B>> ">" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
+    <e1:ExpBin0_<B>> " < " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
+    <e1:ExpBin0_<B>> " > " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
     ExpBin0<B>,
 }
 
@@ -554,8 +552,8 @@ ExpBin4<B>: Exp = {
 ExpBin5_<B>: Exp_ = Node<ExpBin5<B>>;
 
 ExpBin5<B>: Exp = {
-    <e1:ExpBin6_<B>> " <<" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
-    <e1:ExpBin6_<B>> ">>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
+    <e1:ExpBin6_<B>> " << " <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
+    <e1:ExpBin6_<B>> " >> " <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
     <e1:ExpBin6_<B>> " <<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
     <e1:ExpBin6_<B>> "<<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
     <e1:ExpBin6_<B>> " <>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
@@ -569,6 +567,8 @@ ExpBin6_<B>: Exp_ = Node<ExpBin6<B>>;
 ExpBin6<B>: Exp = {
     <e1:ExpBin6_<B>> "**" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::Pow, e2),
     <e1:ExpBin6_<B>> "**%" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::WPow, e2),
+//    <e:ExpBin6_<B>> ":" <t:Type_> => Exp::Annot(e, t),
+//    <e:ExpBin6_<B>> ":" <t:TypeNoBin_> => Exp::Annot(e, t),
     ExpUn<B>,
 }
 

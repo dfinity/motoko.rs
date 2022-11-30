@@ -490,7 +490,7 @@ ExpBin<B>: Exp = {
     <e1:ExpBin0_<B>> ">=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Ge, e2),
     // to do -- how can we recognize the space before or after a token?
     <e1:ExpBin0_<B>> " <" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
-    <e1:ExpBin0_<B>> "> " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
+    <e1:ExpBin0_<B>> ">" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
     ExpBin0<B>,
 }
 

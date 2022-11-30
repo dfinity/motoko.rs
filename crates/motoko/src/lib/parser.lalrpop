@@ -486,9 +486,10 @@ ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 ExpBin<B>: Exp = {
     <e1:ExpBin0_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
     <e1:ExpBin0_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
+    <e1:ExpBin0_<B>> " <=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
     <e1:ExpBin0_<B>> "<=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
     <e1:ExpBin0_<B>> ">=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Ge, e2),
-    // to do -- how can we recognize the space before or after a token?
+    // to do -- how can we recognize the space before a '<' token?
     <e1:ExpBin0_<B>> " <" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
     <e1:ExpBin0_<B>> ">" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
     ExpBin0<B>,
@@ -546,9 +547,11 @@ ExpBin4<B>: Exp = {
 ExpBin5_<B>: Exp_ = Node<ExpBin5<B>>;
 
 ExpBin5<B>: Exp = {
-    <e1:ExpBin6_<B>> "<<" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
+    <e1:ExpBin6_<B>> " <<" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
     <e1:ExpBin6_<B>> ">>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
+    <e1:ExpBin6_<B>> " <<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
     <e1:ExpBin6_<B>> "<<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
+    <e1:ExpBin6_<B>> " <>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
     <e1:ExpBin6_<B>> "<>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
     ExpBin6<B>,
 }

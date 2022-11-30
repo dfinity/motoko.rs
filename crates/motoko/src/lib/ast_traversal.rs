@@ -186,7 +186,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 f(&e2.tree());
             }
             Exp::Show(e) => f(&e.tree()),
-            Exp::ToCandid(es) => es.iter().for_each(|e| f(&e.tree())),
+            Exp::ToCandid(es) => es.vec.iter().for_each(|e| f(&e.tree())),
             Exp::FromCandid(e) => f(&e.tree()),
             Exp::Tuple(es) => es.vec.iter().for_each(|e| f(&e.tree())),
             Exp::Proj(e, _) => f(&e.tree()),
@@ -309,6 +309,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
             }
             Exp::Ignore(e) => f(&e.tree()),
             Exp::Paren(e) => f(&e.tree()),
+            _ => todo!(),
         }
     }
 }

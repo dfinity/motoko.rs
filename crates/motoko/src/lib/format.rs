@@ -313,6 +313,7 @@ impl ToDoc for Exp {
             }
             Ignore(e) => kwd("ignore").append(e.doc()),
             Paren(e) => enclose("(", e.doc(), ")"),
+            _ => todo!(),
         }
         // _ => text("Display-TODO={:?}", self),
     }

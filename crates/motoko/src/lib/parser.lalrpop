@@ -11,50 +11,12 @@ use crate::shared::{Share};
 
 grammar(lookup: &LineColLookup<'input>);
 
-
-// Defining operator precedence:
-
-// The compiler's parser generator is able to accept precedence
-// declarations to disambiguate the grammar.
-
-// ```
-// %nonassoc RETURN_NO_ARG IF_NO_ELSE LOOP_NO_WHILE
-// %nonassoc ELSE WHILE
-
-// %left COLON
-// %left OR
-// %left AND
-// %nonassoc EQOP NEQOP LEOP LTOP GTOP GEOP
-// %left ADDOP SUBOP WRAPADDOP WRAPSUBOP HASH
-// %left MULOP WRAPMULOP DIVOP MODOP
-// %left OROP
-// %left ANDOP
-// %left XOROP
-// %nonassoc SHLOP SHROP ROTLOP ROTROP
-// %left POWOP WRAPPOWOP
-// ```
-
-// Here, in LALRPOP, we do not have that affordance.  So, we must encode
-// precedence relationships manually, as manually-stratified productions.
-
-// We do so by creating a production for each line of the declarations above.
-// Productions refer to later ones, but not earlier ones, except in special cases.
-
-// These constructions are effectively each an "expansion" of one of
-// the declarative precedence lines.
-
-
-
-// --- Helper Functions --- //
-
 #[inline]
 Node<T>: Node<T> = {
-    // <start:@L> <t:T> <end:@R> => node(t, start.expand(&end)),
     <start:@L> <t:T> <end:@R> => {
         let (line, col) = lookup.get(start);
         NodeData::new(t, Source::Known { span: start..end, line, col }).share()
     },
-    // <t:T> => node(t, Source::Unknown),
 }
 
 /// One or more `T`s, delimited by interposed separator `S`.
@@ -404,19 +366,17 @@ ExpNonDec<B>: Exp = {
     <e1:ExpBin0000_<B>> ":=" <e2:Exp_<Ob>> => Exp::Assign(e1, e2),
     <e1:ExpBin0000_<B>> <b:BinAssign> <e2:ExpUn_<Ob>> => Exp::BinAssign(e1, b, e2),
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
-    // TODO: possibly use lookahead / lookbehind (=>@L, =>@R) for if without else
-    // if without an else -- TEMP -- using placeholder token here but it doesn't belong.
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
-    // "return" => Exp::Return(None),
     "return" <e:Exp_<B>?> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
-    // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
+    "loop" <e:ExpNest_> => { Exp::Loop(e, None) },
     "while"  <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::While(e1, e2),
     "for" "(" <p:Pat_> "in" <e1:Exp_<Ob>> ")" <e2:ExpNest_> => Exp::For(p, e1, e2),
     "ignore" <e:ExpNest_> => Exp::Ignore(e),
     "do" <e:Block_> => Exp::Do(e),
     "do" "?" <e:Block_> => Exp::DoOpt(e),
     "assert" <e:ExpNest_> => Exp::Assert(e),
+    "label" <id:Id_> <t:(":" <Type_>)?> <e:ExpNest_> => Exp::Label(id, t, e),
     "debug" <e:ExpNest_> => Exp::Debug(e),
     "import" <txt:StringLiteral> => Exp::Import(txt),
 
@@ -492,7 +452,6 @@ ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 ExpBin<B>: Exp = {
     <e1:ExpBin0_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
     <e1:ExpBin0_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
-    <e1:ExpBin0_<B>> " <=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
     <e1:ExpBin0_<B>> "<=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
     <e1:ExpBin0_<B>> ">=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Ge, e2),
     <e1:ExpBin0_<B>> " < " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
@@ -554,9 +513,7 @@ ExpBin5_<B>: Exp_ = Node<ExpBin5<B>>;
 ExpBin5<B>: Exp = {
     <e1:ExpBin6_<B>> " << " <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
     <e1:ExpBin6_<B>> " >> " <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
-    <e1:ExpBin6_<B>> " <<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
     <e1:ExpBin6_<B>> "<<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
-    <e1:ExpBin6_<B>> " <>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
     <e1:ExpBin6_<B>> "<>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
     ExpBin6<B>,
 }
@@ -648,7 +605,6 @@ ObjSortOpt: Option<ObjSort> = {
 #[inline]
 TypeParamsOpt: Option<Delim<TypeBind_>> = {
     => None,
-    " <" <ts:Delim0<Type, ",">> ">" => None, // to do -- produce AST.
     "<" <ts:Delim0<Type, ",">> ">" => None, // to do -- produce AST.
 
 }

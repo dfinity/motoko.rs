@@ -320,7 +320,7 @@ ExpNonDec_<B>: Exp_ = Node<ExpNonDec<B>>;
 ExpNonDec<B>: Exp = {
     ExpBin0000<B>,
     <e1:ExpBin0000_<B>> ":=" <e2:Exp_<Ob>> => Exp::Assign(e1, e2),
-    <e1:ExpBin0000_<B>> <b:BinAssign> <e2:ExpUn_<Ob>> => Exp::BinAssign(e1, b, e2),
+    <e1:ExpBin0000_<B>> <b:BinAssign> <e2:Exp_<Ob>> => Exp::BinAssign(e1, b, e2),
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
     "return" <e:Exp_<B>?> => Exp::Return(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
@@ -455,7 +455,6 @@ BinAssign: BinOp = {
 ExpBin0000_<B>: Exp_ = Node<ExpBin0000<B>>;
 
 ExpBin0000<B>: Exp = {
-    <e:ExpBin0000_<B>> ":" <t:TypeNoBin_> => Exp::Annot(e, t),
     ExpBin000<B>,
 }
 
@@ -478,13 +477,19 @@ ExpBin00<B>: Exp = {
 #[inline]
 ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 
+// optional type annotation
+#[inline]
+OTA: Option<Type_> = {
+    (":" <TypeNoBin_>)? => <>,
+}
+
 ExpBin<B>: Exp = {
-    <e1:ExpBin0_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
-    <e1:ExpBin0_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
-    <e1:ExpBin0_<B>> "<=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
-    <e1:ExpBin0_<B>> ">=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Ge, e2),
-    <e1:ExpBin0_<B>> " < " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
-    <e1:ExpBin0_<B>> " > " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
+    <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Eq, e2),
+    <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Neq, e2),
+    <e1:ExpBin_<B>> "<=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Le, e2),
+    <e1:ExpBin_<B>> ">=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Ge, e2),
+    <e1:ExpBin_<B>> " < " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
+    <e1:ExpBin_<B>> " > " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
     ExpBin0<B>,
 }
 
@@ -553,8 +558,7 @@ ExpBin6_<B>: Exp_ = Node<ExpBin6<B>>;
 ExpBin6<B>: Exp = {
     <e1:ExpBin6_<B>> "**" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::Pow, e2),
     <e1:ExpBin6_<B>> "**%" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::WPow, e2),
-//    <e:ExpBin6_<B>> ":" <t:Type_> => Exp::Annot(e, t),
-//    <e:ExpBin6_<B>> ":" <t:TypeNoBin_> => Exp::Annot(e, t),
+    <e1:ExpBin6<B>> ":" <t:(<TypeNoBin_>)?> => e1,
     ExpUn<B>,
 }
 

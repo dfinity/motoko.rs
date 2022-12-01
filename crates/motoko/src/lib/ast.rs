@@ -457,7 +457,6 @@ pub enum ProjIndex {
     FloatLike(String),
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {
     Hole,

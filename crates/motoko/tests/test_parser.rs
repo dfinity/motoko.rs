@@ -19,6 +19,7 @@ fn test_dot_dot() {
     assert_parse_ok("foo.0 . 1");
     assert_parse_ok("foo . 0.1");
     assert_parse_ok("foo.0.1");
+    assert_parse_ok("foo.0.1.0.1.0.1");
 }
 
 #[test]

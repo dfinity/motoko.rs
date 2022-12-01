@@ -1,6 +1,6 @@
 use crate::ast::{
     BinOp, Cases, Dec, Dec_, Exp, Exp_, Id, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog,
-    RelOp, Source, Stab_, ToId, Type, UnOp, Vis_, ProjIndex
+    ProjIndex, RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};

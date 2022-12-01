@@ -227,7 +227,7 @@ impl ToDoc for Exp {
             Show(e) => kwd("debug_show").append(e.doc()),
             ToCandid(_) => todo!(),
             FromCandid(_) => todo!(),
-            Proj(e1, n) => e1.doc().append(format!(".{}", n)),
+//            Proj(e1, n) => e1.doc().append(format!(".{}", n)),
             Opt(e) => str("?").append(e.doc()),
             DoOpt(e) => kwd("do ?").append(e.doc()),
             Bang(e) => e.doc().append("!"),

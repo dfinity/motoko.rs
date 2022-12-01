@@ -430,11 +430,11 @@ impl ToDoc for Pat {
             Variant(s, p) => str("#")
                 .append(s.doc())
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
-            Alt(d) => delim_left(d, " |"),
+//            Alt(d) => delim_left(d, " |"),
             Annot(t) => todo!(),
             AnnotPat(p, t) => todo!(),
             Paren(p) => enclose("(", p.doc(), ")"),
-            TempVar(_) => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 }

@@ -122,7 +122,7 @@ PatBin_: Pat_ = Node<PatBin>;
 PatBin: Pat = {
     PatUn,
     <p:PatBin_> ":" <t:Type_> => Pat::AnnotPat(p, t),
-    // to do -- PatBin OR PatBin
+    <p1:PatBin_> "or" <p2:PatUn_> => Pat::Or(p1, p2),
 }
 
 #[inline]

@@ -525,7 +525,7 @@ pub enum Pat {
     Object(PatFields),
     Optional(Pat_),
     Variant(Id_, Option<Pat_>),
-    Alt(Delim<Pat_>),
+    Or(Pat_, Pat_),
     AnnotPat(Pat_, Type_),
     Annot(Type_),
     Paren(Pat_),

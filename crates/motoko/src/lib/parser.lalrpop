@@ -567,7 +567,7 @@ Cases: Cases = {
 }
 
 Case: Case = {
-    "case" <pat:PatNullary_> <exp:ExpIfNoElse<ExpNest_>> => Case{pat, exp},
+    "case" <pat:PatNullary_> <exp:ExpIfNoElse_<ExpNest>> => Case{pat, exp},
 }
 
 #[inline]

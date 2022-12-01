@@ -176,8 +176,8 @@ pub enum Cont {
 pub mod stack {
     use super::{def::CtxId, Cont, Env, Pointer, RespTarget, Vector};
     use crate::ast::{
-        BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, RelOp, Source, Type_,
-        UnOp,
+        BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, ProjIndex, RelOp,
+        Source, Type_, UnOp,
     };
     use crate::value::{Value, Value_};
     use serde::{Deserialize, Serialize};
@@ -210,7 +210,7 @@ pub mod stack {
         Assign2(Value_),
         BinAssign1(BinOp, Exp_),
         BinAssign2(Value_, BinOp),
-        Proj(usize),
+        Proj(ProjIndex),
         Dot(Id_),
         If(Exp_, Option<Exp_>),
         RelOp1(RelOp, Exp_),

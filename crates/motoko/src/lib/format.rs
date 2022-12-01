@@ -227,7 +227,7 @@ impl ToDoc for Exp {
             Show(e) => kwd("debug_show").append(e.doc()),
             ToCandid(_) => todo!(),
             FromCandid(_) => todo!(),
-            Proj(e1, n) => e1.doc().append(format!(".{}", n)),
+            //            Proj(e1, n) => e1.doc().append(format!(".{}", n)),
             Opt(e) => str("?").append(e.doc()),
             DoOpt(e) => kwd("do ?").append(e.doc()),
             Bang(e) => e.doc().append("!"),
@@ -430,11 +430,11 @@ impl ToDoc for Pat {
             Variant(s, p) => str("#")
                 .append(s.doc())
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
-            Alt(d) => delim_left(d, " |"),
+            //            Alt(d) => delim_left(d, " |"),
             Annot(t) => todo!(),
             AnnotPat(p, t) => todo!(),
             Paren(p) => enclose("(", p.doc(), ")"),
-            TempVar(_) => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 }

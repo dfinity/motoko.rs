@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
+use crate::ast::{Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -11,50 +11,12 @@ use crate::shared::{Share};
 
 grammar(lookup: &LineColLookup<'input>);
 
-
-// Defining operator precedence:
-
-// The compiler's parser generator is able to accept precedence
-// declarations to disambiguate the grammar.
-
-// ```
-// %nonassoc RETURN_NO_ARG IF_NO_ELSE LOOP_NO_WHILE
-// %nonassoc ELSE WHILE
-
-// %left COLON
-// %left OR
-// %left AND
-// %nonassoc EQOP NEQOP LEOP LTOP GTOP GEOP
-// %left ADDOP SUBOP WRAPADDOP WRAPSUBOP HASH
-// %left MULOP WRAPMULOP DIVOP MODOP
-// %left OROP
-// %left ANDOP
-// %left XOROP
-// %nonassoc SHLOP SHROP ROTLOP ROTROP
-// %left POWOP WRAPPOWOP
-// ```
-
-// Here, in LALRPOP, we do not have that affordance.  So, we must encode
-// precedence relationships manually, as manually-stratified productions.
-
-// We do so by creating a production for each line of the declarations above.
-// Productions refer to later ones, but not earlier ones, except in special cases.
-
-// These constructions are effectively each an "expansion" of one of
-// the declarative precedence lines.
-
-
-
-// --- Helper Functions --- //
-
 #[inline]
 Node<T>: Node<T> = {
-    // <start:@L> <t:T> <end:@R> => node(t, start.expand(&end)),
     <start:@L> <t:T> <end:@R> => {
         let (line, col) = lookup.get(start);
         NodeData::new(t, Source::Known { span: start..end, line, col }).share()
     },
-    // <t:T> => node(t, Source::Unknown),
 }
 
 /// One or more `T`s, delimited by interposed separator `S`.
@@ -88,7 +50,7 @@ Delim0<T, S>: Delim<T> = {
 };
 
 Bl : Exp = {
-    r"\\\\BIG.FART." => unreachable!()
+    // no productions.
 }
 
 Ob : Exp = {
@@ -99,6 +61,10 @@ Ob : Exp = {
 
 NatIndex: usize = {
     r"[0-9]([0-9_]*[0-9])?" => <>.replace('_', "").parse().unwrap(),
+}
+
+FloatIndex: String = {
+    r"[+-]?[0-9]([0-9_]*[0-9])?\.([0-9]([0-9_]*[0-9])?)?([Ee][0-9]([0-9_]*[0-9])?)?" => <>.to_string(), // exponential with decimal
 }
 
 Id: Id = {
@@ -156,7 +122,7 @@ PatBin_: Pat_ = Node<PatBin>;
 PatBin: Pat = {
     PatUn,
     <p:PatBin_> ":" <t:Type_> => Pat::AnnotPat(p, t),
-    // to do -- PatBin OR PatBin
+    <p1:PatBin_> "or" <p2:PatUn_> => Pat::Or(p1, p2),
 }
 
 #[inline]
@@ -310,15 +276,65 @@ pub Prog: Decs = {
 // --- Expressions --- //
 
 #[inline]
-Exp_<B>: Exp_ = Node<Exp<B>>;
+ExpIfNoElse_<B>: Exp_ = Node<ExpIfNoElse<B>>;
+
+ExpIfNoElse<B>: Exp = {
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::If(e1, e2, None),
+    Exp<B>,
+}
 
 #[inline]
-ExpPlain_: Exp_ = Node<ExpPlain>;
+Exp_<B>: Exp_ = Node<Exp<B>>;
 
-ExpPlain: Exp = {
-    Literal => Exp::Literal(<>),
-    "(" <es:Delim1<Exp_<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
-    // "`" "(" <e:Exp<Ob>> ")" => e,
+Exp<B>: Exp = {
+    ExpNonVar<B>,
+    DecVar_ => dec_node_into_exp(<>),
+}
+
+#[inline]
+ExpNonVar_<B>: Exp_ = Node<ExpNonVar<B>>;
+
+ExpNonVar<B>: Exp = {
+    ExpNonDec<B>,
+    DecNonVar_ => dec_node_into_exp(<>),
+}
+
+#[inline]
+DecVar_: Dec_ = Node<DecVar>;
+
+DecVar: Dec = {
+    "var" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Var(p, e),
+}
+
+#[inline]
+ExpNonDec0_<B>: Exp_ = Node<ExpNonDec0<B>>;
+
+ExpNonDec0<B>: Exp = {
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::If(e1, e2, None),
+    ExpNonDec<B>,
+}
+
+#[inline]
+ExpNonDec_<B>: Exp_ = Node<ExpNonDec<B>>;
+
+ExpNonDec<B>: Exp = {
+    ExpBin0000<B>,
+    <e1:ExpBin0000_<B>> ":=" <e2:Exp_<Ob>> => Exp::Assign(e1, e2),
+    <e1:ExpBin0000_<B>> <b:BinAssign> <e2:Exp_<Ob>> => Exp::BinAssign(e1, b, e2),
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
+    "return" <e:Exp_<B>?> => Exp::Return(e),
+    "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
+    "loop" <e:ExpNest_> => Exp::Loop(e, None),
+    "while"  <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::While(e1, e2),
+    "for" "(" <p:Pat_> "in" <e1:Exp_<Ob>> ")" <e2:ExpNest_> => Exp::For(p, e1, e2),
+    "ignore" <e:ExpNest_> => Exp::Ignore(e),
+    "do" <e:Block_> => Exp::Do(e),
+    "do" "?" <e:Block_> => Exp::DoOpt(e),
+    "assert" <e:ExpNest_> => Exp::Assert(e),
+    "label" <id:Id_> <t:(":" <Type_>)?> <e:ExpNest_> => Exp::Label(id, t, e),
+    "debug" <e:ExpNest_> => Exp::Debug(e),
+    "import" <txt:StringLiteral> => Exp::Import(txt),
+
 }
 
 #[inline]
@@ -332,22 +348,48 @@ ExpNullary<B>: Exp = {
 }
 
 #[inline]
-ExpPost_<B>: Exp_ = Node<ExpPost<B>>;
+ExpPlain_: Exp_ = Node<ExpPlain>;
 
-VarOpt: Mut = {
-    "var" => Mut::Var,
-     => Mut::Const,
+ExpPlain: Exp = {
+    Literal => Exp::Literal(<>),
+    "(" <es:Delim1<ExpIfNoElse_<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
+//    "(" "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> ")" => Exp::If(e1, e2, None),
+
 }
+
+#[inline]
+ExpNest_: Exp_ = Node<ExpNest>;
+
+ExpNest: Exp = {
+    Block,
+    Exp<Bl>,
+}
+
+#[inline]
+Block_: Exp_ = Node<Block>;
+
+Block: Exp = {
+    "{" <ds:Decs> "}" => Exp::Block(ds)
+}
+
+#[inline]
+ExpPost_<B>: Exp_ = Node<ExpPost<B>>;
 
 ExpPost<B>: Exp = {
     ExpNullary<B>,
     "[" <v:VarOpt> <es:Delim0<ExpNonVar_<Ob>, ",">> "]" => Exp::Array(v, es),
     <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Index(e1, e2),
-    <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
+    <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, ProjIndex::Usize(i)),
+    <e1:ExpPost_<B>> "." <f:FloatIndex> => Exp::Proj(e1, ProjIndex::FloatLike(f)),
     <e1:ExpPost_<B>> "." <i:Id_> => Exp::Dot(e1, i),
     <e1:ExpPost_<B>> "<" <inst:Delim0<Type_, ",">> ">" <e2:ExpNullary_<Ob>> => Exp::Call(e1, Some(inst), e2),
     <e1:ExpPost_<B>> <e2:ExpNullary_<Ob>> => Exp::Call(e1, None, e2),
     <e:ExpPost_<B>> "!" => Exp::Bang(e),
+}
+
+VarOpt: Mut = {
+    "var" => Mut::Var,
+     => Mut::Const,
 }
 
 ExpUn<B>: Exp = {
@@ -365,62 +407,8 @@ ExpUn<B>: Exp = {
 #[inline]
 ExpUn_<B>: Exp_ = Node<ExpUn<B>>;
 
-#[inline]
-ExpNest_: Exp_ = Node<ExpNest>;
-
-ExpNest: Exp = {
-    Block,
-    Exp<Bl>,
-}
-
-Exp<B>: Exp = {
-    ExpNonVar<B>,
-    DecVar_ => dec_node_into_exp(<>),
-}
-
-Block: Exp = {
-    "{" <ds:Decs> "}" => Exp::Block(ds)
-}
-
-#[inline]
-Block_: Exp_ = Node<Block>;
-
 ExpObj: Exp = {
     "{" <efs:Delim0<ExpField_, ";">> "}" => Exp::Object(efs)
-}
-
-#[inline]
-ExpNonVar_<B>: Exp_ = Node<ExpNonVar<B>>;
-
-ExpNonVar<B>: Exp = {
-    ExpNonDec<B>,
-    DecNonVar_ => dec_node_into_exp(<>),
-}
-
-#[inline]
-ExpNonDec_<B>: Exp_ = Node<ExpNonDec<B>>;
-
-ExpNonDec<B>: Exp = {
-    ExpBin0000<B>,
-    <e1:ExpBin0000_<B>> ":=" <e2:Exp_<Ob>> => Exp::Assign(e1, e2),
-    <e1:ExpBin0000_<B>> <b:BinAssign> <e2:ExpUn_<Ob>> => Exp::BinAssign(e1, b, e2),
-    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
-    // TODO: possibly use lookahead / lookbehind (=>@L, =>@R) for if without else
-    // if without an else -- TEMP -- using placeholder token here but it doesn't belong.
-    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
-    // "return" => Exp::Return(None),
-    "return" <e:Exp_<B>?> => Exp::Return(e),
-    "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
-    // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
-    "while"  <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::While(e1, e2),
-    "for" "(" <p:Pat_> "in" <e1:Exp_<Ob>> ")" <e2:ExpNest_> => Exp::For(p, e1, e2),
-    "ignore" <e:ExpNest_> => Exp::Ignore(e),
-    "do" <e:Block_> => Exp::Do(e),
-    "do" "?" <e:Block_> => Exp::DoOpt(e),
-    "assert" <e:ExpNest_> => Exp::Assert(e),
-    "debug" <e:ExpNest_> => Exp::Debug(e),
-    "import" <txt:StringLiteral> => Exp::Import(txt),
-
 }
 
 #[inline]
@@ -467,7 +455,6 @@ BinAssign: BinOp = {
 ExpBin0000_<B>: Exp_ = Node<ExpBin0000<B>>;
 
 ExpBin0000<B>: Exp = {
-    <e:ExpBin000_<B>> ":" <t:Type_> => Exp::Annot(e, t),
     ExpBin000<B>,
 }
 
@@ -490,15 +477,19 @@ ExpBin00<B>: Exp = {
 #[inline]
 ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 
+// optional type annotation
+#[inline]
+OTA: Option<Type_> = {
+    (":" <TypeNoBin_>)? => <>,
+}
+
 ExpBin<B>: Exp = {
-    <e1:ExpBin0_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
-    <e1:ExpBin0_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
-    <e1:ExpBin0_<B>> " <=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
-    <e1:ExpBin0_<B>> "<=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Le, e2),
-    <e1:ExpBin0_<B>> ">=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Ge, e2),
-    // to do -- how can we recognize the space before a '<' token?
-    <e1:ExpBin0_<B>> " <" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
-    <e1:ExpBin0_<B>> ">" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
+    <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Eq, e2),
+    <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Neq, e2),
+    <e1:ExpBin_<B>> "<=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Le, e2),
+    <e1:ExpBin_<B>> ">=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Ge, e2),
+    <e1:ExpBin_<B>> " < " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
+    <e1:ExpBin_<B>> " > " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
     ExpBin0<B>,
 }
 
@@ -554,11 +545,9 @@ ExpBin4<B>: Exp = {
 ExpBin5_<B>: Exp_ = Node<ExpBin5<B>>;
 
 ExpBin5<B>: Exp = {
-    <e1:ExpBin6_<B>> " <<" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
-    <e1:ExpBin6_<B>> ">>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
-    <e1:ExpBin6_<B>> " <<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
+    <e1:ExpBin6_<B>> " << " <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
+    <e1:ExpBin6_<B>> " >> " <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
     <e1:ExpBin6_<B>> "<<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
-    <e1:ExpBin6_<B>> " <>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
     <e1:ExpBin6_<B>> "<>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
     ExpBin6<B>,
 }
@@ -569,6 +558,7 @@ ExpBin6_<B>: Exp_ = Node<ExpBin6<B>>;
 ExpBin6<B>: Exp = {
     <e1:ExpBin6_<B>> "**" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::Pow, e2),
     <e1:ExpBin6_<B>> "**%" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::WPow, e2),
+    <e1:ExpBin6<B>> ":" <t:(<TypeNoBin_>)?> => e1,
     ExpUn<B>,
 }
 
@@ -584,7 +574,7 @@ Case: Case = {
 ExpField_: Node<ExpField> = Node<ExpField>;
 
 ExpField: ExpField = {
-    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> "=" <exp:Exp_<Ob>> => ExpField{ mut_, id, exp, typ }
+    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> "=" <exp:ExpIfNoElse_<Ob>> => ExpField{ mut_, id, exp, typ }
 }
 
 Decs: Decs = {
@@ -597,7 +587,7 @@ Dec_: Dec_ = Node<Dec>;
 Dec: Dec = {
     DecVar,
     DecNonVar,
-    ExpNonDec_<Ob> => Dec::Exp(<>),
+    ExpNonDec0_<Ob> => Dec::Exp(<>),
 }
 
 #[inline]
@@ -648,7 +638,6 @@ ObjSortOpt: Option<ObjSort> = {
 #[inline]
 TypeParamsOpt: Option<Delim<TypeBind_>> = {
     => None,
-    " <" <ts:Delim0<Type, ",">> ">" => None, // to do -- produce AST.
     "<" <ts:Delim0<Type, ",">> ">" => None, // to do -- produce AST.
 
 }
@@ -665,13 +654,6 @@ SharedPatOpt: Option<SortPat> = {
 FuncSortOpt: Option<SortPat> = {
   <q:"query"?> => None, // to do -- produce AST.
   "shared" <q:"query"?> => None, // to do -- produce AST.
-}
-
-#[inline]
-DecVar_: Dec_ = Node<DecVar>;
-
-DecVar: Dec = {
-    "var" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Var(p, e),
 }
 
 #[inline]

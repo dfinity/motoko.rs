@@ -1,6 +1,6 @@
 use crate::ast::{
     BinOp, Cases, Dec, Dec_, Exp, Exp_, Id, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog,
-    RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
+    ProjIndex, RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
@@ -1765,7 +1765,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             FrameCont::BinAssign1(b.clone(), e2.fast_clone()),
             e1,
         ),
-        Proj(e1, i) => exp_conts(active, FrameCont::Proj(*i), e1),
+        Proj(e1, i) => exp_conts(active, FrameCont::Proj(i.clone()), e1),
         Dot(e1, f) => exp_conts(active, FrameCont::Dot(f.fast_clone()), e1),
         If(e1, e2, e3) => exp_conts(active, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
         Rel(e1, relop, e2) => exp_conts(
@@ -2328,11 +2328,15 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         }
         Proj(i) => match &*v {
             Value::Tuple(vs) => {
-                if let Some(vi) = vs.get(i) {
-                    *active.cont() = Cont::Value_(vi.fast_clone());
-                    Ok(Step {})
+                if let ProjIndex::Usize(i) = i {
+                    if let Some(vi) = vs.get(i) {
+                        *active.cont() = Cont::Value_(vi.fast_clone());
+                        Ok(Step {})
+                    } else {
+                        type_mismatch!(file!(), line!())
+                    }
                 } else {
-                    type_mismatch!(file!(), line!())
+                    nyi!(line!())
                 }
             }
             _ => type_mismatch!(file!(), line!()),

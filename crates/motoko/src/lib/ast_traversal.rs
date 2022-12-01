@@ -377,7 +377,7 @@ impl<'a> Traverse for Loc<&'a Pat> {
                     f(&p.tree());
                 }
             }
-            Pat::Alt(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
+            //            Pat::Alt(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
             Pat::AnnotPat(p, t) => {
                 f(&p.tree());
                 f(&t.tree());
@@ -386,6 +386,7 @@ impl<'a> Traverse for Loc<&'a Pat> {
                 f(&t.tree());
             }
             Pat::Paren(p) => f(&p.tree()),
+            _ => todo!(),
         }
     }
 }

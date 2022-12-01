@@ -451,6 +451,13 @@ pub struct Function {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum ProjIndex {
+    Usize(usize),
+    // when the parser gets confused by double-indexes, "((a,b),c).0.1"
+    FloatLike(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {
     Hole,
     Prim(Result<PrimFunction, String>),
@@ -464,7 +471,7 @@ pub enum Exp {
     ToCandid(Delim<Exp_>),
     FromCandid(Exp_),
     Tuple(Delim<Exp_>),
-    Proj(Exp_, usize),
+    Proj(Exp_, ProjIndex),
     Opt(Exp_),
     DoOpt(Exp_),
     Bang(Exp_),
@@ -517,7 +524,7 @@ pub enum Pat {
     Object(PatFields),
     Optional(Pat_),
     Variant(Id_, Option<Pat_>),
-    Alt(Delim<Pat_>),
+    Or(Pat_, Pat_),
     AnnotPat(Pat_, Type_),
     Annot(Type_),
     Paren(Pat_),

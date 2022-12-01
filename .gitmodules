@@ -1,0 +1,8 @@
+[submodule "submodules/motoko"]
+	path = submodules/motoko
+	url = https://github.com/dfinity/motoko
+	branch = master
+[submodule "submodules/motoko-base"]
+	path = submodules/motoko-base
+	url = https://github.com/dfinity/motoko-base
+	branch = master

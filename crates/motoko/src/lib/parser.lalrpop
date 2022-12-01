@@ -276,11 +276,11 @@ pub Prog: Decs = {
 // --- Expressions --- //
 
 #[inline]
-ExpIfNoElse_<B>: Exp_ = Node<ExpIfNoElse<B>>;
+ExpIfNoElse_<E>: Exp_ = Node<ExpIfNoElse<E>>;
 
-ExpIfNoElse<B>: Exp = {
+ExpIfNoElse<E>: Exp = {
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::If(e1, e2, None),
-    Exp<B>,
+    E,
 }
 
 #[inline]
@@ -352,7 +352,7 @@ ExpPlain_: Exp_ = Node<ExpPlain>;
 
 ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
-    "(" <es:Delim1<ExpIfNoElse_<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
+    "(" <es:Delim1<ExpIfNoElse_<Exp<Ob>>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
 //    "(" "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> ")" => Exp::If(e1, e2, None),
 
 }
@@ -567,14 +567,14 @@ Cases: Cases = {
 }
 
 Case: Case = {
-    "case" <pat:PatNullary_> <exp:ExpNest_> => Case{pat, exp},
+    "case" <pat:PatNullary_> <exp:ExpIfNoElse<ExpNest_>> => Case{pat, exp},
 }
 
 #[inline]
 ExpField_: Node<ExpField> = Node<ExpField>;
 
 ExpField: ExpField = {
-    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> "=" <exp:ExpIfNoElse_<Ob>> => ExpField{ mut_, id, exp, typ }
+    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> "=" <exp:ExpIfNoElse_<Exp<Ob>>> => ExpField{ mut_, id, exp, typ }
 }
 
 Decs: Decs = {

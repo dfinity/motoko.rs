@@ -1,13 +1,12 @@
-use motoko::package::get_base_library;
+use motoko::package::{get_base_library, get_base_library_tests, Package};
 
 use test_log::test;
 
-#[test]
-fn parse_base_library() {
-    let base = get_base_library();
-    assert!(base.files.len() > 10);
+fn assert_parse_package(package: Package) {
+    println!("Parsing package: {}", package.name);
+    assert!(package.files.len() > 0);
 
-    let mut files = base.files.into_iter().collect::<Vec<_>>();
+    let mut files = package.files.into_iter().collect::<Vec<_>>();
     files.sort_by_cached_key(|(path, _)| path.clone());
     let total = files.len();
     let mut count = 0;
@@ -29,6 +28,16 @@ fn parse_base_library() {
         println!("  Success!");
     }
     assert_eq!(total - error_count, total);
+}
+
+#[test]
+fn parse_base_library() {
+    assert_parse_package(get_base_library());
+}
+
+#[test]
+fn parse_base_library_tests() {
+    assert_parse_package(get_base_library_tests())
 }
 
 // #[test]

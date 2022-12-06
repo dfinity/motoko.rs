@@ -481,7 +481,7 @@ ExpBin000<B>: Exp = {
 ExpBin00_<B>: Exp_ = Node<ExpBin00<B>>;
 
 ExpBin00<B>: Exp = {
-    <e1:ExpBin00_<B>> "and" <e2:ExpBin_<B>> => Exp::And(e1, e2),
+    <e1:ExpBin00_<B>> "and" <e2:ExpBin_<B>> => hrta(Exp::And(e1, e2)),
     ExpBin<B>,
 }
 
@@ -489,12 +489,12 @@ ExpBin00<B>: Exp = {
 ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
 
 ExpBin<B>: Exp = {
-    <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Eq, e2),
-    <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Neq, e2),
-    <e1:ExpBin_<B>> "<=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Le, e2),
-    <e1:ExpBin_<B>> ">=" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Ge, e2),
-    <e1:ExpBin_<B>> " < " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Lt, e2),
-    <e1:ExpBin_<B>> " > " <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Gt, e2),
+    <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>>  => hrta(Exp::Rel(e1, RelOp::Eq, e2)),
+    <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>>  => hrta(Exp::Rel(e1, RelOp::Neq, e2)),
+    <e1:ExpBin_<B>> "<=" <e2:ExpBin0_<B>>  => hrta(Exp::Rel(e1, RelOp::Le, e2)),
+    <e1:ExpBin_<B>> ">=" <e2:ExpBin0_<B>>  => hrta(Exp::Rel(e1, RelOp::Ge, e2)),
+    <e1:ExpBin_<B>> " < " <e2:ExpBin0_<B>> => hrta(Exp::Rel(e1, RelOp::Lt, e2)),
+    <e1:ExpBin_<B>> " > " <e2:ExpBin0_<B>> => hrta(Exp::Rel(e1, RelOp::Gt, e2)),
     ExpBin0<B>,
 }
 
@@ -502,11 +502,11 @@ ExpBin<B>: Exp = {
 ExpBin0_<B>: Exp_ = Node<ExpBin0<B>>;
 
 ExpBin0<B>: Exp = {
-    <e1:ExpBin0_<B>> "+" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Add, e2),
-    <e1:ExpBin0_<B>> "+%" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::WAdd, e2),
-    <e1:ExpBin0_<B>> "-" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Sub, e2),
-    <e1:ExpBin0_<B>> "-%" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::WSub, e2),
-    <e1:ExpBin0_<B>> "#" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Cat, e2),
+    <e1:ExpBin0_<B>> "+" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::Add, e2)),
+    <e1:ExpBin0_<B>> "+%" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::WAdd, e2)),
+    <e1:ExpBin0_<B>> "-" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::Sub, e2)),
+    <e1:ExpBin0_<B>> "-%" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::WSub, e2)),
+    <e1:ExpBin0_<B>> "#" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::Cat, e2)),
     ExpBin1<B>,
 }
 
@@ -514,10 +514,10 @@ ExpBin0<B>: Exp = {
 ExpBin1_<B>: Exp_ = Node<ExpBin1<B>>;
 
 ExpBin1<B>: Exp = {
-    <e1:ExpBin1_<B>> "*" <e2:ExpBin2_<B>> => Exp::Bin(e1, BinOp::Mul, e2),
-    <e1:ExpBin1_<B>> "*%" <e2:ExpBin2_<B>> => Exp::Bin(e1, BinOp::WMul, e2),
-    <e1:ExpBin1_<B>> "/" <e2:ExpBin2_<B>> => Exp::Bin(e1, BinOp::Div, e2),
-    <e1:ExpBin1_<B>> "%" <e2:ExpBin2_<B>> => Exp::Bin(e1, BinOp::Mod, e2),
+    <e1:ExpBin1_<B>> "*" <e2:ExpBin2_<B>> => hrta(Exp::Bin(e1, BinOp::Mul, e2)),
+    <e1:ExpBin1_<B>> "*%" <e2:ExpBin2_<B>> => hrta(Exp::Bin(e1, BinOp::WMul, e2)),
+    <e1:ExpBin1_<B>> "/" <e2:ExpBin2_<B>> => hrta(Exp::Bin(e1, BinOp::Div, e2)),
+    <e1:ExpBin1_<B>> "%" <e2:ExpBin2_<B>> => hrta(Exp::Bin(e1, BinOp::Mod, e2)),
     ExpBin2<B>,
 }
 
@@ -525,7 +525,7 @@ ExpBin1<B>: Exp = {
 ExpBin2_<B>: Exp_ = Node<ExpBin2<B>>;
 
 ExpBin2<B>: Exp = {
-    <e1:ExpBin2_<B>> "|" <e2:ExpBin3_<B>> => Exp::Bin(e1, BinOp::BitOr, e2),
+    <e1:ExpBin2_<B>> "|" <e2:ExpBin3_<B>> => hrta(Exp::Bin(e1, BinOp::BitOr, e2)),
     ExpBin3<B>,
 }
 
@@ -533,7 +533,7 @@ ExpBin2<B>: Exp = {
 ExpBin3_<B>: Exp_ = Node<ExpBin3<B>>;
 
 ExpBin3<B>: Exp = {
-    <e1:ExpBin3_<B>> "&" <e2:ExpBin4_<B>> => Exp::Bin(e1, BinOp::BitAnd, e2),
+    <e1:ExpBin3_<B>> "&" <e2:ExpBin4_<B>> => hrta(Exp::Bin(e1, BinOp::BitAnd, e2)),
     ExpBin4<B>,
 }
 
@@ -541,7 +541,7 @@ ExpBin3<B>: Exp = {
 ExpBin4_<B>: Exp_ = Node<ExpBin4<B>>;
 
 ExpBin4<B>: Exp = {
-    <e1:ExpBin4_<B>> "^" <e2:ExpBin5_<B>> => Exp::Bin(e1, BinOp::Xor, e2),
+    <e1:ExpBin4_<B>> "^" <e2:ExpBin5_<B>> => hrta(Exp::Bin(e1, BinOp::Xor, e2)),
     ExpBin5<B>,
 }
 
@@ -550,10 +550,10 @@ ExpBin4<B>: Exp = {
 ExpBin5_<B>: Exp_ = Node<ExpBin5<B>>;
 
 ExpBin5<B>: Exp = {
-    <e1:ExpBin6_<B>> " << " <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShL, e2),
-    <e1:ExpBin6_<B>> " >> " <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::ShR, e2),
-    <e1:ExpBin6_<B>> "<<>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotL, e2),
-    <e1:ExpBin6_<B>> "<>>" <e2:ExpBin6_<B>> => Exp::Bin(e1, BinOp::RotR, e2),
+    <e1:ExpBin6_<B>> " << " <e2:ExpBin6_<B>> => hrta(Exp::Bin(e1, BinOp::ShL, e2)),
+    <e1:ExpBin6_<B>> " >> " <e2:ExpBin6_<B>> => hrta(Exp::Bin(e1, BinOp::ShR, e2)),
+    <e1:ExpBin6_<B>> "<<>" <e2:ExpBin6_<B>> => hrta(Exp::Bin(e1, BinOp::RotL, e2)),
+    <e1:ExpBin6_<B>> "<>>" <e2:ExpBin6_<B>> => hrta(Exp::Bin(e1, BinOp::RotR, e2)),
     ExpBin6<B>,
 }
 
@@ -561,8 +561,8 @@ ExpBin5<B>: Exp = {
 ExpBin6_<B>: Exp_ = Node<ExpBin6<B>>;
 
 ExpBin6<B>: Exp = {
-    <e1:ExpBin6_<B>> "**" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::Pow, e2),
-    <e1:ExpBin6_<B>> "**%" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::WPow, e2),
+    <e1:ExpBin6_<B>> "**" <e2:ExpUn_<B>> => hrta(Exp::Bin(e1, BinOp::Pow, e2)),
+    <e1:ExpBin6_<B>> "**%" <e2:ExpUn_<B>> => hrta(Exp::Bin(e1, BinOp::WPow, e2)),
     <e1:ExpBin6_<B>> ":" <t:TypeNoBin_> => Exp::Annot(BinAnnotWasHoisted(false), e1, t),
     ExpUn<B>,
 }

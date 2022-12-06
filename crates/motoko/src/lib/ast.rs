@@ -678,12 +678,20 @@ impl ToId for String {
 // fixes parse tree to respect binary operator precedence.
 pub fn hoist_right_type_annotation(e: Exp) -> Exp {
     // to do
-    e
-}
-
-// hoist right-sided type annotation;
-// fixes parse tree to respect binary operator precedence.
-pub fn hoist_right_type_annotation_(e: Exp_) -> Exp_ {
-    // to do
-    e
+    match e {
+        Exp::Bin(e1, binop, e2) => {
+            if let Exp::Annot(BinAnnotWasHoisted(false), e3, t) = e2.0.clone() {
+                let s = e1.1.expand(&e3.1);
+                Exp::Annot(
+                    BinAnnotWasHoisted(true),
+                    NodeData(Exp::Bin(e1, binop, e3), s).share(),
+                    t,
+                )
+            } else {
+                Exp::Bin(e1, binop, e2)
+            }
+        }
+        // to do -- more cases as needed (Rel, And, Or)
+        _ => e,
+    }
 }

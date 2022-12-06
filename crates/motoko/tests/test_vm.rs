@@ -73,6 +73,11 @@ fn vm_prim_ops() {
     assert_("255 +% 0 +% 1 : Nat8", "0");
     assert_("(255 +% 1) +% (255 +% 1) : Nat8", "0");
     assert_x("255 +% 1", &Interruption::AmbiguousOperation);
+
+    assert_("255 +% 1 : Nat8 + 1 + 1 + 1", "3");
+    assert_x("255 +% 1 : Nat8 +% 1", &Interruption::AmbiguousOperation); // to do. reconcile with interpreter using more type info.
+
+
 }
 
 #[test]

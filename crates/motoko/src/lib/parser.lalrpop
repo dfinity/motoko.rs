@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, Exp, Exp_, ExpField, Function, Type, Type_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields};
+use crate::ast::{BinAnnotWasHoisted, hoist_right_type_annotation as hrta, Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -11,50 +11,12 @@ use crate::shared::{Share};
 
 grammar(lookup: &LineColLookup<'input>);
 
-
-// Defining operator precedence:
-
-// The compiler's parser generator is able to accept precedence
-// declarations to disambiguate the grammar.
-
-// ```
-// %nonassoc RETURN_NO_ARG IF_NO_ELSE LOOP_NO_WHILE
-// %nonassoc ELSE WHILE
-
-// %left COLON
-// %left OR
-// %left AND
-// %nonassoc EQOP NEQOP LEOP LTOP GTOP GEOP
-// %left ADDOP SUBOP WRAPADDOP WRAPSUBOP HASH
-// %left MULOP WRAPMULOP DIVOP MODOP
-// %left OROP
-// %left ANDOP
-// %left XOROP
-// %nonassoc SHLOP SHROP ROTLOP ROTROP
-// %left POWOP WRAPPOWOP
-// ```
-
-// Here, in LALRPOP, we do not have that affordance.  So, we must encode
-// precedence relationships manually, as manually-stratified productions.
-
-// We do so by creating a production for each line of the declarations above.
-// Productions refer to later ones, but not earlier ones, except in special cases.
-
-// These constructions are effectively each an "expansion" of one of
-// the declarative precedence lines.
-
-
-
-// --- Helper Functions --- //
-
 #[inline]
 Node<T>: Node<T> = {
-    // <start:@L> <t:T> <end:@R> => node(t, start.expand(&end)),
     <start:@L> <t:T> <end:@R> => {
         let (line, col) = lookup.get(start);
         NodeData::new(t, Source::Known { span: start..end, line, col }).share()
     },
-    // <t:T> => node(t, Source::Unknown),
 }
 
 /// One or more `T`s, delimited by interposed separator `S`.
@@ -88,7 +50,7 @@ Delim0<T, S>: Delim<T> = {
 };
 
 Bl : Exp = {
-    r"\\\\BIG.FART." => unreachable!()
+    // no productions.
 }
 
 Ob : Exp = {
@@ -101,6 +63,10 @@ NatIndex: usize = {
     r"[0-9]([0-9_]*[0-9])?" => <>.replace('_', "").parse().unwrap(),
 }
 
+FloatIndex: String = {
+    r"[+-]?[0-9]([0-9_]*[0-9])?\.([0-9]([0-9_]*[0-9])?)?([Ee][0-9]([0-9_]*[0-9])?)?" => <>.to_string(), // exponential with decimal
+}
+
 Id: Id = {
     r"[a-zA-Z_][a-zA-Z_0-9]*" => <>.to_id(),
 };
@@ -109,6 +75,9 @@ Id: Id = {
 Id_: Id_ = Node<Id>;
 
 // --- Literals --- //
+
+#[inline]
+Literal_: Node<Literal> = Node<Literal>;
 
 pub Literal: Literal = {
     "null" => Literal::Null,
@@ -144,22 +113,27 @@ PatNullary_: Pat_ = Node<PatNullary>;
 
 PatNullary: Pat = {
     PatPlain,
-    // to do -- copy more cases from parser.mly
+    "{" <d:Delim0<PatField_, ";">> "}" => Pat::Object(d),
 }
 
 #[inline]
 PatBin_: Pat_ = Node<PatBin>;
 
 PatBin: Pat = {
-    <p:PatBin_> ":" <t:Type_> => Pat::Annot(p, t),
     PatUn,
-    // to do -- copy more cases from parser.mly
+    <p:PatBin_> ":" <t:Type_> => Pat::AnnotPat(p, t),
+    <p1:PatBin_> "or" <p2:PatUn_> => Pat::Or(p1, p2),
 }
+
+#[inline]
+PatUn_: Pat_ = Node<PatUn>;
 
 PatUn: Pat = {
     PatNullary,
     "#" <s:Id_> => Pat::Variant(s, None),
     "#" <s:Id_> <p:PatNullary_> => Pat::Variant(s, Some(p)),
+    "?" <p:PatUn_> => Pat::Optional(p),
+    <u:UnOp_> <l:Literal_> => Pat::UnOpLiteral(u, l),
 
 }
 
@@ -170,19 +144,78 @@ pub Pat: Pat = {
     PatBin,
 }
 
+#[inline]
+PatField_: PatField_ = Node<PatField>;
+
+PatField: PatField = {
+    <id:Id_> => PatField{ id, pat:None },
+    <id:Id_> ":" <t:Type_> => PatField{ id:id.clone(), pat:Some(Pat::Annot(t)) },
+    <id:Id_> "=" <pat:Pat> => PatField{ id, pat:Some(pat) },
+    <id:Id_> ":" <t:Type_> "=" <pat:Pat_> => PatField{ id, pat:Some(Pat::AnnotPat(pat, t ))}
+}
+
+PatOpt: Pat = {
+    PatPlain,
+    => Pat::Wild,
+}
+
 // --- Types --- //
+
+TypeFields: Delim<TypeField_> = {
+    "{" <tfs:Delim0<TypeField_, ";">> "}" => tfs,
+}
+
+TypeObj: Type = {
+    "{" <tfs:Delim0<TypeField_, ";">> "}" => Type::Object(ObjSort::Object, tfs),
+}
+
+TypeVariant: Type = {
+    "{" "#" "}" => Type::Variant(Delim::new()),
+    "{" <tts:Delim1<TypeTag_, ";">> "}" => Type::Variant(tts),
+}
+
+#[inline]
+TypeTag_: TypeTag_ = Node<TypeTag>;
+
+TypeTag: TypeTag = {
+    "#" <id:Id_> <typ:(":" <Type_>)?> => TypeTag{ id, typ },
+}
+
+#[inline]
+TypeField_: TypeField_ = Node<TypeField>;
+
+TypeField: TypeField = {
+//    "type" <id:Id_> <tps:TypeParamsOpt> "=" <t:Type_> => TypeField::Type,
+    <mut_:VarOpt> <id:Id_> ":" <typ:Type_> => TypeField::Val(ValTypeField{mut_, id, typ }),
+//    <id:Id_> <tps:TypeParamsOpt> <t1:TypeNullary_> ":" <t2:Type_> => TypeField::Type,
+}
 
 #[inline]
 TypeNullary_: Type_ = Node<TypeNullary>;
 
 pub TypeNullary: Type = {
-    "(" <tfs:Delim1<TypeItem_, ",">> ")" => todo!(),
+    "(" <ts:Delim1<TypeItem_, ",">> ")" => Type::Tuple(ts),
     "(" ")" => Type::Prim(PrimType::Unit),
-    <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| /* TODO */ Type::Unknown(id)),
-    // path
-    // record
-    // TypeObj
-    // TypVariant
+    <id:Id_> <ta:TypeArgs> => {
+        // assuming here that no primitive types are parameterized by type args.
+        if let None = ta {
+            PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Path(TypePath::Id(id), None))
+        } else {
+            Type::Path(TypePath::Id(id), ta)
+        }
+    },
+    <p:TypePath_> "." <id:Id_> <ta:TypeArgs> => Type::Path(TypePath::Dot(p, id), ta),
+    "[" <vo:VarOpt> <t:Type_> "]" => Type::Array(vo, t),
+    TypeObj,
+    TypeVariant
+}
+
+#[inline]
+TypePath_: TypePath_ = Node<TypePath>;
+
+TypePath: TypePath = {
+    Id_ => TypePath::Id(<>),
+    <p:TypePath_> "." <id:Id_> => TypePath::Dot(p, id),
 }
 
 #[inline]
@@ -190,7 +223,7 @@ TypeUn_: Type_ = Node<TypeUn>;
 
 pub TypeUn: Type = {
     TypeNullary,
-    "?" TypeUn_ => todo!(),
+    "?" <t:TypeUn_> => Type::Optional(t),
 }
 
 #[inline]
@@ -200,9 +233,9 @@ pub TypePre: Type = {
     TypeUn,
     "prim" <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
     "async" <t:TypePre_> => Type::Async(t),
-    // actor
-    // class
-    // object
+    "actor" <to:TypeFields> => Type::Object(ObjSort::Actor, to),
+    "object" <to:TypeFields> => Type::Object(ObjSort::Object, to),
+    "module" <to:TypeFields> => Type::Object(ObjSort::Module, to),
 }
 
 #[inline]
@@ -210,7 +243,8 @@ TypeNoBin_: Type_ = Node<TypeNoBin>;
 
 pub TypeNoBin: Type = {
     TypePre,
-    // arrow
+    <fso:FuncSortOpt> <tps:TypeParamsOpt> <t1:TypeUn_> "->" <t2:TypeNoBin_> =>
+        Type::Function(fso, tps, t1, t2),
 }
 
 #[inline]
@@ -224,15 +258,13 @@ pub Type: Type = {
 TypeItem_: Type_ = Node<TypeItem>;
 
 pub TypeItem: Type = {
-    <id:Id_> ":" <t:Type_> => todo!(),
+    <id:Id_> ":" <t:Type_> => Type::Item(id, t),
     Type,
 }
 
-#[inline]
-TypeArgs_: Type_ = Node<TypeArgs>;
-
-pub TypeArgs: Type = {
-    "<" <tfs:Delim0<Type_, ",">> ">" => todo!(),
+pub TypeArgs: Option<Delim<Type_>> = {
+    => None,
+    "<" <d:Delim0<Type_, ",">> ">" => Some(d)
 }
 
 // --- Programs --- //
@@ -244,15 +276,65 @@ pub Prog: Decs = {
 // --- Expressions --- //
 
 #[inline]
-Exp_<B>: Exp_ = Node<Exp<B>>;
+ExpIfNoElse_<E>: Exp_ = Node<ExpIfNoElse<E>>;
+
+ExpIfNoElse<E>: Exp = {
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::If(e1, e2, None),
+    E,
+}
 
 #[inline]
-ExpPlain_: Exp_ = Node<ExpPlain>;
+Exp_<B>: Exp_ = Node<Exp<B>>;
 
-ExpPlain: Exp = {
-    Literal => Exp::Literal(<>),
-    "(" <es:Delim1<Exp_<Ob>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
-    // "`" "(" <e:Exp<Ob>> ")" => e,
+Exp<B>: Exp = {
+    ExpNonVar<B>,
+    DecVar_ => dec_node_into_exp(<>),
+}
+
+#[inline]
+ExpNonVar_<B>: Exp_ = Node<ExpNonVar<B>>;
+
+ExpNonVar<B>: Exp = {
+    ExpNonDec<B>,
+    DecNonVar_ => dec_node_into_exp(<>),
+}
+
+#[inline]
+DecVar_: Dec_ = Node<DecVar>;
+
+DecVar: Dec = {
+    "var" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Var(p, e),
+}
+
+#[inline]
+ExpNonDec0_<B>: Exp_ = Node<ExpNonDec0<B>>;
+
+ExpNonDec0<B>: Exp = {
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::If(e1, e2, None),
+    ExpNonDec<B>,
+}
+
+#[inline]
+ExpNonDec_<B>: Exp_ = Node<ExpNonDec<B>>;
+
+ExpNonDec<B>: Exp = {
+    ExpBin0000<B>,
+    <e1:ExpBin0000_<B>> ":=" <e2:Exp_<Ob>> => Exp::Assign(e1, e2),
+    <e1:ExpBin0000_<B>> <b:BinAssign> <e2:Exp_<Ob>> => Exp::BinAssign(e1, b, e2),
+    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
+    "return" <e:Exp_<B>?> => Exp::Return(e),
+    "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
+    "loop" <e:ExpNest_> => Exp::Loop(e, None),
+    "while"  <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::While(e1, e2),
+    "for" "(" <p:Pat_> "in" <e1:Exp_<Ob>> ")" <e2:ExpNest_> => Exp::For(p, e1, e2),
+    "ignore" <e:ExpNest_> => Exp::Ignore(e),
+    "do" <e:Block_> => Exp::Do(e),
+    "do" "?" <e:Block_> => Exp::DoOpt(e),
+    "assert" <e:ExpNest_> => Exp::Assert(e),
+    "label" <id:Id_> <t:(":" <Type_>)?> <e:ExpNest_> => Exp::Label(id, t, e),
+    "debug" <e:ExpNest_> => Exp::Debug(e),
+    "import" <txt:StringLiteral> => Exp::Import(txt),
+
 }
 
 #[inline]
@@ -266,33 +348,12 @@ ExpNullary<B>: Exp = {
 }
 
 #[inline]
-ExpPost_<B>: Exp_ = Node<ExpPost<B>>;
+ExpPlain_: Exp_ = Node<ExpPlain>;
 
-VarOpt: Mut = {
-    "var" => Mut::Var,
-     => Mut::Const,
+ExpPlain: Exp = {
+    Literal => Exp::Literal(<>),
+    "(" <es:Delim1<ExpIfNoElse_<Exp<Ob>>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
 }
-
-ExpPost<B>: Exp = {
-    ExpNullary<B>,
-    "[" <v:VarOpt> <es:Delim0<ExpNonVar_<Ob>, ",">> "]" => Exp::Array(v, es),
-    <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Index(e1, e2),
-    <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, i),
-    <e1:ExpPost_<B>> "." <i:Id_> => Exp::Dot(e1, i),
-    <e1:ExpPost_<B>> <e2:ExpNullary_<Ob>> => Exp::Call(e1, None, e2),
-    <e:ExpPost_<B>> "!" => Exp::Bang(e),
-}
-
-ExpUn<B>: Exp = {
-    ExpPost<B>,
-    "#" <x:Id_> <e:(ExpNullary_<B>)?> => Exp::Variant(x, e),
-    "?" <e:ExpUn_<Ob>> => Exp::Opt(e),
-    <u:UnOp> <e:ExpUn_<B>> => Exp::Un(u, e),
-    "not" <e:ExpUn_<B>> => Exp::Not(e),
-}
-
-#[inline]
-ExpUn_<B>: Exp_ = Node<ExpUn<B>>;
 
 #[inline]
 ExpNest_: Exp_ = Node<ExpNest>;
@@ -302,62 +363,109 @@ ExpNest: Exp = {
     Exp<Bl>,
 }
 
-Exp<B>: Exp = {
-    ExpNonVar<B>,
-    DecVar_ => dec_node_into_exp(<>),
-}
+#[inline]
+Block_: Exp_ = Node<Block>;
 
 Block: Exp = {
     "{" <ds:Decs> "}" => Exp::Block(ds)
 }
 
 #[inline]
-Block_: Exp_ = Node<Block>;
+ExpPost_<B>: Exp_ = Node<ExpPost<B>>;
+
+ExpPost<B>: Exp = {
+    ExpNullary<B>,
+    "[" <v:VarOpt> <es:Delim0<ExpNonVar_<Ob>, ",">> "]" => Exp::Array(v, es),
+    <e1:ExpPost_<B>> "[" <e2:Exp_<Ob>> "]" => Exp::Index(e1, e2),
+    <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, ProjIndex::Usize(i)),
+    <e1:ExpPost_<B>> "." <f:FloatIndex> => Exp::Proj(e1, ProjIndex::FloatLike(f)),
+    <e1:ExpPost_<B>> "." <i:Id_> => Exp::Dot(e1, i),
+    <e1:ExpPost_<B>> "<" <inst:Delim0<Type_, ",">> ">" <e2:ExpNullary_<Ob>> => Exp::Call(e1, Some(inst), e2),
+    <e1:ExpPost_<B>> <e2:ExpNullary_<Ob>> => Exp::Call(e1, None, e2),
+    <e:ExpPost_<B>> "!" => Exp::Bang(e),
+}
+
+VarOpt: Mut = {
+    "var" => Mut::Var,
+     => Mut::Const,
+}
+
+#[inline]
+ExpUn_<B>: Exp_ = Node<ExpUn<B>>;
+
+ExpUn<B>: Exp = {
+    ExpPost<B>,
+    "#" <x:Id_> <e:(ExpNullary_<B>)?> => Exp::Variant(x, e),
+    "?" <e:ExpUn_<Ob>> => Exp::Opt(e),
+    "actor" <e:ExpPlain_> => Exp::ActorUrl(e),
+    <u:UnOp> <e:ExpUn_<B>> => Exp::Un(u, e),
+    "not" <e:ExpUn_<B>> => Exp::Not(e),
+    "debug_show" <e:ExpUn_<B>> => Exp::DebugShow(e),
+    "to_candid" "(" <d:Delim1<Exp_<Ob>, ",">> ")" => Exp::ToCandid(d),
+    "from_candid" <e:ExpUn_<B>> => Exp::FromCandid(e),
+}
+
+#[inline]
+ExpBase_: Exp_ = Node<ExpBase>;
+
+// to do -- first base should actually be ExpPost_<Bl>,
+// but this grammar leads to shift-reduce conflicts with lalrpop.
+ExpBase: Exp = {
+    ExpPlain,
+    ExpObj,
+}
 
 ExpObj: Exp = {
-    "{" <efs:Delim0<ExpField_, ";">> "}" => Exp::Object(efs)
+    "{" <fs:Delim0<ExpField_, ";">> "}" => Exp::Object(None, None, Some(fs)),
+    "{" <base:ExpBase_> <bases:("and" <Delim1<ExpPost_<Bl>, "and">>)?> <efs:("with" <Delim1<ExpField_, ";">>)?> "}" => {
+        Exp::Object(Some(base), bases, efs)
+    },
 }
 
 #[inline]
-ExpNonVar_<B>: Exp_ = Node<ExpNonVar<B>>;
-
-ExpNonVar<B>: Exp = {
-    ExpNonDec<B>,
-    DecNonVar_ => dec_node_into_exp(<>),
+BinAssign: BinOp = {
+  "+=" => BinOp::Add,
+  "-=" => BinOp::Sub,
+  "*=" => BinOp::Mul,
+  "/=" => BinOp::Div,
+  "%=" => BinOp::Mod,
+  "**=" => BinOp::Pow,
+  "&=" => BinOp::BitAnd,
+  "|=" => BinOp::BitOr,
+  "^=" => BinOp::Xor,
+  "<<=" => BinOp::ShL,
+  ">>=" => BinOp::ShR,
+  "<<>=" => BinOp::RotL,
+  "<>>=" => BinOp::RotR,
+  "+%=" => BinOp::WAdd,
+  "-%=" => BinOp::WSub,
+  "*%=" => BinOp::WMul,
+  "**%=" => BinOp::WPow,
+  "#=" => BinOp::Cat,
 }
 
-#[inline]
-ExpNonDec_<B>: Exp_ = Node<ExpNonDec<B>>;
-
-ExpNonDec<B>: Exp = {
-    ExpBin<B>,
-    <e1:ExpBin_<B>> ":=" <e2:Exp_<Ob>> => Exp::Assign(e1, e2),
-    <e1:ExpBin_<B>> "+=" <e2:ExpUn_<Ob>> => Exp::BinAssign(e1, BinOp::Add, e2),
-    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
-    // TODO: possibly use lookahead / lookbehind (=>@L, =>@R) for if without else
-    // if without an else -- TEMP -- using placeholder token here but it doesn't belong.
-    "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "\\no_else" => Exp::If(e1, e2, None),
-    // "return" => Exp::Return(None),
-    "return" <e:Exp_<B>?> => Exp::Return(e),
-    "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
-    // "switch" <e:ExpNullary_<Ob>> <cs:Cases> => Exp::Switch(e, cs), // <<<< possible syntax?
-    "while"  <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::While(e1, e2),
-    "for" "(" <p:Pat_> "in" <e1:Exp_<Ob>> ")" <e2:ExpNest_> => Exp::For(p, e1, e2),
-    "ignore" <e:ExpNest_> => Exp::Ignore(e),
-    "do" <e:Block_> => Exp::Do(e),
-    "do" "?" <e:Block_> => Exp::DoOpt(e),
-    "assert" <e:ExpNest_> => Exp::Assert(e),
-    "debug" <e:ExpNest_> => Exp::Debug(e),
-    "import" <txt:StringLiteral> => Exp::Import(txt),
-
-}
+// Binary operator "level mnemonics." (to do -- renumber/rename.)
+//
+// Prod.
+// Suffix   Operators
+// -------------------------------
+// 0000. %left COLON
+// 000.  %left OR
+// 00.   %left AND
+// .     %nonassoc EQOP NEQOP LEOP LTOP GTOP GEOP
+// 0.    %left ADDOP SUBOP WRAPADDOP WRAPSUBOP HASH
+// 1.    %left MULOP WRAPMULOP DIVOP MODOP
+// 2.    %left OROP
+// 3.    %left ANDOP
+// 4.    %left XOROP
+// 5.    %nonassoc SHLOP SHROP ROTLOP ROTROP
+// 6.    %left POWOP WRAPPOWOP
+//
 
 #[inline]
-ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
+ExpBin0000_<B>: Exp_ = Node<ExpBin0000<B>>;
 
-ExpBin<B>: Exp = {
-    <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Eq, e2),
-    <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>> => Exp::Rel(e1, RelOp::Neq, e2),
+ExpBin0000<B>: Exp = {
     ExpBin000<B>,
 }
 
@@ -365,7 +473,7 @@ ExpBin<B>: Exp = {
 ExpBin000_<B>: Exp_ = Node<ExpBin000<B>>;
 
 ExpBin000<B>: Exp = {
-    <e1:ExpBin000_<B>> "or" <e2:ExpBin00_<B>> => Exp::Or(e1, e2),
+    <e1:ExpBin000_<B>> "or" <e2:ExpBin00_<B>> => hrta(Exp::Or(e1, e2)),
     ExpBin00<B>,
 }
 
@@ -373,7 +481,20 @@ ExpBin000<B>: Exp = {
 ExpBin00_<B>: Exp_ = Node<ExpBin00<B>>;
 
 ExpBin00<B>: Exp = {
-    <e1:ExpBin00_<B>> "and" <e2:ExpBin0_<B>> => Exp::And(e1, e2),
+    <e1:ExpBin00_<B>> "and" <e2:ExpBin_<B>> => hrta(Exp::And(e1, e2)),
+    ExpBin<B>,
+}
+
+#[inline]
+ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
+
+ExpBin<B>: Exp = {
+    <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>>  => hrta(Exp::Rel(e1, RelOp::Eq, e2)),
+    <e1:ExpBin_<B>> "!=" <e2:ExpBin0_<B>>  => hrta(Exp::Rel(e1, RelOp::Neq, e2)),
+    <e1:ExpBin_<B>> "<=" <e2:ExpBin0_<B>>  => hrta(Exp::Rel(e1, RelOp::Le, e2)),
+    <e1:ExpBin_<B>> ">=" <e2:ExpBin0_<B>>  => hrta(Exp::Rel(e1, RelOp::Ge, e2)),
+    <e1:ExpBin_<B>> " < " <e2:ExpBin0_<B>> => hrta(Exp::Rel(e1, RelOp::Lt, e2)),
+    <e1:ExpBin_<B>> " > " <e2:ExpBin0_<B>> => hrta(Exp::Rel(e1, RelOp::Gt, e2)),
     ExpBin0<B>,
 }
 
@@ -381,10 +502,11 @@ ExpBin00<B>: Exp = {
 ExpBin0_<B>: Exp_ = Node<ExpBin0<B>>;
 
 ExpBin0<B>: Exp = {
-    <e1:ExpBin0_<B>> "+" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Add, e2),
-    <e1:ExpBin0_<B>> "+%" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::WAdd, e2),
-    <e1:ExpBin0_<B>> "-" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Sub, e2),
-    <e:ExpBin0_<B>> ":" <t:Type_> => Exp::Annot(e, t),
+    <e1:ExpBin0_<B>> "+" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::Add, e2)),
+    <e1:ExpBin0_<B>> "+%" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::WAdd, e2)),
+    <e1:ExpBin0_<B>> "-" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::Sub, e2)),
+    <e1:ExpBin0_<B>> "-%" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::WSub, e2)),
+    <e1:ExpBin0_<B>> "#" <e2:ExpBin1_<B>> => hrta(Exp::Bin(e1, BinOp::Cat, e2)),
     ExpBin1<B>,
 }
 
@@ -392,8 +514,10 @@ ExpBin0<B>: Exp = {
 ExpBin1_<B>: Exp_ = Node<ExpBin1<B>>;
 
 ExpBin1<B>: Exp = {
-    <e1:ExpBin2_<B>> "*" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Mul, e2),
-    <e1:ExpBin2_<B>> "/" <e2:ExpBin1_<B>> => Exp::Bin(e1, BinOp::Div, e2),
+    <e1:ExpBin1_<B>> "*" <e2:ExpBin2_<B>> => hrta(Exp::Bin(e1, BinOp::Mul, e2)),
+    <e1:ExpBin1_<B>> "*%" <e2:ExpBin2_<B>> => hrta(Exp::Bin(e1, BinOp::WMul, e2)),
+    <e1:ExpBin1_<B>> "/" <e2:ExpBin2_<B>> => hrta(Exp::Bin(e1, BinOp::Div, e2)),
+    <e1:ExpBin1_<B>> "%" <e2:ExpBin2_<B>> => hrta(Exp::Bin(e1, BinOp::Mod, e2)),
     ExpBin2<B>,
 }
 
@@ -401,7 +525,7 @@ ExpBin1<B>: Exp = {
 ExpBin2_<B>: Exp_ = Node<ExpBin2<B>>;
 
 ExpBin2<B>: Exp = {
-    <e1:ExpBin3_<B>> "|" <e2:ExpBin2_<B>> => Exp::Bin(e1, BinOp::BitOr, e2),
+    <e1:ExpBin2_<B>> "|" <e2:ExpBin3_<B>> => hrta(Exp::Bin(e1, BinOp::BitOr, e2)),
     ExpBin3<B>,
 }
 
@@ -409,7 +533,37 @@ ExpBin2<B>: Exp = {
 ExpBin3_<B>: Exp_ = Node<ExpBin3<B>>;
 
 ExpBin3<B>: Exp = {
-    <e1:ExpUn_<B>> "&" <e2:ExpBin3_<B>> => Exp::Bin(e1, BinOp::BitAnd, e2),
+    <e1:ExpBin3_<B>> "&" <e2:ExpBin4_<B>> => hrta(Exp::Bin(e1, BinOp::BitAnd, e2)),
+    ExpBin4<B>,
+}
+
+#[inline]
+ExpBin4_<B>: Exp_ = Node<ExpBin4<B>>;
+
+ExpBin4<B>: Exp = {
+    <e1:ExpBin4_<B>> "^" <e2:ExpBin5_<B>> => hrta(Exp::Bin(e1, BinOp::Xor, e2)),
+    ExpBin5<B>,
+}
+
+
+#[inline]
+ExpBin5_<B>: Exp_ = Node<ExpBin5<B>>;
+
+ExpBin5<B>: Exp = {
+    <e1:ExpBin6_<B>> " << " <e2:ExpBin6_<B>> => hrta(Exp::Bin(e1, BinOp::ShL, e2)),
+    <e1:ExpBin6_<B>> " >> " <e2:ExpBin6_<B>> => hrta(Exp::Bin(e1, BinOp::ShR, e2)),
+    <e1:ExpBin6_<B>> "<<>" <e2:ExpBin6_<B>> => hrta(Exp::Bin(e1, BinOp::RotL, e2)),
+    <e1:ExpBin6_<B>> "<>>" <e2:ExpBin6_<B>> => hrta(Exp::Bin(e1, BinOp::RotR, e2)),
+    ExpBin6<B>,
+}
+
+#[inline]
+ExpBin6_<B>: Exp_ = Node<ExpBin6<B>>;
+
+ExpBin6<B>: Exp = {
+    <e1:ExpBin6_<B>> "**" <e2:ExpUn_<B>> => hrta(Exp::Bin(e1, BinOp::Pow, e2)),
+    <e1:ExpBin6_<B>> "**%" <e2:ExpUn_<B>> => hrta(Exp::Bin(e1, BinOp::WPow, e2)),
+    <e1:ExpBin6_<B>> ":" <t:TypeNoBin_> => Exp::Annot(BinAnnotWasHoisted(false), e1, t),
     ExpUn<B>,
 }
 
@@ -418,14 +572,14 @@ Cases: Cases = {
 }
 
 Case: Case = {
-    "case" <pat:PatNullary_> <exp:ExpNest_> => Case{pat, exp},
+    "case" <pat:PatNullary_> <exp:ExpIfNoElse_<ExpNest>> => Case{pat, exp},
 }
 
 #[inline]
 ExpField_: Node<ExpField> = Node<ExpField>;
 
 ExpField: ExpField = {
-    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> "=" <exp:Exp_<Ob>> => ExpField{ mut_, id, exp, typ }
+    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> "=" <exp:ExpIfNoElse_<Exp<Ob>>> => ExpField{ mut_, id, exp, typ }
 }
 
 Decs: Decs = {
@@ -438,7 +592,7 @@ Dec_: Dec_ = Node<Dec>;
 Dec: Dec = {
     DecVar,
     DecNonVar,
-    ExpNonDec_<Ob> => Dec::Exp(<>),
+    ExpNonDec0_<Ob> => Dec::Exp(<>),
 }
 
 #[inline]
@@ -447,29 +601,68 @@ DecNonVar_: Dec_ = Node<DecNonVar>;
 DecNonVar: Dec = {
     "import" <p:PatNullary_> <s:"="?> <txt:StringLiteral> => Dec::LetImport(p, Sugar(s.is_some()), txt),
     "let" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Let(p, e),
+    "type" <id:Id_> <tps:TypeParamsOpt> "=" <t:Type_> => Dec::Type(id, tps, t),
+    <sp:SharedPatOpt> "class" <oso:ObjSortOpt> <id1:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" <Type_>)?> "=" <id2:(Id_)?> <b:ObjBody> => Dec::Class(Class {
+        shared: sp,
+        sort: oso,
+        typ_id: id1,
+        binds: tpo,
+        input: p,
+        typ: t,
+        name: id2,
+        fields: b
+    }),
     "module" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetModule(i, Sugar(s.is_some()), ob),
     "actor" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetActor(i, Sugar(s.is_some()), ob),
-    <sp:SortPatOpt> "func" <i:(Id_)?> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func(Function {
-        name: i, shared: sp, binds: None, input: p, output: t.map(|t|{t.1}), sugar: Sugar(false), exp: b,
+    "object" <i:(Id_)?> <s:"="?> <ob:ObjBody> => Dec::LetObject(i, Sugar(s.is_some()), ob),
+    <sp:SharedPatOpt> "func" <i:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" Type_)?> <b:Block_> => Dec::Func(Function {
+        name: i, shared: sp, binds: tpo, input: p, output: t.map(|t|{t.1}), sugar: Sugar(false), exp: b,
     }),
-    <sp:SortPatOpt> "func" <i:(Id_?)> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func(Function {
-        name: i, shared: sp, binds: None, input: p, output: t.map(|t|{t.1}), sugar: Sugar(true), exp: e,
+    <sp:SharedPatOpt> "func" <i:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" Type_)?> "=" <e:Exp_<Ob>> => Dec::Func(Function {
+        name: i, shared: sp, binds: tpo, input: p, output: t.map(|t|{t.1}), sugar: Sugar(true), exp: e,
     }),
-    // type
-    // class
-    // actor class
+    <sp:SharedPatOpt> "class" <oso:ObjSortOpt> <id:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" <Type_>)?> <b:ObjBody> => Dec::Class(Class {
+        shared: sp,
+        sort: oso,
+        typ_id: id,
+        binds: tpo,
+        input: p,
+        typ: t,
+        name: None,
+        fields: b
+    })
 }
 
-SortPatOpt: Option<SortPat> = {
-    => None
+ObjSortOpt: Option<ObjSort> = {
+ => None,
+ "object" => Some(ObjSort::Object),
+ "module" => Some(ObjSort::Module),
+ "actor"  => Some(ObjSort::Actor),
 }
 
 #[inline]
-DecVar_: Dec_ = Node<DecVar>;
+TypeParamsOpt: Option<Delim<TypeBind_>> = {
+    => None,
+    "<" <ts:Delim0<Type, ",">> ">" => None, // to do -- produce AST.
 
-DecVar: Dec = {
-    "var" <p:Pat_> "=" <e:Exp_<Ob>> => Dec::Var(p, e),
 }
+
+#[inline]
+SharedPatOpt: Option<SortPat> = {
+    => None,
+  "shared" => None, // to do -- produce AST.
+  "shared" "query" <op:PatOpt> => None, // to do -- produce AST.
+  "query" <op:PatOpt> => None, // to do -- produce AST.
+}
+
+#[inline]
+FuncSortOpt: Option<SortPat> = {
+  <q:"query"?> => None, // to do -- produce AST.
+  "shared" <q:"query"?> => None, // to do -- produce AST.
+}
+
+#[inline]
+UnOp_: Node<UnOp> = Node<UnOp>;
 
 UnOp: UnOp = {
     "+" => UnOp::Pos,
@@ -491,8 +684,8 @@ BinOp: BinOp = {
     "&" => BinOp::And,
     "|" => BinOp::Or,
     "^" => BinOp::Xor,
-    "<<" => BinOp::ShL,
-//    " >>" => BinOp::Shr,
+    " << " => BinOp::ShL,
+    " >> " => BinOp::ShR,
     "<<>" => BinOp::RotL,
     "<>>" => BinOp::RotR,
     "#" => BinOp::Cat,

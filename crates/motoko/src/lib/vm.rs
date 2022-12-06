@@ -1,6 +1,6 @@
 use crate::ast::{
     BinOp, Cases, Dec, Dec_, Exp, Exp_, Id, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog,
-    RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
+    ProjIndex, RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
@@ -776,6 +776,9 @@ mod def {
             Dec::LetActor(_i, _, _dfs) => {
                 nyi!(line!())
             }
+            Dec::LetObject(_i, _, _dfs) => {
+                nyi!(line!())
+            }
             Dec::Type(_id, _typ_binds, _typ) => {
                 nyi!(line!())
             }
@@ -993,7 +996,7 @@ fn exp_is_static(e: &Exp) -> bool {
         }
         // Switch -- to do
         Exp::Ignore(e) => exp_is_static(&e.0),
-        Exp::Annot(e, _) => exp_is_static(&e.0),
+        Exp::Annot(_, e, _) => exp_is_static(&e.0),
         Exp::Paren(e) => exp_is_static(&e.0),
         _ => false,
     }
@@ -1706,21 +1709,31 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         ),
         Do(e) => exp_conts(active, FrameCont::Do, e),
         Assert(e) => exp_conts(active, FrameCont::Assert, e),
-        Object(fs) => {
-            let mut fs: Vector<_> = fs.vec.fast_clone();
-            match fs.pop_front() {
-                None => {
-                    *active.cont() = cont_value(Value::Object(HashMap::new()));
-                    Ok(Step {})
+        Object(base, more_bases, fields) => {
+            if let Some(base) = base {
+                return nyi!(line!());
+            };
+            if let Some(more_bases) = more_bases {
+                return nyi!(line!());
+            };
+            if let Some(fields) = fields {
+                let mut fs: Vector<_> = fields.vec.fast_clone();
+                match fs.pop_front() {
+                    None => {
+                        *active.cont() = cont_value(Value::Object(HashMap::new()));
+                        Ok(Step {})
+                    }
+                    Some(f1) => {
+                        let fc = FieldContext {
+                            mut_: f1.0.mut_.clone(),
+                            id: f1.0.id.fast_clone(),
+                            typ: f1.0.typ.fast_clone(),
+                        };
+                        exp_conts(active, FrameCont::Object(Vector::new(), fc, fs), &f1.0.exp)
+                    }
                 }
-                Some(f1) => {
-                    let fc = FieldContext {
-                        mut_: f1.0.mut_.clone(),
-                        id: f1.0.id.fast_clone(),
-                        typ: f1.0.typ.fast_clone(),
-                    };
-                    exp_conts(active, FrameCont::Object(Vector::new(), fc, fs), &f1.0.exp)
-                }
+            } else {
+                return nyi!(line!());
             }
         }
         Tuple(es) => {
@@ -1749,7 +1762,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             }
         }
         Index(e1, e2) => exp_conts(active, FrameCont::Idx1(e2.fast_clone()), e1),
-        Annot(e, t) => {
+        Annot(_, e, t) => {
             match &t.0 {
                 Type::Prim(pt) => *active.cont_prim_type() = Some(pt.clone()),
                 _ => {}
@@ -1762,7 +1775,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             FrameCont::BinAssign1(b.clone(), e2.fast_clone()),
             e1,
         ),
-        Proj(e1, i) => exp_conts(active, FrameCont::Proj(*i), e1),
+        Proj(e1, i) => exp_conts(active, FrameCont::Proj(i.clone()), e1),
         Dot(e1, f) => exp_conts(active, FrameCont::Dot(f.fast_clone()), e1),
         If(e1, e2, e3) => exp_conts(active, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
         Rel(e1, relop, e2) => exp_conts(
@@ -1804,9 +1817,10 @@ fn pattern_matches_temps(pat: &Pat, v: Value_) -> Option<Vec<Value_>> {
 fn pattern_matches_temps_(pat: &Pat, v: Value_, mut out: Vec<Value_>) -> Option<Vec<Value_>> {
     match (pat, &*v) {
         (Pat::Wild, _) => Some(out),
+        (Pat::Annot(_), _) => Some(out),
         (Pat::Literal(Literal::Unit), Value::Unit) => Some(out),
         (Pat::Paren(p), _) => pattern_matches_temps_(&p.0, v, out),
-        (Pat::Annot(p, _), _) => pattern_matches_temps_(&p.0, v, out),
+        (Pat::AnnotPat(p, _), _) => pattern_matches_temps_(&p.0, v, out),
         (Pat::Var(_x), _) => {
             unreachable!()
         }
@@ -1857,7 +1871,8 @@ fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
         (Pat::Wild, _) => Some(env),
         (Pat::Literal(Literal::Unit), Value::Unit) => Some(env),
         (Pat::Paren(p), _) => pattern_matches(env, &p.0, v),
-        (Pat::Annot(p, _), _) => pattern_matches(env, &p.0, v),
+        (Pat::Annot(_), _) => Some(env),
+        (Pat::AnnotPat(p, _), _) => pattern_matches(env, &p.0, v),
         (Pat::Var(x), _) => {
             let mut env = env;
             env.insert(x.0.clone(), v);
@@ -2323,11 +2338,15 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         }
         Proj(i) => match &*v {
             Value::Tuple(vs) => {
-                if let Some(vi) = vs.get(i) {
-                    *active.cont() = Cont::Value_(vi.fast_clone());
-                    Ok(Step {})
+                if let ProjIndex::Usize(i) = i {
+                    if let Some(vi) = vs.get(i) {
+                        *active.cont() = Cont::Value_(vi.fast_clone());
+                        Ok(Step {})
+                    } else {
+                        type_mismatch!(file!(), line!())
+                    }
                 } else {
-                    type_mismatch!(file!(), line!())
+                    nyi!(line!())
                 }
             }
             _ => type_mismatch!(file!(), line!()),
@@ -2748,6 +2767,9 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         };
                         *active.cont() = Cont::Decs(decs);
                         Ok(Step {})
+                    }
+                    Dec::LetObject(id, _, dfs) => {
+                        nyi!(line!())
                     }
                     Dec::LetModule(id, _, dfs) => {
                         let v = def::module(

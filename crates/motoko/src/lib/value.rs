@@ -354,7 +354,7 @@ impl Value {
         match e {
             Literal(l) => Value::from_literal(l),
             Paren(e) => Value::from_exp(&e.0),
-            Annot(e, _) => Value::from_exp(&e.0),
+            Annot(_, e, _) => Value::from_exp(&e.0),
             Return(e) => match e {
                 Some(e) => Value::from_exp(&e.0),
                 None => Ok(Value::Unit),

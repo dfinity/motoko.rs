@@ -186,7 +186,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 f(&e2.tree());
             }
             Exp::Show(e) => f(&e.tree()),
-            Exp::ToCandid(es) => es.iter().for_each(|e| f(&e.tree())),
+            Exp::ToCandid(es) => es.vec.iter().for_each(|e| f(&e.tree())),
             Exp::FromCandid(e) => f(&e.tree()),
             Exp::Tuple(es) => es.vec.iter().for_each(|e| f(&e.tree())),
             Exp::Proj(e, _) => f(&e.tree()),
@@ -194,7 +194,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
             Exp::DoOpt(e) => f(&e.tree()),
             Exp::Bang(e) => f(&e.tree()),
             Exp::ObjectBlock(_, ds) => ds.vec.iter().for_each(|e| f(&e.tree())),
-            Exp::Object(es) => es.vec.iter().for_each(|e| f(&e.tree())),
+            //            Exp::Object(es) => es.vec.iter().for_each(|e| f(&e.tree())),
             Exp::Variant(_, e) => {
                 if let Some(e) = e {
                     f(&e.tree());
@@ -297,10 +297,10 @@ impl<'a> Traverse for Loc<&'a Exp> {
             }
             Exp::Await(e) => f(&e.tree()),
             Exp::Assert(e) => f(&e.tree()),
-            Exp::Annot(e, t) => {
-                f(&e.tree());
-                f(&t.tree());
-            }
+            //            Exp::Annot(e, t) => {
+            //                f(&e.tree());
+            //                f(&t.tree());
+            //            }
             Exp::Import(..) => {}
             Exp::Throw(e) => f(&e.tree()),
             Exp::Try(e, es) => {
@@ -309,6 +309,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
             }
             Exp::Ignore(e) => f(&e.tree()),
             Exp::Paren(e) => f(&e.tree()),
+            _ => todo!(),
         }
     }
 }
@@ -330,7 +331,9 @@ impl<'a> Traverse for Loc<&'a Dec> {
                 f(&e.tree());
             }
             Dec::Type(_, ts, t) => {
-                ts.vec.iter().for_each(|ts| f(&ts.tree()));
+                if let Some(ts) = ts {
+                    ts.vec.iter().for_each(|ts| f(&ts.tree()));
+                };
                 f(&t.tree());
             }
             Dec::Class(Class {
@@ -353,6 +356,7 @@ impl<'a> Traverse for Loc<&'a Dec> {
                 }
                 fields.vec.iter().for_each(|d| f(&d.tree()));
             }
+            _ => todo!(),
         }
     }
 }
@@ -363,8 +367,8 @@ impl<'a> Traverse for Loc<&'a Pat> {
             Pat::Wild => {}
             Pat::Var(_) => {}
             Pat::TempVar(_) => {}
-            Pat::Literal(_) => {}
-            Pat::Signed(_, p) => f(&p.tree()),
+            Pat::Literal(..) => {}
+            Pat::UnOpLiteral(..) => {}
             Pat::Tuple(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
             Pat::Object(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
             Pat::Optional(p) => f(&p.tree()),
@@ -373,12 +377,16 @@ impl<'a> Traverse for Loc<&'a Pat> {
                     f(&p.tree());
                 }
             }
-            Pat::Alt(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
-            Pat::Annot(p, t) => {
+            //            Pat::Alt(ps) => ps.vec.iter().for_each(|p| f(&p.tree())),
+            Pat::AnnotPat(p, t) => {
                 f(&p.tree());
                 f(&t.tree());
             }
+            Pat::Annot(t) => {
+                f(&t.tree());
+            }
             Pat::Paren(p) => f(&p.tree()),
+            _ => todo!(),
         }
     }
 }
@@ -387,15 +395,14 @@ impl<'a> Traverse for Loc<&'a Type> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
         match &self.0 {
             Type::Prim(_) => todo!(),
+            Type::Path(..) => todo!(),
+            Type::Item(..) => todo!(),
+            Type::Variant(..) => todo!(),
             Type::Object(_, ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
-            Type::Array(_, ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
+            Type::Array(_, t) => f(&t.tree()),
             Type::Optional(t) => f(&t.tree()),
             Type::Tuple(ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
-            Type::Function(_, tbs, ts, t) => {
-                tbs.vec.iter().for_each(|t| f(&t.tree()));
-                ts.vec.iter().for_each(|t| f(&t.tree()));
-                f(&t.tree());
-            }
+            Type::Function(_, tbs, ts, t) => todo!(),
             Type::Async(t1 /*, t2*/) => {
                 f(&t1.tree());
                 //                f(&t2.tree());
@@ -432,13 +439,16 @@ impl<'a> Traverse for Loc<&'a DecField> {
 
 impl<'a> Traverse for Loc<&'a PatField> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
-        f(&self.0.pat.tree());
+        todo!()
     }
 }
 
 impl<'a> Traverse for Loc<&'a TypeField> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
-        f(&self.0.typ.tree());
+        match &self.0 {
+            TypeField::Val(vtf) => f(&vtf.typ.tree()),
+            _ => todo!(),
+        }
     }
 }
 

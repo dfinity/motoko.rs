@@ -203,20 +203,21 @@ pub enum Dec {
     LetImport(Pat_, Sugar, String),
     LetModule(Option<Id_>, Sugar, DecFields),
     LetActor(Option<Id_>, Sugar, DecFields),
+    LetObject(Option<Id_>, Sugar, DecFields),
     Func(Function),
     Var(Pat_, Exp_),
-    Type(TypId_, TypeBinds, Type_),
+    Type(TypId_, Option<TypeBinds>, Type_),
     Class(Class),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Class {
     pub shared: Option<SortPat>,
-    pub typ_id: TypId_,
+    pub sort: Option<ObjSort>,
+    pub typ_id: Option<TypId_>,
     pub binds: Option<TypeBinds>,
     pub input: Pat_,
     pub typ: Option<Type_>,
-    pub sort: ObjSort,
     pub name: Option<Id_>,
     pub fields: DecFields,
 }
@@ -294,16 +295,30 @@ pub type PatField_ = Node<PatField>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct PatField {
     pub id: Id_,
-    pub pat: Pat_,
+    pub pat: Option<Pat>,
 }
 
 pub type TypeField_ = Node<TypeField>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct TypeField {
+pub enum TypeField {
+    Val(ValTypeField),
+    Type, // to do -- represent AST here.
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct ValTypeField {
     pub mut_: Mut,
     pub id: Id_,
     pub typ: Type_,
+}
+
+pub type TypeTag_ = Node<TypeTag>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct TypeTag {
+    pub id: Id_,
+    pub typ: Option<Type_>,
 }
 
 pub type Vis_ = Node<Vis>;
@@ -390,14 +405,15 @@ pub type Type_ = Node<Type>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Type {
-    // Path (type path)?
+    Item(Id_, Type_),
+    Path(TypePath, Option<Delim<Type_>>),
     Prim(PrimType),
-    Object(ObjSort, TypeFields),
-    Array(Mut, Delim<Type_>),
+    Object(ObjSort, Delim<TypeField_>),
+    Array(Mut, Type_),
     Optional(Type_),
-    // Variant(Vec<>),
+    Variant(Delim<TypeTag_>),
     Tuple(Delim<Type_>),
-    Function(Option<SortPat>, TypeBinds, Delim<Type_>, Type_),
+    Function(Option<SortPat>, Option<TypeBinds>, Type_, Type_),
     // Async(Type_, Type_), -- to do -- use scope variables
     Async(Type_),
     And(Type_, Type_),
@@ -405,6 +421,14 @@ pub enum Type {
     Paren(Type_),
     Unknown(Id_),
     Known(Id_, Type_),
+}
+
+pub type TypePath_ = Node<TypePath>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum TypePath {
+    Id(Id_),
+    Dot(TypePath_, Id_),
 }
 
 pub type Inst = Delim<Type_>;
@@ -427,6 +451,13 @@ pub struct Function {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum ProjIndex {
+    Usize(usize),
+    // when the parser gets confused by double-indexes, "((a,b),c).0.1"
+    FloatLike(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {
     Hole,
     Prim(Result<PrimFunction, String>),
@@ -437,15 +468,15 @@ pub enum Exp {
     Bin(Exp_, BinOp, Exp_),
     Rel(Exp_, RelOp, Exp_),
     Show(Exp_),
-    ToCandid(Vec<Exp_>),
+    ToCandid(Delim<Exp_>),
     FromCandid(Exp_),
     Tuple(Delim<Exp_>),
-    Proj(Exp_, usize),
+    Proj(Exp_, ProjIndex),
     Opt(Exp_),
     DoOpt(Exp_),
     Bang(Exp_),
     ObjectBlock(ObjSort, DecFields),
-    Object(ExpFields),
+    Object(Option<Exp_>, Option<Delim<Exp_>>, Option<ExpFields>),
     Variant(Id_, Option<Exp_>),
     Dot(Exp_, Id_),
     Assign(Exp_, Exp_),
@@ -468,10 +499,12 @@ pub enum Exp {
     Break(Id_, Option<Exp_>),
     Return(Option<Exp_>),
     Debug(Exp_),
+    DebugShow(Exp_),
     Async(TypeBind_, Exp_),
     Await(Exp_),
     Assert(Exp_),
-    Annot(Exp_, Type_),
+    Annot(BinAnnotWasHoisted, Exp_, Type_),
+    //Annot(Exp_, Type_),
     //Import(Id_, ResolvedImport),
     Import(String),
     Throw(Exp_),
@@ -480,6 +513,9 @@ pub enum Exp {
     Paren(Exp_),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct BinAnnotWasHoisted(pub bool);
+
 pub type Pat_ = Node<Pat>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -487,17 +523,20 @@ pub enum Pat {
     Wild,
     Var(Id_),
     Literal(Literal),
-    Signed(UnOp, Pat_),
+    UnOpLiteral(UnOp_, Literal_),
     Tuple(Delim<Pat_>),
     Object(PatFields),
     Optional(Pat_),
     Variant(Id_, Option<Pat_>),
-    Alt(Delim<Pat_>),
-    Annot(Pat_, Type_),
+    Or(Pat_, Pat_),
+    AnnotPat(Pat_, Type_),
+    Annot(Type_),
     Paren(Pat_),
     // used by the VM to pattern-match values.
     TempVar(u16),
 }
+
+pub type UnOp_ = Node<UnOp>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum UnOp {
@@ -632,5 +671,27 @@ impl ToId for &str {
 impl ToId for String {
     fn to_id(self) -> Id {
         Id::new(self)
+    }
+}
+
+// hoist right-sided type annotation;
+// fixes parse tree to respect binary operator precedence.
+pub fn hoist_right_type_annotation(e: Exp) -> Exp {
+    // to do
+    match e {
+        Exp::Bin(e1, binop, e2) => {
+            if let Exp::Annot(BinAnnotWasHoisted(false), e3, t) = e2.0.clone() {
+                let s = e1.1.expand(&e3.1);
+                Exp::Annot(
+                    BinAnnotWasHoisted(true),
+                    NodeData(Exp::Bin(e1, binop, e3), s).share(),
+                    t,
+                )
+            } else {
+                Exp::Bin(e1, binop, e2)
+            }
+        }
+        // to do -- more cases as needed (Rel, And, Or)
+        _ => e,
     }
 }

@@ -63,12 +63,21 @@ fn vm_tuples() {
     assert_("(1 + 1, 2 + 2, 3 + 3)", "(2, 4, 6)");
 }
 
+//#[ignore] // to do 20221201-0810
 #[test]
 fn vm_prim_ops() {
     assert_("255 + 1 : Nat", "256");
+    assert_("255 + 1 : Nat", "256");
     assert_("255 +% 1 : Nat8", "0");
+    assert_("255 + 0 + 1 : Nat", "256");
+    assert_("255 +% 0 +% 1 : Nat8", "0");
     assert_("(255 +% 1) +% (255 +% 1) : Nat8", "0");
     assert_x("255 +% 1", &Interruption::AmbiguousOperation);
+
+    assert_("255 +% 1 : Nat8 + 1 + 1 + 1", "3");
+    assert_x("255 +% 1 : Nat8 +% 1", &Interruption::AmbiguousOperation); // to do. reconcile with interpreter using more type info.
+
+
 }
 
 #[test]
@@ -95,7 +104,7 @@ fn vm_if_then_else() {
 
 #[test]
 fn vm_if_then_no_else() {
-    assert_("var x = 0; if true { x := 1 } \\no_else; x", "1");
+    assert_("var x = 0; if true { x := 1 }; x", "1");
 }
 
 #[test]

@@ -227,12 +227,12 @@ impl ToDoc for Exp {
             Show(e) => kwd("debug_show").append(e.doc()),
             ToCandid(_) => todo!(),
             FromCandid(_) => todo!(),
-            Proj(e1, n) => e1.doc().append(format!(".{}", n)),
+            //            Proj(e1, n) => e1.doc().append(format!(".{}", n)),
             Opt(e) => str("?").append(e.doc()),
             DoOpt(e) => kwd("do ?").append(e.doc()),
             Bang(e) => e.doc().append("!"),
             ObjectBlock(s, fs) => s.doc().append(RcDoc::space()).append(block(fs)),
-            Object(fs) => block(fs),
+            //            Object(fs) => block(fs),
             Variant(id, e) => str("#").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
                 Some(e) => RcDoc::space().append(e.doc()),
@@ -295,7 +295,7 @@ impl ToDoc for Exp {
             Async(_, _) => todo!(),
             Await(e) => kwd("await").append(e.doc()),
             Assert(e) => kwd("assert").append(e.doc()),
-            Annot(e, t) => e.doc().append(" : ").append(t.doc()),
+            //            Annot(e, t) => e.doc().append(" : ").append(t.doc()),
             Import(s) => kwd("import").append(s.doc()), // new permissive syntax?
             Throw(e) => kwd("throw").append(e.doc()),
             Try(e, cs) => {
@@ -313,6 +313,7 @@ impl ToDoc for Exp {
             }
             Ignore(e) => kwd("ignore").append(e.doc()),
             Paren(e) => enclose("(", e.doc(), ")"),
+            _ => todo!(),
         }
         // _ => text("Display-TODO={:?}", self),
     }
@@ -341,12 +342,14 @@ impl ToDoc for Dec {
                 .append(p.doc())
                 .append(str(" = "))
                 .append(e.doc()),
-            Type(i, b, t) => kwd("type")
+            Type(i, Some(b), t) => kwd("type")
                 .append(i.doc())
                 .append(bind(b))
                 .append(" = ")
                 .append(t.doc()),
+            Type(i, None, t) => kwd("type").append(i.doc()).append(" = ").append(t.doc()),
             Class(_) => todo!(),
+            _ => todo!(),
         }
     }
 }
@@ -357,7 +360,7 @@ impl ToDoc for Type {
         match self {
             Prim(p) => p.doc(),
             Object(s, fs) => s.doc().append(RcDoc::space()).append(field_block(fs)),
-            Array(m, d) => array(m, d),
+            Array(_m, _t) => todo!(),
             Optional(t) => str("?").append(t.doc()),
             Tuple(d) => tuple(d),
             Function(_, _, _, _) => todo!(),
@@ -368,6 +371,9 @@ impl ToDoc for Type {
             Paren(e) => enclose("(", e.doc(), ")"),
             Unknown(id) => id.doc(),
             Known(id, t) => id.doc().append(" : ").append(t.doc()),
+            Path(..) => todo!(),
+            Item(..) => todo!(),
+            Variant(..) => todo!(),
         }
     }
 }
@@ -416,18 +422,19 @@ impl ToDoc for Pat {
         match self {
             Wild => str("_"),
             Var(s) => s.doc(),
-            Literal(l) => l.doc(),
-            Signed(u, p) => u.doc().append(p.doc()),
+            UnOpLiteral(u, l) => todo!(),
+            Literal(l) => todo!(),
             Tuple(ps) => tuple(ps),
             Object(_) => todo!(),
             Optional(p) => str("?").append(p.doc()),
             Variant(s, p) => str("#")
                 .append(s.doc())
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
-            Alt(d) => delim_left(d, " |"),
-            Annot(p, t) => p.doc().append(" : ").append(t.doc()),
+            //            Alt(d) => delim_left(d, " |"),
+            Annot(t) => todo!(),
+            AnnotPat(p, t) => todo!(),
             Paren(p) => enclose("(", p.doc(), ")"),
-            TempVar(_) => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 }
@@ -444,7 +451,10 @@ impl ToDoc for Case {
 
 impl ToDoc for TypeField {
     fn doc(&self) -> RcDoc {
-        self.id.doc().append(" = ").append(self.typ.doc())
+        match self {
+            TypeField::Val(vtf) => vtf.id.doc().append(" : ").append(vtf.typ.doc()),
+            _ => todo!(),
+        }
     }
 }
 

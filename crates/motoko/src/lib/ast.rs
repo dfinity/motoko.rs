@@ -503,7 +503,8 @@ pub enum Exp {
     Async(TypeBind_, Exp_),
     Await(Exp_),
     Assert(Exp_),
-    Annot(Exp_, Type_),
+    Annot(BinAnnotWasHoisted, Exp_, Type_),
+    //Annot(Exp_, Type_),
     //Import(Id_, ResolvedImport),
     Import(String),
     Throw(Exp_),
@@ -511,6 +512,9 @@ pub enum Exp {
     Ignore(Exp_),
     Paren(Exp_),
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct BinAnnotWasHoisted(pub bool);
 
 pub type Pat_ = Node<Pat>;
 
@@ -668,4 +672,18 @@ impl ToId for String {
     fn to_id(self) -> Id {
         Id::new(self)
     }
+}
+
+// hoist right-sided type annotation;
+// fixes parse tree to respect binary operator precedence.
+pub fn hoist_right_type_annotation(e: Exp) -> Exp {
+    // to do
+    e
+}
+
+// hoist right-sided type annotation;
+// fixes parse tree to respect binary operator precedence.
+pub fn hoist_right_type_annotation_(e: Exp_) -> Exp_ {
+    // to do
+    e
 }

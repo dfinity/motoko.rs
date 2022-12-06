@@ -297,10 +297,10 @@ impl<'a> Traverse for Loc<&'a Exp> {
             }
             Exp::Await(e) => f(&e.tree()),
             Exp::Assert(e) => f(&e.tree()),
-            Exp::Annot(e, t) => {
-                f(&e.tree());
-                f(&t.tree());
-            }
+            //            Exp::Annot(e, t) => {
+            //                f(&e.tree());
+            //                f(&t.tree());
+            //            }
             Exp::Import(..) => {}
             Exp::Throw(e) => f(&e.tree()),
             Exp::Try(e, es) => {

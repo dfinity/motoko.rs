@@ -295,7 +295,7 @@ impl ToDoc for Exp {
             Async(_, _) => todo!(),
             Await(e) => kwd("await").append(e.doc()),
             Assert(e) => kwd("assert").append(e.doc()),
-            Annot(e, t) => e.doc().append(" : ").append(t.doc()),
+            //            Annot(e, t) => e.doc().append(" : ").append(t.doc()),
             Import(s) => kwd("import").append(s.doc()), // new permissive syntax?
             Throw(e) => kwd("throw").append(e.doc()),
             Try(e, cs) => {

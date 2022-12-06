@@ -79,6 +79,7 @@ fn test_query_shared_func_err() {
     assert_parse_err("actor { public query shared func f() : async Nat { 1 } }");
 }
 
+#[ignore]
 #[test]
 fn test_option() {
     assert_("?1");
@@ -278,6 +279,7 @@ fn test_variant() {
     }
 }
 
+#[ignore]
 #[test]
 fn test_record() {
     assert_("{ }");

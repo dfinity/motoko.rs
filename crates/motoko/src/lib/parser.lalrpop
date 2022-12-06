@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
+use crate::ast::{BinAnnotWasHoisted, hoist_right_type_annotation as hrta, Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -353,8 +353,6 @@ ExpPlain_: Exp_ = Node<ExpPlain>;
 ExpPlain: Exp = {
     Literal => Exp::Literal(<>),
     "(" <es:Delim1<ExpIfNoElse_<Exp<Ob>>, ",">> ")" => get_one(es).map(Exp::Paren).unwrap_or_else(Exp::Tuple),
-//    "(" "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> ")" => Exp::If(e1, e2, None),
-
 }
 
 #[inline]
@@ -410,8 +408,8 @@ ExpUn<B>: Exp = {
 #[inline]
 ExpBase_: Exp_ = Node<ExpBase>;
 
-// to do -- first base should actually be ExpPost_<Bl> xd,
-// but this leads to shift-reduce conflicts with lalrpop.
+// to do -- first base should actually be ExpPost_<Bl>,
+// but this grammar leads to shift-reduce conflicts with lalrpop.
 ExpBase: Exp = {
     ExpPlain,
     ExpObj,
@@ -475,7 +473,7 @@ ExpBin0000<B>: Exp = {
 ExpBin000_<B>: Exp_ = Node<ExpBin000<B>>;
 
 ExpBin000<B>: Exp = {
-    <e1:ExpBin000_<B>> "or" <e2:ExpBin00_<B>> => Exp::Or(e1, e2),
+    <e1:ExpBin000_<B>> "or" <e2:ExpBin00_<B>> => hrta(Exp::Or(e1, e2)),
     ExpBin00<B>,
 }
 
@@ -489,12 +487,6 @@ ExpBin00<B>: Exp = {
 
 #[inline]
 ExpBin_<B>: Exp_ = Node<ExpBin<B>>;
-
-// optional type annotation
-#[inline]
-OTA: Option<Type_> = {
-    (":" <TypeNoBin_>)? => <>,
-}
 
 ExpBin<B>: Exp = {
     <e1:ExpBin_<B>> "==" <e2:ExpBin0_<B>>  => Exp::Rel(e1, RelOp::Eq, e2),
@@ -571,7 +563,7 @@ ExpBin6_<B>: Exp_ = Node<ExpBin6<B>>;
 ExpBin6<B>: Exp = {
     <e1:ExpBin6_<B>> "**" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::Pow, e2),
     <e1:ExpBin6_<B>> "**%" <e2:ExpUn_<B>> => Exp::Bin(e1, BinOp::WPow, e2),
-    <e1:ExpBin6<B>> ":" <t:(<TypeNoBin_>)?> => e1,
+    <e1:ExpBin6_<B>> ":" <t:TypeNoBin_> => Exp::Annot(BinAnnotWasHoisted(false), e1, t),
     ExpUn<B>,
 }
 
@@ -692,8 +684,8 @@ BinOp: BinOp = {
     "&" => BinOp::And,
     "|" => BinOp::Or,
     "^" => BinOp::Xor,
-    "<<" => BinOp::ShL,
-//    " >>" => BinOp::Shr,
+    " << " => BinOp::ShL,
+    " >> " => BinOp::ShR,
     "<<>" => BinOp::RotL,
     "<>>" => BinOp::RotR,
     "#" => BinOp::Cat,

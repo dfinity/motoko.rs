@@ -996,7 +996,7 @@ fn exp_is_static(e: &Exp) -> bool {
         }
         // Switch -- to do
         Exp::Ignore(e) => exp_is_static(&e.0),
-        Exp::Annot(e, _) => exp_is_static(&e.0),
+        Exp::Annot(_, e, _) => exp_is_static(&e.0),
         Exp::Paren(e) => exp_is_static(&e.0),
         _ => false,
     }
@@ -1762,7 +1762,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             }
         }
         Index(e1, e2) => exp_conts(active, FrameCont::Idx1(e2.fast_clone()), e1),
-        Annot(e, t) => {
+        Annot(_, e, t) => {
             match &t.0 {
                 Type::Prim(pt) => *active.cont_prim_type() = Some(pt.clone()),
                 _ => {}

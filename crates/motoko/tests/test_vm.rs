@@ -63,11 +63,14 @@ fn vm_tuples() {
     assert_("(1 + 1, 2 + 2, 3 + 3)", "(2, 4, 6)");
 }
 
-#[ignore] // to do 20221201-0810
+//#[ignore] // to do 20221201-0810
 #[test]
 fn vm_prim_ops() {
     assert_("255 + 1 : Nat", "256");
+    assert_("255 + 1 : Nat", "256");
     assert_("255 +% 1 : Nat8", "0");
+    assert_("255 + 0 + 1 : Nat", "256");
+    assert_("255 +% 0 +% 1 : Nat8", "0");
     assert_("(255 +% 1) +% (255 +% 1) : Nat8", "0");
     assert_x("255 +% 1", &Interruption::AmbiguousOperation);
 }

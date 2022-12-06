@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
+use crate::ast::{Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -392,6 +392,9 @@ VarOpt: Mut = {
      => Mut::Const,
 }
 
+#[inline]
+ExpUn_<B>: Exp_ = Node<ExpUn<B>>;
+
 ExpUn<B>: Exp = {
     ExpPost<B>,
     "#" <x:Id_> <e:(ExpNullary_<B>)?> => Exp::Variant(x, e),
@@ -405,10 +408,20 @@ ExpUn<B>: Exp = {
 }
 
 #[inline]
-ExpUn_<B>: Exp_ = Node<ExpUn<B>>;
+ExpBase_: Exp_ = Node<ExpBase>;
+
+// to do -- first base should actually be ExpPost_<Bl> xd,
+// but this leads to shift-reduce conflicts with lalrpop.
+ExpBase: Exp = {
+    ExpPlain,
+    ExpObj,
+}
 
 ExpObj: Exp = {
-    "{" <efs:Delim0<ExpField_, ";">> "}" => Exp::Object(efs)
+    "{" <fs:Delim0<ExpField_, ";">> "}" => Exp::Object(None, None, Some(fs)),
+    "{" <base:ExpBase_> <bases:("and" <Delim1<ExpPost_<Bl>, "and">>)?> <efs:("with" <Delim1<ExpField_, ";">>)?> "}" => {
+        Exp::Object(Some(base), bases, efs)
+    },
 }
 
 #[inline]
@@ -435,7 +448,7 @@ BinAssign: BinOp = {
 
 // Binary operator "level mnemonics." (to do -- renumber/rename.)
 //
-// Prod.   
+// Prod.
 // Suffix   Operators
 // -------------------------------
 // 0000. %left COLON

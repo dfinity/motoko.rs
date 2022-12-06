@@ -194,7 +194,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
             Exp::DoOpt(e) => f(&e.tree()),
             Exp::Bang(e) => f(&e.tree()),
             Exp::ObjectBlock(_, ds) => ds.vec.iter().for_each(|e| f(&e.tree())),
-            Exp::Object(es) => es.vec.iter().for_each(|e| f(&e.tree())),
+            //            Exp::Object(es) => es.vec.iter().for_each(|e| f(&e.tree())),
             Exp::Variant(_, e) => {
                 if let Some(e) = e {
                     f(&e.tree());

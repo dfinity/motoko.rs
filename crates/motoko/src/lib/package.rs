@@ -10,7 +10,8 @@ pub fn get_base_library() -> Package {
 
 /// Temporary: get base library tests from static file
 pub fn get_base_library_tests() -> Package {
-    let package: Package = serde_json::from_str(include_str!("../utils/mo_base_test.json")).unwrap();
+    let package: Package =
+        serde_json::from_str(include_str!("../utils/mo_base_test.json")).unwrap();
     package
 }
 

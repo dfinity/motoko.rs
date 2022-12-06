@@ -1709,21 +1709,31 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         ),
         Do(e) => exp_conts(active, FrameCont::Do, e),
         Assert(e) => exp_conts(active, FrameCont::Assert, e),
-        Object(fs) => {
-            let mut fs: Vector<_> = fs.vec.fast_clone();
-            match fs.pop_front() {
-                None => {
-                    *active.cont() = cont_value(Value::Object(HashMap::new()));
-                    Ok(Step {})
+        Object(base, more_bases, fields) => {
+            if let Some(base) = base {
+                return nyi!(line!());
+            };
+            if let Some(more_bases) = more_bases {
+                return nyi!(line!());
+            };
+            if let Some(fields) = fields {
+                let mut fs: Vector<_> = fields.vec.fast_clone();
+                match fs.pop_front() {
+                    None => {
+                        *active.cont() = cont_value(Value::Object(HashMap::new()));
+                        Ok(Step {})
+                    }
+                    Some(f1) => {
+                        let fc = FieldContext {
+                            mut_: f1.0.mut_.clone(),
+                            id: f1.0.id.fast_clone(),
+                            typ: f1.0.typ.fast_clone(),
+                        };
+                        exp_conts(active, FrameCont::Object(Vector::new(), fc, fs), &f1.0.exp)
+                    }
                 }
-                Some(f1) => {
-                    let fc = FieldContext {
-                        mut_: f1.0.mut_.clone(),
-                        id: f1.0.id.fast_clone(),
-                        typ: f1.0.typ.fast_clone(),
-                    };
-                    exp_conts(active, FrameCont::Object(Vector::new(), fc, fs), &f1.0.exp)
-                }
+            } else {
+                return nyi!(line!());
             }
         }
         Tuple(es) => {

@@ -232,7 +232,7 @@ impl ToDoc for Exp {
             DoOpt(e) => kwd("do ?").append(e.doc()),
             Bang(e) => e.doc().append("!"),
             ObjectBlock(s, fs) => s.doc().append(RcDoc::space()).append(block(fs)),
-            Object(fs) => block(fs),
+            //            Object(fs) => block(fs),
             Variant(id, e) => str("#").append(id.doc()).append(match e {
                 None => RcDoc::nil(),
                 Some(e) => RcDoc::space().append(e.doc()),

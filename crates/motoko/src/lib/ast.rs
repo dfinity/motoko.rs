@@ -476,7 +476,7 @@ pub enum Exp {
     DoOpt(Exp_),
     Bang(Exp_),
     ObjectBlock(ObjSort, DecFields),
-    Object(ExpFields),
+    Object(Option<Exp_>, Option<Delim<Exp_>>, Option<ExpFields>),
     Variant(Id_, Option<Exp_>),
     Dot(Exp_, Id_),
     Assign(Exp_, Exp_),

@@ -22,15 +22,14 @@ fn test_dot_dot() {
     assert_parse_ok("foo.0.1.0.1.0.1");
 }
 
-#[ignore]
 #[test]
 fn test_type_decl() {
-    assert_("type T = ()");
-    assert_("type T = {}"); // note that "{} cannot produce type ()".
-    assert_("type T = {#banana}");
-    assert_("type T = {#banana : Nat}");
-    assert_("type T = {banana : Nat}");
-    assert_("type T = {banana : Nat, apple : Text}");
+    assert_parse_ok("type T = ()");
+    assert_parse_ok("type T = {}"); // note that "{} cannot produce type ()".
+    assert_parse_ok("type T = {#banana}");
+    assert_parse_ok("type T = {#banana : Nat}");
+    assert_parse_ok("type T = {banana : Nat}");
+    assert_parse_ok("type T = {banana : Nat; apple : Text}");
 }
 
 #[test]
@@ -79,14 +78,13 @@ fn test_query_shared_func_err() {
     assert_parse_err("actor { public query shared func f() : async Nat { 1 } }");
 }
 
-#[ignore]
 #[test]
 fn test_option() {
     assert_("?1");
     assert_("?()");
     assert_("?(1)");
     assert_("?(1, 2,)");
-    assert_("?{ }");
+    assert_parse_ok("?{ }");
     assert_("?#apple");
 }
 
@@ -248,13 +246,12 @@ fn test_var_array() {
     assert_("[var 1, 2,]");
 }
 
-#[ignore]
 #[test]
 fn test_let_var() {
     assert_("let x = 0; x");
-    assert_("let x : Int = 0; x");
-    assert_("var x = 0; x");
-    assert_("var x : Int = 0; x");
+    assert_parse_ok("let x : Int = 0; x");
+    assert_parse_ok("var x = 0; x");
+    assert_parse_ok("var x : Int = 0; x");
 }
 
 #[test]
@@ -279,14 +276,13 @@ fn test_variant() {
     }
 }
 
-#[ignore]
 #[test]
 fn test_record() {
-    assert_("{ }");
+    assert_parse_ok("{ }");
     //assert_("{ ; }"); // 2022-08-05 <-- corner case. what to do here?
-    assert_("{ foo = 3; }");
-    assert_("{ foo : Nat = 3; }");
-    assert_("{ foo : Nat = 3; bar = #apple }");
+    assert_parse_ok("{ foo = 3; }");
+    assert_parse_ok("{ foo : Nat = 3; }");
+    assert_parse_ok("{ foo : Nat = 3; bar = #apple }");
 }
 
 #[test]
@@ -353,11 +349,10 @@ fn test_record_proj() {
     assert_to("x . foo", "x.foo");
 }
 
-#[ignore]
 #[test]
 fn test_tuple_proj() {
-    assert_("x.0");
-    assert_to("x . 0", "x.0");
+    assert_parse_ok("x.0");
+    assert_parse_ok("x . 0");
 }
 
 #[test]

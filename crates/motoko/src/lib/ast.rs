@@ -151,6 +151,13 @@ impl<X: Clone> Delim<X> {
             has_trailing: false,
         }
     }
+    pub fn one(x: X) -> Self {
+        let vec = im_rc::vector![x];
+        Delim {
+            vec,
+            has_trailing: false,
+        }
+    }
     pub fn from(vec: Vec<X>) -> Self {
         Delim {
             vec: vec.into(),
@@ -279,6 +286,15 @@ pub struct ExpField {
     pub id: Id_,
     pub typ: Option<Type_>,
     pub exp: Option<Exp_>,
+}
+
+impl ExpField {
+    pub fn exp_(&self) -> Exp_ {
+        match self.exp.clone() {
+            Some(e) => e,
+            None => NodeData(Exp::Var(self.id.0.clone()), self.id.1.clone()).share(),
+        }
+    }
 }
 
 pub type DecField_ = Node<DecField>;
@@ -476,7 +492,7 @@ pub enum Exp {
     DoOpt(Exp_),
     Bang(Exp_),
     ObjectBlock(ObjSort, DecFields),
-    Object(Option<Exp_>, Option<Delim<Exp_>>, Option<ExpFields>),
+    Object(Option<Delim<Exp_>>, Option<ExpFields>),
     Variant(Id_, Option<Exp_>),
     Dot(Exp_, Id_),
     Assign(Exp_, Exp_),
@@ -511,6 +527,40 @@ pub enum Exp {
     Try(Exp_, Vec<Case_>),
     Ignore(Exp_),
     Paren(Exp_),
+}
+
+impl Exp {
+    pub fn obj_field_fields(f1: ExpField_, fs: Option<ExpFields>) -> Exp {
+        match fs {
+            None => Exp::Object(None, Some(Delim::one(f1))),
+            Some(mut fs) => {
+                fs.vec.push_front(f1);
+                Exp::Object(None, Some(fs))
+            }
+        }
+    }
+    pub fn obj_id_fields(id: Id_, fs: ExpFields) -> Exp {
+        todo!()
+        /*
+                let field1_source = id.0.clone();
+                let field1 = (Field{ Mut::Const, id, exp:None, typ:None }, field1_source).share();
+                let mut fields = fields;
+                fields.vec.push_front(field1);
+                Exp::Object(None, None, fields)
+        */
+    }
+    pub fn obj_base_bases(base: Exp_, bases: Option<Delim<Exp_>>, efs: Option<ExpFields>) -> Exp {
+        match bases {
+            None => match &base.0 {
+                Exp::Var(x) => todo!(),
+                _ => unimplemented!("parse error"),
+            },
+            Some(mut bs) => {
+                bs.vec.push_front(base);
+                Exp::Object(Some(bs), efs)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

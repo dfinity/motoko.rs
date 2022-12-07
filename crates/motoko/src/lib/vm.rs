@@ -1709,11 +1709,8 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         ),
         Do(e) => exp_conts(active, FrameCont::Do, e),
         Assert(e) => exp_conts(active, FrameCont::Assert, e),
-        Object(base, more_bases, fields) => {
-            if let Some(base) = base {
-                return nyi!(line!());
-            };
-            if let Some(more_bases) = more_bases {
+        Object(bases, fields) => {
+            if let Some(bases) = bases {
                 return nyi!(line!());
             };
             if let Some(fields) = fields {
@@ -1729,11 +1726,16 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
                             id: f1.0.id.fast_clone(),
                             typ: f1.0.typ.fast_clone(),
                         };
-                        exp_conts(active, FrameCont::Object(Vector::new(), fc, fs), &f1.0.exp)
+                        exp_conts(
+                            active,
+                            FrameCont::Object(Vector::new(), fc, fs),
+                            &f1.0.exp_(),
+                        )
                     }
                 }
             } else {
-                return nyi!(line!());
+                *active.cont() = cont_value(Value::Object(HashMap::new()));
+                Ok(Step {})
             }
         }
         Tuple(es) => {
@@ -2328,7 +2330,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                         },
                         rest,
                     ),
-                    &next.0.exp,
+                    &next.0.exp_(),
                 ),
             }
         }

@@ -185,6 +185,20 @@ fn vm_records() {
     }
 }
 
+#[ignore]
+#[test]
+fn vm_record_extension() {
+    assert_(
+        "
+      func f () : { x : Nat } = { x = 3 };
+      func g () : { y : Nat } = { y = 3 };
+      let (x, y) = ((), ());
+      { f x and g y with z = 3 };
+    ",
+        "{x = 3; y = 3; z = 3}",
+    )
+}
+
 #[test]
 fn vm_boolean_ops() {
     assert_("false or true", "true");

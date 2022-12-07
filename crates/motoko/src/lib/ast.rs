@@ -539,24 +539,42 @@ impl Exp {
             }
         }
     }
-    pub fn obj_id_fields(id: Id_, fs: ExpFields) -> Exp {
-        todo!()
-        /*
-                let field1_source = id.0.clone();
-                let field1 = (Field{ Mut::Const, id, exp:None, typ:None }, field1_source).share();
-                let mut fields = fields;
-                fields.vec.push_front(field1);
-                Exp::Object(None, None, fields)
-        */
+    pub fn obj_id_fields(id: Id_, fields: ExpFields) -> Exp {
+        let field1_source = id.1.clone();
+        let exp = Some(NodeData(Exp::Var(id.0.clone()), id.1.clone()).share());
+        let field1 = NodeData(
+            ExpField {
+                mut_: Mut::Const,
+                id,
+                exp,
+                typ: None,
+            },
+            field1_source,
+        )
+        .share();
+        let mut fields = fields;
+        fields.vec.push_front(field1);
+        Exp::Object(None, Some(fields))
     }
-    pub fn obj_base_bases(base: Exp_, bases: Option<Delim<Exp_>>, efs: Option<ExpFields>) -> Exp {
+    pub fn obj_base_bases(base1: Exp_, bases: Option<Delim<Exp_>>, efs: Option<ExpFields>) -> Exp {
         match bases {
-            None => match &base.0 {
-                Exp::Var(x) => todo!(),
+            None => match &base1.0 {
+                Exp::Var(x) => {
+                    let x = NodeData(x.clone(), base1.1.clone()).share();
+                    match (bases, efs) {
+                        (None, None) => Exp::obj_id_fields(x, Delim::new()),
+                        (None, Some(fields)) => Exp::obj_id_fields(x, fields),
+                        (Some(bases), efs) => {
+                            let mut bases = bases;
+                            bases.vec.push_front(base1);
+                            Exp::Object(Some(bases), efs)
+                        }
+                    }
+                }
                 _ => unimplemented!("parse error"),
             },
             Some(mut bs) => {
-                bs.vec.push_front(base);
+                bs.vec.push_front(base1);
                 Exp::Object(Some(bs), efs)
             }
         }

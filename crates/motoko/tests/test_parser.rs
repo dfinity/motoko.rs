@@ -279,10 +279,26 @@ fn test_variant() {
 #[test]
 fn test_record() {
     assert_parse_ok("{ }");
-    //assert_("{ ; }"); // 2022-08-05 <-- corner case. what to do here?
-    assert_parse_ok("{ foo = 3; }");
-    assert_parse_ok("{ foo : Nat = 3; }");
-    assert_parse_ok("{ foo : Nat = 3; bar = #apple }");
+    assert_parse_ok("{ x }");
+    assert_parse_ok("{ x = 3 }");
+    assert_parse_ok("{ x = 3; }");
+    assert_parse_ok("{ x with y = 3 }");
+    assert_parse_ok("{ x and y with z = 3 }");
+    assert_parse_ok("{ f x and f y with z = 3 }");
+    assert_parse_ok("{ x : Nat = 3; }");
+    assert_parse_ok("{ x : Nat = 3; y = #apple }");
+    assert_parse_ok("{ var x : Nat = 3; var y = #apple }");
+    assert_parse_ok("{ var x = 3; var y = #apple }");
+    assert_parse_ok("{ var x = 3; y }");
+    assert_parse_ok("{ x; y }");
+    assert_parse_ok(
+        "
+      func f () : { x : Nat } = { x = 3 };
+      func g () : { y : Nat } = { y = 3 };
+      let (x, y) = ((), ());
+      { f x and g y with z = 3 };
+    ",
+    );
 }
 
 #[test]

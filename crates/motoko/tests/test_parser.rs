@@ -280,6 +280,7 @@ fn test_variant() {
 fn test_record() {
     assert_parse_ok("{ }");
     assert_parse_ok("{ x }");
+    assert_parse_ok("{ x : Nat }");
     assert_parse_ok("{ x = 3 }");
     assert_parse_ok("{ x = 3; }");
     assert_parse_ok("{ x with y = 3 }");
@@ -291,6 +292,7 @@ fn test_record() {
     assert_parse_ok("{ var x = 3; var y = #apple }");
     assert_parse_ok("{ var x = 3; y }");
     assert_parse_ok("{ x; y }");
+    assert_parse_ok("{ x with z = 3}");
     assert_parse_ok("{ f x with z = 3}");
     assert_parse_ok(
         "

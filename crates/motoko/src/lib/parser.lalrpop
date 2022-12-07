@@ -406,19 +406,27 @@ ExpUn<B>: Exp = {
 }
 
 ExpObj: Exp = {
-//    "{" <fs:Delim0<ExpField_, ";">> "}" => Exp::Object(None, None, Some(fs)),
-    "{" <base1:ExpPost_<Ob>> <bases:("and" <Delim1<ExpPost_<Ob>, "and">>)?> <efs:("with" <Delim1<ExpField_, ";">>)?> "}" => {
-        Exp::Object(Some(base), bases, efs)
-    },
+    // Object syntax.
+    //
+    // We want to use this concise rule, like in the Menhir version of the Motoko parser:
+    //
+    //    "{" <fs:Delim0<ExpField_, ";">> "}" => Exp::Object(None, None, Some(fs)),
+    //
+    // But, we cannot parse field1 directly as a FieldExp, like the ones that may follow it.  It is ambiguous here, sadly.
+    // (It conflicts with the new rules for record base-extension syntax, in the singleton-var case `{ x }`).
+    // This limitation comes from the LALR(1) language of lalrpop in contrast to the LR(1) language of menhir.
+    // To bridge this gap, we parse field1 in a case-by-case way.
+    //
     "{" "var" Id (":" TypeNoBin)? "=" ExpIfNoElse_<Exp<Ob>> (";" <Delim0<ExpField_, ";">>)? "}" => todo!(),
     "{" Id ":" TypeNoBin ("=" ExpIfNoElse_<Exp<Ob>>)? (";" <Delim0<ExpField_, ";">>)? "}" => todo!(),
-    "{" <field1:ExpPost_<Ob>> ";" <fields:Delim1<ExpField_, ";">> "}" => {
-        // we cannot parse field1 directly as a FieldExp, like the ones that may follow it.  It is ambiguous.
-        // this limitation comes from LALR(1) of lalrpop in contrast to LR(1) of menhir.
-        // so, we need to parse field1 as an ExpPost, and the other cases not covered by ExpPost, rather than directly as a FieldExp.
-        // syntax error if "field1" cannot be re-parsed as a Field (most forms of ExpPost<Ob> are inappropriate here; only Var is appropriate.)
+    "{" Id ";" <fields:Delim1<ExpField_, ";">> "}" => {
         todo!() 
     }
+    "{" <base1:ExpPost_<Ob>> <bases:("and" <Delim1<ExpPost_<Ob>, "and">>)?> <efs:("with" <Delim1<ExpField_, ";">>)?> "}" => {
+        // when base1=Var(x) and bases=None and efs=None, we need to "re-parse" to help overcome the ambiguity described above.
+        Exp::Object(Some(base), bases, efs)
+    },
+
 }
 
 #[inline]

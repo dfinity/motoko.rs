@@ -405,21 +405,42 @@ ExpUn<B>: Exp = {
     "from_candid" <e:ExpUn_<B>> => Exp::FromCandid(e),
 }
 
-#[inline]
-ExpBase_: Exp_ = Node<ExpBase>;
-
-// to do -- first base should actually be ExpPost_<Bl>,
-// but this grammar leads to shift-reduce conflicts with lalrpop.
-ExpBase: Exp = {
-    ExpPlain,
-    ExpObj,
+ExpObj: Exp = {
+    // Object syntax.
+    //
+    // We want to use this concise rule, like in the Menhir version of
+    // the Motoko parser:
+    //
+    //    "{" <fs:Delim0<ExpField_, ";">> "}" => Exp::Object(None, None, Some(fs)),
+    //
+    // But, we cannot parse the first field directly as a FieldExp,
+    // like the ones that may follow it.  It is ambiguous here, sadly.
+    // (It conflicts with the new rules for record base-extension
+    // syntax, in the singleton-var case `{ x }`).  This limitation
+    // comes from the LALR(1) language of lalrpop in contrast to the
+    // LR(1) language of menhir.  To bridge this gap, we parse the
+    // first field in a more case-by-case way.
+    //
+    "{" "}" => Exp::Object(None, None),
+    "{" <field1:ExpFieldNoBareId_> <fields:(";" <Delim0<ExpField_, ";">>)?> "}" => Exp::obj_field_fields(field1, fields),
+    "{" <id:Id_> ";" <fields:Delim1<ExpField_, ";">> "}" => Exp::obj_id_fields(id, fields),
+    "{" <base1:ExpPost_<Ob>> <bases:("and" <Delim1<ExpPost_<Ob>, "and">>)?> <efs:("with" <Delim1<ExpField_, ";">>)?> "}" => Exp::obj_base_bases(base1, bases, efs),
 }
 
-ExpObj: Exp = {
-    "{" <fs:Delim0<ExpField_, ";">> "}" => Exp::Object(None, None, Some(fs)),
-    "{" <base:ExpBase_> <bases:("and" <Delim1<ExpPost_<Bl>, "and">>)?> <efs:("with" <Delim1<ExpField_, ";">>)?> "}" => {
-        Exp::Object(Some(base), bases, efs)
-    },
+#[inline]
+ExpField_: Node<ExpField> = Node<ExpField>;
+
+ExpField: ExpField = {
+    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> <exp:("=" <ExpIfNoElse_<Exp<Ob>>>)?> => ExpField{ mut_, id, exp, typ }
+}
+
+#[inline]
+ExpFieldNoBareId_: Node<ExpField> = Node<ExpFieldNoBareId>;
+
+ExpFieldNoBareId: ExpField = { // like ExpField, except that a "bare" Id is not permitted.  Helps disambiguate the parse tree.
+    "var" <id:Id_> <typ:(":" <TypeNoBin_>)?> "=" <exp:ExpIfNoElse_<Exp<Ob>>> => ExpField{ mut_:Mut::Var, id, exp:Some(exp), typ },
+    <id:Id_> ":" <typ:TypeNoBin_> <exp:("=" <ExpIfNoElse_<Exp<Ob>>>)?> => ExpField{ mut_:Mut::Const, id, exp, typ:Some(typ) },
+    <id:Id_> "=" <exp:ExpIfNoElse_<Exp<Ob>>> => ExpField{ mut_:Mut::Const, id, exp:Some(exp), typ:None },
 }
 
 #[inline]
@@ -573,13 +594,6 @@ Cases: Cases = {
 
 Case: Case = {
     "case" <pat:PatNullary_> <exp:ExpIfNoElse_<ExpNest>> => Case{pat, exp},
-}
-
-#[inline]
-ExpField_: Node<ExpField> = Node<ExpField>;
-
-ExpField: ExpField = {
-    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> "=" <exp:ExpIfNoElse_<Exp<Ob>>> => ExpField{ mut_, id, exp, typ }
 }
 
 Decs: Decs = {

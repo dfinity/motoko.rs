@@ -76,8 +76,6 @@ fn vm_prim_ops() {
 
     assert_("255 +% 1 : Nat8 + 1 + 1 + 1", "3");
     assert_x("255 +% 1 : Nat8 +% 1", &Interruption::AmbiguousOperation); // to do. reconcile with interpreter using more type info.
-
-
 }
 
 #[test]
@@ -185,6 +183,20 @@ fn vm_records() {
             "true",
         );
     }
+}
+
+#[ignore]
+#[test]
+fn vm_record_extension() {
+    assert_(
+        "
+      func f () : { x : Nat } = { x = 3 };
+      func g () : { y : Nat } = { y = 3 };
+      let (x, y) = ((), ());
+      { f x and g y with z = 3 };
+    ",
+        "{x = 3; y = 3; z = 3}",
+    )
 }
 
 #[test]

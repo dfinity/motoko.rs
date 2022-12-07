@@ -557,23 +557,16 @@ impl Exp {
         Exp::Object(None, Some(fields))
     }
     pub fn obj_base_bases(base1: Exp_, bases: Option<Delim<Exp_>>, efs: Option<ExpFields>) -> Exp {
-        match bases {
-            None => match &base1.0 {
+        match (bases, efs) {
+            (None, None) => match &base1.0 {
                 Exp::Var(x) => {
                     let x = NodeData(x.clone(), base1.1.clone()).share();
-                    match (bases, efs) {
-                        (None, None) => Exp::obj_id_fields(x, Delim::new()),
-                        (None, Some(fields)) => Exp::obj_id_fields(x, fields),
-                        (Some(bases), efs) => {
-                            let mut bases = bases;
-                            bases.vec.push_front(base1);
-                            Exp::Object(Some(bases), efs)
-                        }
-                    }
+                    Exp::obj_id_fields(x, Delim::new())
                 }
                 _ => unimplemented!("parse error"),
             },
-            Some(mut bs) => {
+            (None, efs) => Exp::Object(Some(Delim::one(base1)), efs),
+            (Some(mut bs), efs) => {
                 bs.vec.push_front(base1);
                 Exp::Object(Some(bs), efs)
             }

@@ -291,6 +291,7 @@ fn test_record() {
     assert_parse_ok("{ var x = 3; var y = #apple }");
     assert_parse_ok("{ var x = 3; y }");
     assert_parse_ok("{ x; y }");
+    assert_parse_ok("{ f x with z = 3}");
     assert_parse_ok(
         "
       func f () : { x : Nat } = { x = 3 };

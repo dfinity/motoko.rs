@@ -405,21 +405,20 @@ ExpUn<B>: Exp = {
     "from_candid" <e:ExpUn_<B>> => Exp::FromCandid(e),
 }
 
-#[inline]
-ExpBase_: Exp_ = Node<ExpBase>;
-
-// to do -- first base should actually be ExpPost_<Bl>,
-// but this grammar leads to shift-reduce conflicts with lalrpop.
-ExpBase: Exp = {
-    ExpPlain,
-    ExpObj,
-}
-
 ExpObj: Exp = {
-    "{" <fs:Delim0<ExpField_, ";">> "}" => Exp::Object(None, None, Some(fs)),
-    "{" <base:ExpBase_> <bases:("and" <Delim1<ExpPost_<Bl>, "and">>)?> <efs:("with" <Delim1<ExpField_, ";">>)?> "}" => {
+//    "{" <fs:Delim0<ExpField_, ";">> "}" => Exp::Object(None, None, Some(fs)),
+    "{" <base1:ExpPost_<Ob>> <bases:("and" <Delim1<ExpPost_<Ob>, "and">>)?> <efs:("with" <Delim1<ExpField_, ";">>)?> "}" => {
         Exp::Object(Some(base), bases, efs)
     },
+    "{" "var" Id (":" TypeNoBin)? "=" ExpIfNoElse_<Exp<Ob>> (";" <Delim0<ExpField_, ";">>)? "}" => todo!(),
+    "{" Id ":" TypeNoBin ("=" ExpIfNoElse_<Exp<Ob>>)? (";" <Delim0<ExpField_, ";">>)? "}" => todo!(),
+    "{" <field1:ExpPost_<Ob>> ";" <fields:Delim1<ExpField_, ";">> "}" => {
+        // we cannot parse field1 directly as a FieldExp, like the ones that may follow it.  It is ambiguous.
+        // this limitation comes from LALR(1) of lalrpop in contrast to LR(1) of menhir.
+        // so, we need to parse field1 as an ExpPost, and the other cases not covered by ExpPost, rather than directly as a FieldExp.
+        // syntax error if "field1" cannot be re-parsed as a Field (most forms of ExpPost<Ob> are inappropriate here; only Var is appropriate.)
+        todo!() 
+    }
 }
 
 #[inline]
@@ -579,7 +578,7 @@ Case: Case = {
 ExpField_: Node<ExpField> = Node<ExpField>;
 
 ExpField: ExpField = {
-    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> "=" <exp:ExpIfNoElse_<Exp<Ob>>> => ExpField{ mut_, id, exp, typ }
+    <mut_:VarOpt> <id:Id_> <typ:(":" <Type_>)?> <exp:("=" <ExpIfNoElse_<Exp<Ob>>>)?> => ExpField{ mut_, id, exp, typ }
 }
 
 Decs: Decs = {

@@ -278,7 +278,7 @@ pub struct ExpField {
     pub mut_: Mut,
     pub id: Id_,
     pub typ: Option<Type_>,
-    pub exp: Exp_,
+    pub exp: Option<Exp_>,
 }
 
 pub type DecField_ = Node<DecField>;

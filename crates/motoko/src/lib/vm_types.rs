@@ -545,6 +545,18 @@ pub struct ModuleFile {
     // pub def: def::Module,
 }
 
+impl ModuleFile {
+    pub fn def(&self) -> def::Module {
+        def::Module {
+            context: self.context.clone(),
+            fields: self.module.clone(),
+        }
+    }
+    pub fn value(&self) -> Value {
+        Value::Module(self.def())
+    }
+}
+
 /// The initialization-phase file representation for a module, before
 /// being imported.
 ///

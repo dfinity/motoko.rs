@@ -603,6 +603,76 @@ mod def {
     use super::*;
     use crate::ast::{DecField, DecFields};
 
+    pub fn import<A: Active>(
+        active: &mut A,
+        p: &Pat_,
+        path: &str,
+    ) -> Result<(Id_, ModuleDef), Interruption> {
+        if let Pat::Var(x) = p.0.clone() {
+            let path = format!("{}", &path[1..path.len() - 1]);
+            let mf = active.module_files().map.get(&path).map(|x| x.clone());
+            let mf = match mf {
+                None => return Err(Interruption::ModuleFileNotFound(path.to_string())),
+                Some(ModuleFileState::Defined(mf)) => mf,
+                Some(ModuleFileState::Init(init)) => {
+                    // if a module imports itself, directly or indirectly, we we diverge without cycle detection.
+                    // so, detect a cycle by tracking import paths.
+                    let contains_this_path = active.module_files().import_stack.contains(&path);
+                    if contains_this_path {
+                        let mut stack = active.module_files().import_stack.clone();
+                        stack.push_back(path.clone());
+                        return Err(Interruption::ImportCycle(stack));
+                    } else {
+                        active.module_files().import_stack.push_back(path.clone());
+                    };
+                    let (saved, ctxid) = active.defs().enter_context(true);
+                    for dec in init.outer_decs.iter() {
+                        let dec = dec.clone();
+                        let df = crate::ast::DecField {
+                            vis: None,
+                            stab: None,
+                            dec,
+                        };
+                        def::insert_static_field(active, &df.dec.1, &df)?;
+                    }
+                    let v = def::module(
+                        active,
+                        path.clone(),
+                        &init.id,
+                        Source::CoreSetModule,
+                        None,
+                        None,
+                        &init.fields,
+                        None,
+                    )?;
+                    active.defs().leave_context(saved, &ctxid);
+                    if let Some(top_path) = active.module_files().import_stack.pop_back() {
+                        assert_eq!(top_path, path)
+                    } else {
+                        unreachable!()
+                    };
+                    if let Value::Module(m) = &*v {
+                        let mf = ModuleFile {
+                            file_content: init.file_content.clone(),
+                            context: m.context.clone(),
+                            module: m.fields.clone(),
+                        };
+                        active
+                            .module_files()
+                            .map
+                            .insert(path.clone(), ModuleFileState::Defined(mf.clone()));
+                        mf
+                    } else {
+                        unreachable!()
+                    }
+                }
+            };
+            Ok((x.clone(), mf.def()))
+        } else {
+            nyi!(line!())
+        }
+    }
+
     pub fn insert_static_field<A: Active>(
         active: &mut A,
         source: &Source,
@@ -698,88 +768,21 @@ mod def {
                 }
             }
             Dec::LetImport(p, _, path) => {
-                if let Pat::Var(x) = p.0.clone() {
-                    let path = format!("{}", &path[1..path.len() - 1]);
-                    let mf = active.module_files().map.get(&path).map(|x| x.clone());
-                    let mf = match mf {
-                        None => return Err(Interruption::ModuleFileNotFound(path.to_string())),
-                        Some(ModuleFileState::Init(init)) => {
-                            // if a module imports itself, directly or indirectly, we we diverge without cycle detection.
-                            // so, detect a cycle by tracking import paths.
-                            let contains_this_path =
-                                active.module_files().import_stack.contains(&path);
-                            if contains_this_path {
-                                let mut stack = active.module_files().import_stack.clone();
-                                stack.push_back(path.clone());
-                                return Err(Interruption::ImportCycle(stack));
-                            } else {
-                                active.module_files().import_stack.push_back(path.clone());
-                            };
-                            let (saved, ctxid) = active.defs().enter_context(true);
-                            for dec in init.outer_decs.iter() {
-                                let dec = dec.clone();
-                                let df = crate::ast::DecField {
-                                    vis: None,
-                                    stab: None,
-                                    dec,
-                                };
-                                def::insert_static_field(active, &df.dec.1, &df)?;
-                            }
-                            let v = def::module(
-                                active,
-                                path.clone(),
-                                &init.id,
-                                Source::CoreSetModule,
-                                None,
-                                None,
-                                &init.fields,
-                                None,
-                            )?;
-                            active.defs().leave_context(saved, &ctxid);
-                            if let Some(top_path) = active.module_files().import_stack.pop_back() {
-                                assert_eq!(top_path, path)
-                            } else {
-                                unreachable!()
-                            };
-                            if let Value::Module(m) = &*v {
-                                let mf = ModuleFile {
-                                    file_content: init.file_content.clone(),
-                                    context: m.context.clone(),
-                                    module: m.fields.clone(),
-                                };
-                                active
-                                    .module_files()
-                                    .map
-                                    .insert(path.clone(), ModuleFileState::Defined(mf.clone()));
-                                mf
-                            } else {
-                                unreachable!()
-                            }
-                        }
-                        Some(ModuleFileState::Defined(mf)) => mf,
-                    };
-                    active.defs().insert_field(
-                        &x.0,
-                        source.clone(),
-                        df.vis.clone(),
-                        df.stab.clone(),
-                        Def::Module(ModuleDef {
-                            context: mf.context,
-                            fields: mf.module,
-                        }),
-                    )?;
-                    Ok(())
-                } else {
-                    nyi!(line!())
-                }
+                let (x, m) = import(active, p, path)?;
+                active.defs().insert_field(
+                    &x.0,
+                    source.clone(),
+                    df.vis.clone(),
+                    df.stab.clone(),
+                    Def::Module(m),
+                )?;
+                Ok(())
             }
+            Dec::Type(_id, _typ_binds, _typ) => Ok(()),
             Dec::LetActor(_i, _, _dfs) => {
                 nyi!(line!())
             }
             Dec::LetObject(_i, _, _dfs) => {
-                nyi!(line!())
-            }
-            Dec::Type(_id, _typ_binds, _typ) => {
                 nyi!(line!())
             }
             Dec::Class(_class) => {
@@ -2793,8 +2796,11 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         *active.cont() = Cont::Decs(decs);
                         Ok(Step {})
                     }
-                    Dec::LetImport(_p, _, _s) => {
-                        nyi!(line!())
+                    Dec::LetImport(pattern, _, path) => {
+                        let (x, m) = def::import(active, pattern, path)?;
+                        active.env().insert(x.0.clone(), Value::Module(m).share());
+                        *active.cont() = Cont::Decs(decs);
+                        Ok(Step {})
                     }
                     Dec::Var(p, e) => match p.0 {
                         Pat::Var(ref x) => {

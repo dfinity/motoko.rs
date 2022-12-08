@@ -2798,8 +2798,11 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         *active.cont() = Cont::Decs(decs);
                         Ok(Step {})
                     }
-                    Dec::LetImport(_p, _, _s) => {
-                        nyi!(line!())
+                    Dec::LetImport(pattern, _, path) => {
+                        let (x, m) = def::import(active, pattern, path)?;
+                        active.env().insert(x.0.clone(), Value::Module(m).share());
+                        *active.cont() = Cont::Decs(decs);
+                        Ok(Step {})
                     }
                     Dec::Var(p, e) => match p.0 {
                         Pat::Var(ref x) => {

@@ -101,13 +101,11 @@ fn parse_base_library_tests() {
     assert_parse_package(get_base_library_tests())
 }
 
-#[ignore]
 #[test]
 fn eval_base_library() {
     assert_eval_package(get_base_library());
 }
 
-#[ignore]
 #[test]
 fn eval_base_library_tests() {
     assert_eval_package(get_base_library_tests());

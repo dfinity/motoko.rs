@@ -778,13 +778,11 @@ mod def {
                 )?;
                 Ok(())
             }
+            Dec::Type(_id, _typ_binds, _typ) => Ok(()),
             Dec::LetActor(_i, _, _dfs) => {
                 nyi!(line!())
             }
             Dec::LetObject(_i, _, _dfs) => {
-                nyi!(line!())
-            }
-            Dec::Type(_id, _typ_binds, _typ) => {
                 nyi!(line!())
             }
             Dec::Class(_class) => {

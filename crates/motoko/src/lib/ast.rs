@@ -399,26 +399,26 @@ impl PrimType {
     pub fn from_id(text: &str) -> Option<PrimType> {
         use PrimType::*;
         Some(match text {
-            "\"Bool\"" => Bool,
-            "\"Nat\"" => Nat,
-            "\"Nat8\"" => Nat8,
-            "\"Nat16\"" => Nat16,
-            "\"Nat32\"" => Nat32,
-            "\"Nat64\"" => Nat64,
-            "\"Int\"" => Int,
-            "\"Int8\"" => Int8,
-            "\"Int16\"" => Int16,
-            "\"Int32\"" => Int32,
-            "\"Int64\"" => Int64,
-            "\"Principal\"" => Principal,
-            "\"Text\"" => Text,
+            "Bool" => Bool,
+            "Nat" => Nat,
+            "Nat8" => Nat8,
+            "Nat16" => Nat16,
+            "Nat32" => Nat32,
+            "Nat64" => Nat64,
+            "Int" => Int,
+            "Int8" => Int8,
+            "Int16" => Int16,
+            "Int32" => Int32,
+            "Int64" => Int64,
+            "Principal" => Principal,
+            "Text" => Text,
             _ => None?,
         })
     }
 
     pub fn from_text(text: &str) -> Option<PrimType> {
-        let id = text; // to do -- trim.
-        Self::from_id(id)
+        let id = format!("{}", &text[1..text.len() - 1]);
+        Self::from_id(&id)
     }
 }
 

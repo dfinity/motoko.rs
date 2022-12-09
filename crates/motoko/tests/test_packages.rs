@@ -91,11 +91,10 @@ fn assert_eval_packages(main_package: Package, dependencies: Vec<Package>) {
     println!("Attempted to evaluate {} modules.", total);
     if error_count > 0 {
         println!("  But, found {} set_module/eval errors.", error_count);
+        assert!(false)
     } else {
         println!("  Success!");
     }
-
-    assert!(false);
 }
 
 #[test]

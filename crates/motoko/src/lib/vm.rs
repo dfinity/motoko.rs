@@ -740,31 +740,42 @@ mod def {
                 }
             }
             Dec::Let(p, e) => {
-                match p.0 {
-                    Pat::Var(ref x) => {
-                        let ctx_id = active.defs().active_ctx.clone();
-                        if exp_is_static(&e.0) {
-                            active.defs().insert_field(
-                                &x.0,
-                                source.clone(),
-                                df.vis.clone(),
-                                df.stab.clone(),
-                                Def::StaticValue(ctx_id, e.clone()),
-                            )?;
-                            Ok(())
-                        } else {
-                            Err(Interruption::ModuleNotStatic(source.clone()))
+                if let Pat::Wild = p.0 {
+                    if exp_is_static(&e.0) {
+                        // ignore pure expression with no name.
+                        Ok(())
+                    } else {
+                        Err(Interruption::ModuleNotStatic(source.clone()))
+                    }
+                } else {
+                    fn get_pat_var(p: &Pat) -> Option<Id_> {
+                        match p {
+                            Pat::Var(x) => Some(x.clone()),
+                            Pat::AnnotPat(p, _) => get_pat_var(&p.0),
+                            Pat::Paren(p) => get_pat_var(&p.0),
+                            _ => None,
                         }
                     }
-                    Pat::Wild => {
-                        if exp_is_static(&e.0) {
-                            // ignore pure expression with no name.
-                            Ok(())
-                        } else {
-                            Err(Interruption::ModuleNotStatic(source.clone()))
+                    match get_pat_var(&p.0) {
+                        Some(x) => {
+                            let ctx_id = active.defs().active_ctx.clone();
+                            if exp_is_static(&e.0) {
+                                active.defs().insert_field(
+                                    &x.0,
+                                    source.clone(),
+                                    df.vis.clone(),
+                                    df.stab.clone(),
+                                    Def::StaticValue(ctx_id, e.clone()),
+                                )?;
+                                Ok(())
+                            } else {
+                                Err(Interruption::ModuleNotStatic(source.clone()))
+                            }
+                        }
+                        None => {
+                            nyi!(line!())
                         }
                     }
-                    _ => nyi!(line!()),
                 }
             }
             Dec::LetImport(p, _, path) => {

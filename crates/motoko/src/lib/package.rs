@@ -16,9 +16,9 @@ pub fn get_base_library_tests() -> Package {
 pub fn get_prim_library() -> Package {
     let mut files = HashMap::new();
     let content = include_str!("../packages/prim.mo").to_string();
-    files.insert("🚫.mo".to_string(), PackageFile { content });
+    files.insert("⛔.mo".to_string(), PackageFile { content });
     Package {
-        name: "🚫".to_string(),
+        name: "⛔".to_string(),
         version: "".to_string(),
         files,
     }

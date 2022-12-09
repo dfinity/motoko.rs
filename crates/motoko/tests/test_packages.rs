@@ -112,6 +112,7 @@ fn parse_base_library_tests() {
     assert_parse_packages(get_base_library_tests())
 }
 
+#[ignore]
 #[test]
 fn eval_prim_library() {
     assert_eval_packages(get_prim_library(), vec![]);

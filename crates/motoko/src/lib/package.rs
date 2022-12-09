@@ -15,10 +15,8 @@ pub fn get_base_library_tests() -> Package {
 /// Temporary: get primitive definitions from static file
 pub fn get_prim_library() -> Package {
     let mut files = HashMap::new();
-    files.insert(
-        "lib.mo".to_string(),
-        serde_json::from_str(include_str!("../packages/prim.mo")).unwrap(),
-    );
+    let content = include_str!("../packages/prim.mo").to_string();
+    files.insert("🚫.mo".to_string(), PackageFile { content });
     Package {
         name: "🚫".to_string(),
         version: "".to_string(),

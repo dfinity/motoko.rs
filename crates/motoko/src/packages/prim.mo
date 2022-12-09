@@ -12,6 +12,8 @@ Nevertheless, it shoud be _safe_ to import prim, i.e. the definitions here
 should not break type safety or other guarantees of the language.
 */
 
+module {
+
 module Types = {
   public type Any = prim "Any";
   public type None = prim "None";
@@ -357,3 +359,5 @@ let call_raw = @call_raw;
 
 func performanceCounter(counter : Nat32) : Nat64 =
   (prim "performanceCounter" : (Nat32) -> Nat64) counter;
+
+}

@@ -396,24 +396,29 @@ pub enum PrimType {
 }
 
 impl PrimType {
-    pub fn from_ident(i: &Id) -> Option<PrimType> {
+    pub fn from_id(text: &str) -> Option<PrimType> {
         use PrimType::*;
-        Some(match i.string.as_str() {
-            "Bool" => Bool,
-            "Nat" => Nat,
-            "Nat8" => Nat8,
-            "Nat16" => Nat16,
-            "Nat32" => Nat32,
-            "Nat64" => Nat64,
-            "Int" => Int,
-            "Int8" => Int8,
-            "Int16" => Int16,
-            "Int32" => Int32,
-            "Int64" => Int64,
-            "Principal" => Principal,
-            "Text" => Text,
+        Some(match text {
+            "\"Bool\"" => Bool,
+            "\"Nat\"" => Nat,
+            "\"Nat8\"" => Nat8,
+            "\"Nat16\"" => Nat16,
+            "\"Nat32\"" => Nat32,
+            "\"Nat64\"" => Nat64,
+            "\"Int\"" => Int,
+            "\"Int8\"" => Int8,
+            "\"Int16\"" => Int16,
+            "\"Int32\"" => Int32,
+            "\"Int64\"" => Int64,
+            "\"Principal\"" => Principal,
+            "\"Text\"" => Text,
             _ => None?,
         })
+    }
+
+    pub fn from_text(text: &str) -> Option<PrimType> {
+        let id = text; // to do -- trim.
+        Self::from_id(id)
     }
 }
 
@@ -435,8 +440,28 @@ pub enum Type {
     And(Type_, Type_),
     Or(Type_, Type_),
     Paren(Type_),
-    Unknown(Id_),
+    Unknown(String),
     Known(Id_, Type_),
+}
+
+impl Type {
+    pub fn prim(t: &str) -> Type {
+        PrimType::from_text(t)
+            .map(Type::Prim)
+            .unwrap_or_else(|| Type::Unknown(t.to_string()))
+    }
+
+    pub fn id_type_args(id: Id_, ta: Option<Delim<Type_>>) -> Type {
+        // assuming here that no primitive types are parameterized by type args.
+        if let None = ta {
+            // let t = PrimType::from_text(id.0.as_str());
+            let t = PrimType::from_id(id.0.as_str());
+            t.map(Type::Prim)
+                .unwrap_or_else(|| Type::Path(TypePath::Id(id), None))
+        } else {
+            Type::Path(TypePath::Id(id), ta)
+        }
+    }
 }
 
 pub type TypePath_ = Node<TypePath>;

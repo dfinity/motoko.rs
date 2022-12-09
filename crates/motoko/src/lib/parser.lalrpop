@@ -68,7 +68,7 @@ FloatIndex: String = {
 }
 
 Id: Id = {
-    r"[a-zA-Z_][a-zA-Z_0-9]*" => <>.to_id(),
+    r"[@]?[a-zA-Z_][a-zA-Z_0-9]*" => <>.to_id(),
 };
 
 #[inline]
@@ -196,14 +196,7 @@ TypeNullary_: Type_ = Node<TypeNullary>;
 pub TypeNullary: Type = {
     "(" <ts:Delim1<TypeItem_, ",">> ")" => Type::Tuple(ts),
     "(" ")" => Type::Prim(PrimType::Unit),
-    <id:Id_> <ta:TypeArgs> => {
-        // assuming here that no primitive types are parameterized by type args.
-        if let None = ta {
-            PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Path(TypePath::Id(id), None))
-        } else {
-            Type::Path(TypePath::Id(id), ta)
-        }
-    },
+    <id:Id_> <ta:TypeArgs> => Type::id_type_args(id, ta),
     <p:TypePath_> "." <id:Id_> <ta:TypeArgs> => Type::Path(TypePath::Dot(p, id), ta),
     "[" <vo:VarOpt> <t:Type_> "]" => Type::Array(vo, t),
     TypeObj,
@@ -231,7 +224,7 @@ TypePre_: Type_ = Node<TypePre>;
 
 pub TypePre: Type = {
     TypeUn,
-    "prim" <id:Id_> => PrimType::from_ident(&id.0).map(Type::Prim).unwrap_or_else(|| Type::Unknown(id)),
+    "prim" <t:StringLiteral> => Type::prim(&t),
     "async" <t:TypePre_> => Type::Async(t),
     "actor" <to:TypeFields> => Type::Object(ObjSort::Actor, to),
     "object" <to:TypeFields> => Type::Object(ObjSort::Object, to),

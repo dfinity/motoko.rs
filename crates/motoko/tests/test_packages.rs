@@ -1,14 +1,17 @@
 use motoko::{
-    package::{get_base_library, get_base_library_tests, Package},
+    package::{get_base_library, get_base_library_tests, get_prim_library, Package},
     vm_types::Core,
 };
 
 use test_log::test;
 
-fn assert_parse_package(package: Package) {
-    println!("Parsing package: {}", package.name);
-    assert!(!package.files.is_empty());
-
+fn assert_parse_packages(package: Package) {
+    println!(
+        "Parsing package: {}, with {} files.",
+        package.name,
+        package.files.len()
+    );
+    //assert!(!package.files.is_empty());
     let mut files = package.files.into_iter().collect::<Vec<_>>();
     files.sort_by_cached_key(|(path, _)| path.clone());
     let total = files.len();
@@ -33,11 +36,15 @@ fn assert_parse_package(package: Package) {
     assert_eq!(total - error_count, total);
 }
 
-fn assert_eval_package(package: Package) {
-    println!("Evaluating package: {}", package.name);
-    assert!(!package.files.is_empty());
+fn assert_eval_packages(main_package: Package, dependencies: Vec<Package>) {
+    println!("Evaluating package: {}", main_package.name);
+    let packages = vec![vec![main_package], dependencies].concat();
+    //assert!(!packages.iter().all(|p| !p.files.is_empty()));
     let mut core = Core::empty();
-    let mut files = package.files.into_iter().collect::<Vec<_>>();
+    let mut files = packages
+        .into_iter()
+        .flat_map(|p| p.files)
+        .collect::<Vec<_>>();
     files.sort_by_cached_key(|(path, _)| path.clone());
     let total = files.len();
     let mut parse_count = 0;
@@ -84,31 +91,39 @@ fn assert_eval_package(package: Package) {
     println!("Attempted to evaluate {} modules.", total);
     if error_count > 0 {
         println!("  But, found {} set_module/eval errors.", error_count);
+        assert!(false)
     } else {
         println!("  Success!");
     }
+}
 
-    assert!(false);
+#[test]
+fn parse_prim_library() {
+    assert_parse_packages(get_prim_library());
 }
 
 #[test]
 fn parse_base_library() {
-    assert_parse_package(get_base_library());
+    assert_parse_packages(get_base_library());
 }
 
 #[test]
 fn parse_base_library_tests() {
-    assert_parse_package(get_base_library_tests())
+    assert_parse_packages(get_base_library_tests())
 }
 
-#[ignore]
+#[test]
+fn eval_prim_library() {
+    assert_eval_packages(get_prim_library(), vec![]);
+}
+
 #[test]
 fn eval_base_library() {
-    assert_eval_package(get_base_library());
+    assert_eval_packages(get_base_library(), vec![get_prim_library()]);
 }
 
 #[ignore]
 #[test]
 fn eval_base_library_tests() {
-    assert_eval_package(get_base_library_tests());
+    assert_eval_packages(get_base_library_tests(), vec![get_base_library()]);
 }

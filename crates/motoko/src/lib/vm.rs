@@ -730,41 +730,52 @@ mod def {
                     nyi!(line!())
                 }
             }
-            Dec::Var(_p, _e) => Err(Interruption::ModuleNotStatic(source.clone())),
+            Dec::Var(_p, _e) => Err(Interruption::ModuleNotStatic(df.dec.1.clone())),
             Dec::Exp(e) => {
                 if exp_is_static(&e.0) {
                     // ignore pure expression with no name.
                     Ok(())
                 } else {
-                    Err(Interruption::ModuleNotStatic(source.clone()))
+                    Err(Interruption::ModuleNotStatic(df.dec.1.clone()))
                 }
             }
             Dec::Let(p, e) => {
-                match p.0 {
-                    Pat::Var(ref x) => {
-                        let ctx_id = active.defs().active_ctx.clone();
-                        if exp_is_static(&e.0) {
-                            active.defs().insert_field(
-                                &x.0,
-                                source.clone(),
-                                df.vis.clone(),
-                                df.stab.clone(),
-                                Def::StaticValue(ctx_id, e.clone()),
-                            )?;
-                            Ok(())
-                        } else {
-                            Err(Interruption::ModuleNotStatic(source.clone()))
+                if let Pat::Wild = p.0 {
+                    if exp_is_static(&e.0) {
+                        // ignore pure expression with no name.
+                        Ok(())
+                    } else {
+                        Err(Interruption::ModuleNotStatic(df.dec.1.clone()))
+                    }
+                } else {
+                    fn get_pat_var(p: &Pat) -> Option<Id_> {
+                        match p {
+                            Pat::Var(x) => Some(x.clone()),
+                            Pat::AnnotPat(p, _) => get_pat_var(&p.0),
+                            Pat::Paren(p) => get_pat_var(&p.0),
+                            _ => None,
                         }
                     }
-                    Pat::Wild => {
-                        if exp_is_static(&e.0) {
-                            // ignore pure expression with no name.
-                            Ok(())
-                        } else {
-                            Err(Interruption::ModuleNotStatic(source.clone()))
+                    match get_pat_var(&p.0) {
+                        Some(x) => {
+                            let ctx_id = active.defs().active_ctx.clone();
+                            if exp_is_static(&e.0) {
+                                active.defs().insert_field(
+                                    &x.0,
+                                    source.clone(),
+                                    df.vis.clone(),
+                                    df.stab.clone(),
+                                    Def::StaticValue(ctx_id, e.clone()),
+                                )?;
+                                Ok(())
+                            } else {
+                                Err(Interruption::ModuleNotStatic(source.clone()))
+                            }
+                        }
+                        None => {
+                            nyi!(line!())
                         }
                     }
-                    _ => nyi!(line!()),
                 }
             }
             Dec::LetImport(p, _, path) => {
@@ -786,7 +797,9 @@ mod def {
                 nyi!(line!())
             }
             Dec::Class(_class) => {
-                nyi!(line!())
+                // 20221209-1047 to do.
+                // nyi!(line!())
+                Ok(())
             }
         }
     }
@@ -980,8 +993,17 @@ fn delim_is_static(d: &crate::ast::Delim<Exp_>) -> bool {
 // (So no Mut::Var fields, and no objects, etc.)
 fn exp_is_static(e: &Exp) -> bool {
     match e {
+        Exp::ActorUrl(_) => true,
         Exp::Literal(_) => true,
-        Exp::Var(_) => true, // variables reference _values_ in the env.
+        Exp::Function(_) => true,
+        Exp::Block(decs) => {
+            if decs.vec.len() > 1 {
+                return false;
+            };
+            decs.vec.iter().all(|d| dec_is_static(&d.0))
+        }
+        Exp::Var(_) => true,  // variables reference _values_ in the env.
+        Exp::Prim(_) => true, // primitives are constant/built-in.
         Exp::Un(_, e1) => exp_is_static(&e1.0),
         Exp::Bin(e1, _, e2) => exp_is_static(&e1.0) & exp_is_static(&e2.0),
         Exp::Rel(e1, _, e2) => exp_is_static(&e1.0) & exp_is_static(&e2.0),
@@ -1001,7 +1023,19 @@ fn exp_is_static(e: &Exp) -> bool {
         Exp::Ignore(e) => exp_is_static(&e.0),
         Exp::Annot(_, e, _) => exp_is_static(&e.0),
         Exp::Paren(e) => exp_is_static(&e.0),
-        _ => false,
+        Exp::Dot(e1, e2) => exp_is_static(&e1.0) & exp_is_static(&e1.0),
+        _ => {
+            log::warn!("Safety check failed: exp_is_static({:?})", e);
+            false
+        }
+    }
+}
+
+fn dec_is_static(d: &Dec) -> bool {
+    match d {
+        Dec::Exp(e) => exp_is_static(&e.0),
+        Dec::Func(_) => true,
+        _ => todo!("dec_is_static({:?})", d),
     }
 }
 

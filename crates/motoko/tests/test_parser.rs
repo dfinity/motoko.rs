@@ -12,6 +12,17 @@ fn assert_parse_err(s: &str) {
         }
     }
 }
+#[test]
+fn test_prim_types() {
+    let d = motoko::check::parse("type t = Nat8").expect("assert_parse_ok");
+    match &d.vec.get(0).expect("get parsed decl").0 {
+        motoko::ast::Dec::Type(_, _, t) => match &t.0 {
+            motoko::ast::Type::Prim(_) => {}
+            t => unreachable!("expected Type::Prim, not {:?}", t),
+        },
+        d => unreachable!("expected Dec::Type, not {:?}", d),
+    }
+}
 
 #[test]
 fn test_dot_dot() {

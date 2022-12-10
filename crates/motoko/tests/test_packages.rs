@@ -11,7 +11,7 @@ fn assert_parse_packages(package: Package) {
         package.name,
         package.files.len()
     );
-    //assert!(!package.files.is_empty());
+    assert!(!package.files.is_empty());
     let mut files = package.files.into_iter().collect::<Vec<_>>();
     files.sort_by_cached_key(|(path, _)| path.clone());
     let total = files.len();
@@ -39,7 +39,7 @@ fn assert_parse_packages(package: Package) {
 fn assert_eval_packages(main_package: Package, dependencies: Vec<Package>) {
     println!("Evaluating package: {}", main_package.name);
     let packages = vec![vec![main_package], dependencies].concat();
-    //assert!(!packages.iter().all(|p| !p.files.is_empty()));
+    assert!(packages.iter().all(|p| !p.files.is_empty()));
     let mut core = Core::empty();
     let mut files = packages
         .into_iter()
@@ -112,6 +112,7 @@ fn parse_base_library_tests() {
     assert_parse_packages(get_base_library_tests())
 }
 
+#[ignore]
 #[test]
 fn eval_prim_library() {
     assert_eval_packages(get_prim_library(), vec![]);

@@ -1,6 +1,6 @@
 [package]
 name = "motoko_proc_macro"
-version = "0.0.21"
+version = "0.0.22"
 authors = ["Matthew Hammer", "Ryan Vandersmith"]
 edition = "2018"
 license = "Apache-2.0"
@@ -19,7 +19,7 @@ proc-macro = true
 [dependencies]
 # TODO: set this up as a "workspace dependency"? 
 # https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#inheriting-a-dependency-from-a-workspace
-motoko = { path = "../motoko", version = "0.0.21", default-features = false, features = ["parser"] }
+motoko = { path = "../motoko", version = "0.0.22", default-features = false, features = ["parser"] }
 syn = "1.0.100"
 quote = "1.0.21"
 proc-macro2 = "1.0.44"

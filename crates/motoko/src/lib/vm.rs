@@ -2922,6 +2922,13 @@ impl Core {
         }
     }
 
+    /// Test if the string is a syntatically-valid Motoko module.
+    #[cfg(feature = "parser")]
+    pub fn is_module_def(s: &str) -> bool {
+        Self::assert_module_def("".to_string(), s).is_ok()
+    }
+
+    /// path is only used to form SyntaxError Interruptions, if they are needed.
     fn assert_module_def(path: String, s: &str) -> Result<ModuleFileInit, Interruption> {
         let p = match crate::check::parse(s) {
             Err(code) => return Err(Interruption::SyntaxError(SyntaxError { path, code })),
@@ -2959,8 +2966,15 @@ impl Core {
 
     /// Set the path's file content (initially), or re-set it, when it changes.
     ///
+    /// Optionally, the file is part of a named package, and will be distinct from paths from other packages.
+    ///
     /// The content must be a module.  For actors, see `set_actor` instead.
-    pub fn set_module(&mut self, path: String, file_content: &str) -> Result<(), Interruption> {
+    pub fn set_module(
+        &mut self,
+        _package: Option<String>,
+        path: String,
+        file_content: &str,
+    ) -> Result<(), Interruption> {
         let init = Self::assert_module_def(path.clone(), file_content)?;
         let old = self.module_files.map.get(&path).map(|x| x.clone());
         if let Some(ModuleFileState::Defined(old)) = old {

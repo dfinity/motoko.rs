@@ -627,13 +627,24 @@ mod def {
     ) -> Result<(Id_, ModuleDef), Interruption> {
         if let Pat::Var(x) = p.0.clone() {
             let path = format!("{}", &path[1..path.len() - 1]);
-            let (package_name, local_path) = if path.starts_with("mo:") {
-                return nyi!(line!(), "import {}", path);
+            let (package_name, local_path) = if path == "mo:⛔" {
+                // prim module special case where "base" is implied.
+                (Some("base".to_string()), "⛔".to_string())
+            } else if path.starts_with("mo:") {
+                let path = format!("{}", &path[3..path.len()]);
+                let mut sep_parts = path.split("/");
+                if let Some(package_name) = sep_parts.next() {
+                    let local_path = format!("{}", &path[package_name.len() + 1..path.len()]);
+                    (Some(package_name.to_string()), local_path)
+                } else {
+                    // to do -- When "/" is missing after "mo:", it means the path is a package name, and the module file is "lib.mo"?
+                    return nyi!(line!(), "import {}", path);
+                }
             } else {
                 (active.package().clone(), path)
             };
             let path = crate::vm_types::ModulePath {
-                package_name,
+                package_name: package_name.clone(),
                 local_path,
             };
             let mf = active.module_files().map.get(&path).map(|x| x.clone());
@@ -651,6 +662,8 @@ mod def {
                     } else {
                         active.module_files().import_stack.push_back(path.clone());
                     };
+                    let importing_package = active.package().clone();
+                    *active.package() = package_name;
                     let (saved, ctxid) = active.defs().enter_context(true);
                     for dec in init.outer_decs.iter() {
                         let dec = dec.clone();
@@ -672,6 +685,7 @@ mod def {
                         None,
                     )?;
                     active.defs().leave_context(saved, &ctxid);
+                    *active.package() = importing_package;
                     if let Some(top_path) = active.module_files().import_stack.pop_back() {
                         assert_eq!(top_path, path)
                     } else {
@@ -1698,7 +1712,7 @@ fn resolve_def<A: ActiveBorrow>(
                 None => false,
             };
             if is_public_projection && !f_is_public {
-                return Err(Interruption::ModuleFieldNotPublic);
+                return Err(Interruption::ModuleFieldNotPublic(x.clone()));
             };
             Ok(d.clone())
         }
@@ -2769,6 +2783,10 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
             } else {
                 let dec_ = decs.pop_front().unwrap();
                 match &dec_.0 {
+                    Dec::Type(..) => {
+                        *active.cont() = Cont::Decs(decs);
+                        Ok(Step {})
+                    }
                     Dec::Exp(e) => {
                         *active.cont_source() = dec_.1.clone();
                         *active.cont() = Cont::Exp_(e.fast_clone(), decs);
@@ -2872,7 +2890,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         Pat::Var(ref x) => {
                             exp_conts(active, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), e)
                         }
-                        _ => nyi!(line!()),
+                        _ => nyi!(line!(), "Dec::Var({:?}, _)", p),
                     },
                     Dec::Func(f) => {
                         let id = f.name.clone();
@@ -2893,7 +2911,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                     }
-                    _ => nyi!(line!()),
+                    d => nyi!(line!(), "{:?}", d),
                 }
             }
         } //_ => unimplemented!(),

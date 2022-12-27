@@ -731,7 +731,7 @@ pub enum Interruption {
     ImportCycle(Vector<ModulePath>),
     ModuleFileNotFound(ModulePath),
     ModuleNotStatic(Source),
-    ModuleFieldNotPublic,
+    ModuleFieldNotPublic(Id),
     TypeMismatch(OptionCoreSource),
     NonLiteralInit(Source),
     NoMatchingCase,

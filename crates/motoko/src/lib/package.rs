@@ -9,7 +9,7 @@ pub fn get_base_library() -> Package {
     // to do -- fix this by making the import semantics understand URIs and package names better.
     let prim_content = include_str!("../packages/prim.mo").to_string();
     base_package.files.insert(
-        "mo:⛔.mo".to_string(),
+        "⛔.mo".to_string(),
         PackageFile {
             content: prim_content,
         },

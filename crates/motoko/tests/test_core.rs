@@ -2,7 +2,7 @@ use motoko::ast::ToId;
 use motoko::eval;
 use motoko::shared::Share;
 use motoko::value::ActorId;
-use motoko::vm_types::{Core, Interruption, Limits};
+use motoko::vm_types::{Core, Interruption, Limits, ModulePath};
 use motoko::ToMotoko;
 
 use test_log::test; // enable logging output for tests by default.
@@ -129,7 +129,7 @@ fn core_set_actor_with_ambient_module() {
 fn core_set_module_and_import_it() {
     let mut core = Core::empty();
 
-    core.set_module("M".to_string(), "module { public func f () { #ok } }")
+    core.set_module(None, "M".to_string(), "module { public func f () { #ok } }")
         .expect("set_module");
 
     let id = ActorId::Alias("A".to_id());
@@ -159,14 +159,14 @@ fn core_set_module_and_import_it() {
 #[test]
 fn not_a_module_definition() {
     let mut core = Core::empty();
-    let r = core.set_module("M".to_string(), "137");
+    let r = core.set_module(None, "M".to_string(), "137");
     assert_eq!(r, Err(Interruption::NotAModuleDefinition))
 }
 
 #[test]
 fn missing_module_definition() {
     let mut core = Core::empty();
-    let r = core.set_module("M".to_string(), "");
+    let r = core.set_module(None, "M".to_string(), "");
     assert_eq!(r, Err(Interruption::MissingModuleDefinition))
 }
 
@@ -179,7 +179,11 @@ fn module_file_not_found() {
         id.clone(),
         "import M \"M\"; actor { }",
     );
-    assert_eq!(r, Err(Interruption::ModuleFileNotFound("M".to_string())))
+    let path = ModulePath {
+        package_name: None,
+        local_path: "M".to_string(),
+    };
+    assert_eq!(r, Err(Interruption::ModuleFileNotFound(path)))
 }
 
 #[test]
@@ -187,8 +191,12 @@ fn core_set_actor_call_set_module() {
     let mut core = Core::empty();
     let id = ActorId::Alias("Counter".to_id());
 
-    core.set_module("M".to_string(), "module { public func inc (x) { x + 1 } }")
-        .expect("set_module");
+    core.set_module(
+        None,
+        "M".to_string(),
+        "module { public func inc (x) { x + 1 } }",
+    )
+    .expect("set_module");
 
     core.set_actor(
         format!("{}:{}", file!(), line!()),
@@ -233,8 +241,12 @@ fn core_set_actor_call_set_module() {
         eval("1")
     );
 
-    core.set_module("M".to_string(), "module { public func inc (x) { x + 2 } }")
-        .expect("set_module");
+    core.set_module(
+        None,
+        "M".to_string(),
+        "module { public func inc (x) { x + 2 } }",
+    )
+    .expect("set_module");
 
     assert_eq!(
         core.call(

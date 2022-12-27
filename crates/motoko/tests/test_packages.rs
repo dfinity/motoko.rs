@@ -11,7 +11,7 @@ fn assert_parse_packages(package: Package) {
         package.name,
         package.files.len()
     );
-    assert!(!package.files.is_empty());
+    //assert!(!package.files.is_empty());
     let mut files = package.files.into_iter().collect::<Vec<_>>();
     files.sort_by_cached_key(|(path, _)| path.clone());
     let total = files.len();
@@ -39,37 +39,56 @@ fn assert_parse_packages(package: Package) {
 fn assert_eval_packages(main_package: Package, dependencies: Vec<Package>) {
     println!("Evaluating package: {}", main_package.name);
     let packages = vec![vec![main_package], dependencies].concat();
-    assert!(packages.iter().all(|p| !p.files.is_empty()));
+    //assert!(!packages.iter().all(|p| !p.files.is_empty()));
     let mut core = Core::empty();
     let mut files = packages
         .into_iter()
-        .flat_map(|p| p.files)
+        .flat_map(|p| {
+            let package_name = p.name.clone();
+            p.files
+                .into_iter()
+                .map(move |(path, file)| (package_name.clone(), path, file))
+        })
         .collect::<Vec<_>>();
-    files.sort_by_cached_key(|(path, _)| path.clone());
+    files.sort_by_cached_key(|(package_name, path, _)| (package_name.clone(), path.clone()));
     let total = files.len();
+    let mut total_loaded = 0;
     let mut parse_count = 0;
     let mut error_count = 0;
     println!(
         "Attempting to load {} modules via set_module (parsing only; is order-independent).",
         total
     );
-    for (path, file) in files.iter() {
+    for (package_name, path, file) in files.iter() {
         parse_count += 1;
         // drop .mo from the path (will not be there for the imports)
         let path = format!("{}", &path[0..path.len() - 3]);
-        match core.set_module(path.clone(), &file.content) {
-            Ok(_) => println!(" set_module {}. ✅ {}", parse_count, path),
-            Err(i) => {
-                error_count += 1;
-                println!(" set_module {}. ❌ {} : {:?}", parse_count, path, i)
+        if Core::is_module_def(&file.content) {
+            match core.set_module(Some(package_name.to_string()), path.clone(), &file.content) {
+                Ok(_) => {
+                    total_loaded += 1;
+                    println!(" set_module {}. ✅ {}/{}", parse_count, package_name, path)
+                }
+                Err(i) => {
+                    error_count += 1;
+                    println!(
+                        " set_module {}. ❌ {}/{} : {:?}",
+                        parse_count, package_name, path, i
+                    )
+                }
             }
+        } else {
+            println!(
+                " skipping non-module {}. ✅ {}/{}",
+                parse_count, package_name, path
+            )
         }
     }
-    println!("Attempted to load {} modules.", total);
+    println!("Attempted to parse {} files", total);
     if error_count > 0 {
         println!("  But, found {} set_module/eval errors.", error_count);
     } else {
-        println!("  Success!");
+        println!("  Success!\n  Loaded all {} modules.", total_loaded);
     }
     println!(
         "Attempting to evaluate {} modules (process all imports and definitions).",
@@ -77,14 +96,20 @@ fn assert_eval_packages(main_package: Package, dependencies: Vec<Package>) {
     );
     let mut eval_count = 0;
     let mut error_count = 0;
-    for (path, file) in files {
+    for (package_name, path, file) in files {
         eval_count += 1;
         let mut core2 = core.clone();
+        core2
+            .set_ambient_package_name(Some(package_name.clone()))
+            .expect("");
         match core2.eval(&file.content) {
-            Ok(_) => println!(" eval {}. ✅ {}", eval_count, path),
+            Ok(_) => println!(" eval {}. ✅ {}/{}", eval_count, package_name, path),
             Err(i) => {
                 error_count += 1;
-                println!(" eval {}. ❌ {} : {:?}", eval_count, path, i)
+                println!(
+                    " eval {}. ❌ {}/{} : {:?}",
+                    eval_count, package_name, path, i
+                )
             }
         }
     }
@@ -112,7 +137,6 @@ fn parse_base_library_tests() {
     assert_parse_packages(get_base_library_tests())
 }
 
-#[ignore]
 #[test]
 fn eval_prim_library() {
     assert_eval_packages(get_prim_library(), vec![]);
@@ -123,7 +147,6 @@ fn eval_base_library() {
     assert_eval_packages(get_base_library(), vec![get_prim_library()]);
 }
 
-#[ignore]
 #[test]
 fn eval_base_library_tests() {
     assert_eval_packages(get_base_library_tests(), vec![get_base_library()]);

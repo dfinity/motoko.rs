@@ -147,6 +147,7 @@ fn eval_base_library() {
     assert_eval_packages(get_base_library(), vec![get_prim_library()]);
 }
 
+#[ignore]
 #[test]
 fn eval_base_library_tests() {
     assert_eval_packages(get_base_library_tests(), vec![get_base_library()]);

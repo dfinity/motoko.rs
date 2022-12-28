@@ -791,14 +791,6 @@ mod def {
                         Err(Interruption::ModuleNotStatic(df.dec.1.clone()))
                     }
                 } else {
-                    fn get_pat_var(p: &Pat) -> Option<Id_> {
-                        match p {
-                            Pat::Var(x) => Some(x.clone()),
-                            Pat::AnnotPat(p, _) => get_pat_var(&p.0),
-                            Pat::Paren(p) => get_pat_var(&p.0),
-                            _ => None,
-                        }
-                    }
                     match get_pat_var(&p.0) {
                         Some(x) => {
                             let ctx_id = active.defs().active_ctx.clone();
@@ -1946,6 +1938,15 @@ fn pattern_matches_temps_(pat: &Pat, v: Value_, mut out: Vec<Value_>) -> Option<
     }
 }
 
+fn get_pat_var(p: &Pat) -> Option<Id_> {
+    match p {
+        Pat::Var(x) => Some(x.clone()),
+        Pat::AnnotPat(p, _) => get_pat_var(&p.0),
+        Pat::Paren(p) => get_pat_var(&p.0),
+        _ => None,
+    }
+}
+
 // TODO: see whether it's possible to return something like `&'a Option<Env>` to reduce cloning
 // (since this has more of a performance impact than `fast_clone()`)
 fn pattern_matches(env: Env, pat: &Pat, v: Value_) -> Option<Env> {
@@ -2469,7 +2470,12 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 // do projection, representing function with special value.
                 Ok(Step {})
             }
-            _ => type_mismatch!(file!(), line!()),
+            v => Err(type_mismatch_!(
+                file!(),
+                line!(),
+                "dot-operator-is-matching-operand",
+                format!("{:?} @ {}", v, active.cont_source())
+            )),
         },
         Debug => match &*v {
             Value::Unit => {
@@ -2886,12 +2892,13 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         *active.cont() = Cont::Decs(decs);
                         Ok(Step {})
                     }
-                    Dec::Var(p, e) => match p.0 {
-                        Pat::Var(ref x) => {
+                    Dec::Var(p, e) => {
+                        if let Some(x) = get_pat_var(&p.0) {
                             exp_conts(active, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), e)
+                        } else {
+                            nyi!(line!(), "Dec::Var({:?}, _)", p)
                         }
-                        _ => nyi!(line!(), "Dec::Var({:?}, _)", p),
-                    },
+                    }
                     Dec::Func(f) => {
                         let id = f.name.clone();
                         let v = Value::Function(ClosedFunction(Closed {

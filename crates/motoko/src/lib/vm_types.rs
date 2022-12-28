@@ -35,7 +35,7 @@ macro_rules! type_mismatch_ {
     };
     ($file:expr, $line:expr, $name:expr) => {
         Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
-            name: Some($name),
+            name: Some($name.to_string()),
             description: None,
             file: $file.to_string(),
             line: $line,
@@ -43,8 +43,8 @@ macro_rules! type_mismatch_ {
     };
     ($file:expr, $line:expr, $name:expr, $description:expr) => {
         Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
-            name: Some($name),
-            description: Some($description),
+            name: Some($name.to_string()),
+            description: Some($description.to_string()),
             file: $file.to_string(),
             line: $line,
         })))

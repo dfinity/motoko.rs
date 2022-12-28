@@ -15,7 +15,8 @@ use crate::{Share, Value};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SyntaxError {
-    pub path: String,
+    pub package_name: Option<String>,
+    pub local_path: String,
     pub code: SyntaxErrorCode,
 }
 
@@ -447,6 +448,7 @@ pub struct Activation {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
     pub env: Env,
     pub stack: Stack,
+    pub package: Option<String>,
 }
 
 impl Activation {
@@ -458,6 +460,7 @@ impl Activation {
             cont: Cont::Value_(Value::Unit.share()),
             cont_source: Source::CoreInit, // todo
             cont_prim_type,
+            package: None,
         }
     }
 }
@@ -523,12 +526,16 @@ pub struct Actors {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleFiles {
     #[serde(with = "crate::serde_utils::im_rc_hashmap")]
-    pub map: HashMap<Path, ModuleFileState>,
-    pub import_stack: Vector<Path>,
+    pub map: HashMap<ModulePath, ModuleFileState>,
+    pub import_stack: Vector<ModulePath>,
 }
 
 /// A Path should adhere to certain rules, not enforced by this type.
-pub type Path = String;
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
+pub struct ModulePath {
+    pub package_name: Option<String>,
+    pub local_path: String,
+}
 
 /// The file representation for a module.
 ///
@@ -602,6 +609,7 @@ pub trait Active: ActiveBorrow {
     fn env<'a>(&'a mut self) -> &'a mut Env;
     fn stack<'a>(&'a mut self) -> &'a mut Stack;
     fn store<'a>(&'a mut self) -> &'a mut Store;
+    fn package<'a>(&'a mut self) -> &'a mut Option<String>;
     fn debug_print_out<'a>(&'a mut self) -> &'a mut Vector<DebugPrintLine>;
     fn counts<'a>(&'a mut self) -> &'a mut Counts;
 
@@ -624,13 +632,13 @@ pub trait Active: ActiveBorrow {
 
     fn create_module(
         &mut self,
-        path: String,
+        path: ModulePath,
         id: Option<Id>,
         module: def::Module,
     ) -> Result<Value_, Interruption>;
     fn upgrade_module(
         &mut self,
-        path: String,
+        path: ModulePath,
         id: Option<Id>,
         module: def::Module,
     ) -> Result<Value_, Interruption>;
@@ -720,10 +728,10 @@ pub enum Interruption {
     Breakpoint(Breakpoint),
     Dangling(Pointer),
     NotOwner(Pointer),
-    ImportCycle(Vector<Path>),
-    ModuleFileNotFound(Path),
+    ImportCycle(Vector<ModulePath>),
+    ModuleFileNotFound(ModulePath),
     ModuleNotStatic(Source),
-    ModuleFieldNotPublic,
+    ModuleFieldNotPublic(Id),
     TypeMismatch(OptionCoreSource),
     NonLiteralInit(Source),
     NoMatchingCase,

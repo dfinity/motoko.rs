@@ -16,8 +16,8 @@ use crate::vm_types::{
     stack::{FieldContext, FieldValue, Frame, FrameCont},
     Activation, Active, ActiveBorrow, Actor, Actors, Agent, Breakpoint, Cont, Core, CoreSource,
     Counts, DebugPrintLine, Env, Interruption, Limit, Limits, LocalPointer, ModuleFile,
-    ModuleFileInit, ModuleFileState, ModuleFiles, NamedPointer, Pointer, Response, ScheduleChoice,
-    Stack, Step, SyntaxError,
+    ModuleFileInit, ModuleFileState, ModuleFiles, ModulePath, NamedPointer, Pointer, Response,
+    ScheduleChoice, Stack, Step, SyntaxError,
 };
 use crate::vm_types::{EvalInitError, Store};
 use im_rc::{HashMap, Vector};
@@ -260,6 +260,23 @@ impl Active for Core {
             }
         }
     }
+    fn package<'a>(&'a mut self) -> &'a mut Option<String> {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.active.package,
+            Actor(ref n) => {
+                &mut self
+                    .actors
+                    .map
+                    .get_mut(n)
+                    .unwrap()
+                    .active
+                    .as_mut()
+                    .unwrap()
+                    .package
+            }
+        }
+    }
     fn cont_source<'a>(&'a mut self) -> &'a mut Source {
         use ScheduleChoice::*;
         match &self.schedule_choice {
@@ -452,7 +469,7 @@ impl Active for Core {
 
     fn create_module(
         &mut self,
-        _path: String,
+        _path: ModulePath,
         _id: Option<Id>,
         module: ModuleDef,
     ) -> Result<Value_, Interruption> {
@@ -461,7 +478,7 @@ impl Active for Core {
 
     fn upgrade_module(
         &mut self,
-        _path: String,
+        _path: ModulePath,
         _id: Option<Id>,
         module: ModuleDef,
     ) -> Result<Value_, Interruption> {
@@ -610,9 +627,29 @@ mod def {
     ) -> Result<(Id_, ModuleDef), Interruption> {
         if let Pat::Var(x) = p.0.clone() {
             let path = format!("{}", &path[1..path.len() - 1]);
+            let (package_name, local_path) = if path == "mo:⛔" {
+                // prim module special case where "base" is implied.
+                (Some("base".to_string()), "⛔".to_string())
+            } else if path.starts_with("mo:") {
+                let path = format!("{}", &path[3..path.len()]);
+                let mut sep_parts = path.split("/");
+                if let Some(package_name) = sep_parts.next() {
+                    let local_path = format!("{}", &path[package_name.len() + 1..path.len()]);
+                    (Some(package_name.to_string()), local_path)
+                } else {
+                    // to do -- When "/" is missing after "mo:", it means the path is a package name, and the module file is "lib.mo"?
+                    return nyi!(line!(), "import {}", path);
+                }
+            } else {
+                (active.package().clone(), path)
+            };
+            let path = crate::vm_types::ModulePath {
+                package_name: package_name.clone(),
+                local_path,
+            };
             let mf = active.module_files().map.get(&path).map(|x| x.clone());
             let mf = match mf {
-                None => return Err(Interruption::ModuleFileNotFound(path.to_string())),
+                None => return Err(Interruption::ModuleFileNotFound(path)),
                 Some(ModuleFileState::Defined(mf)) => mf,
                 Some(ModuleFileState::Init(init)) => {
                     // if a module imports itself, directly or indirectly, we we diverge without cycle detection.
@@ -625,6 +662,8 @@ mod def {
                     } else {
                         active.module_files().import_stack.push_back(path.clone());
                     };
+                    let importing_package = active.package().clone();
+                    *active.package() = package_name;
                     let (saved, ctxid) = active.defs().enter_context(true);
                     for dec in init.outer_decs.iter() {
                         let dec = dec.clone();
@@ -646,6 +685,7 @@ mod def {
                         None,
                     )?;
                     active.defs().leave_context(saved, &ctxid);
+                    *active.package() = importing_package;
                     if let Some(top_path) = active.module_files().import_stack.pop_back() {
                         assert_eq!(top_path, path)
                     } else {
@@ -683,7 +723,10 @@ mod def {
             Dec::LetModule(id, _, dfs) => {
                 let v = module(
                     active,
-                    format!("<anonymous@{}>", &df.dec.1),
+                    ModulePath {
+                        package_name: None,
+                        local_path: format!("<anonymous@{}>", &df.dec.1),
+                    },
                     id,
                     df.dec.1.clone(),
                     df.vis.clone(),
@@ -933,7 +976,7 @@ mod def {
 
     pub fn module<A: Active>(
         active: &mut A,
-        path: String,
+        path: ModulePath,
         id: &Option<Id_>,
         source: Source,
         vis: Option<Vis_>,
@@ -1669,7 +1712,7 @@ fn resolve_def<A: ActiveBorrow>(
                 None => false,
             };
             if is_public_projection && !f_is_public {
-                return Err(Interruption::ModuleFieldNotPublic);
+                return Err(Interruption::ModuleFieldNotPublic(x.clone()));
             };
             Ok(d.clone())
         }
@@ -1843,7 +1886,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             ));
             Ok(Step {})
         }
-        _ => nyi!(line!()),
+        e => nyi!(line!(), "{:?}", e),
     }
 }
 
@@ -2740,6 +2783,10 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
             } else {
                 let dec_ = decs.pop_front().unwrap();
                 match &dec_.0 {
+                    Dec::Type(..) => {
+                        *active.cont() = Cont::Decs(decs);
+                        Ok(Step {})
+                    }
                     Dec::Exp(e) => {
                         *active.cont_source() = dec_.1.clone();
                         *active.cont() = Cont::Exp_(e.fast_clone(), decs);
@@ -2813,7 +2860,10 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                     Dec::LetModule(id, _, dfs) => {
                         let v = def::module(
                             active,
-                            format!("<anonymous@{}>", dec_.1),
+                            ModulePath {
+                                package_name: None,
+                                local_path: format!("<anonymous@{}>", dec_.1),
+                            },
                             &id,
                             dec_.1.clone(),
                             None,
@@ -2840,7 +2890,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         Pat::Var(ref x) => {
                             exp_conts(active, FrameCont::Var(x.fast_clone(), Cont::Decs(decs)), e)
                         }
-                        _ => nyi!(line!()),
+                        _ => nyi!(line!(), "Dec::Var({:?}, _)", p),
                     },
                     Dec::Func(f) => {
                         let id = f.name.clone();
@@ -2861,7 +2911,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                             Ok(Step {})
                         }
                     }
-                    _ => nyi!(line!()),
+                    d => nyi!(line!(), "{:?}", d),
                 }
             }
         } //_ => unimplemented!(),
@@ -2901,11 +2951,17 @@ impl Core {
     }
 
     fn assert_actor_def(
-        path: String,
+        local_path: String,
         s: &str,
     ) -> Result<(Vector<Dec_>, Option<Id_>, crate::ast::DecFields), Interruption> {
         let p = match crate::check::parse(s) {
-            Err(code) => return Err(Interruption::SyntaxError(SyntaxError { path, code })),
+            Err(code) => {
+                return Err(Interruption::SyntaxError(SyntaxError {
+                    package_name: None,
+                    local_path,
+                    code,
+                }))
+            }
             Ok(r) => r,
         };
         if p.vec.is_empty() {
@@ -2922,9 +2978,27 @@ impl Core {
         }
     }
 
-    fn assert_module_def(path: String, s: &str) -> Result<ModuleFileInit, Interruption> {
+    /// Test if the string is a syntatically-valid Motoko module.
+    #[cfg(feature = "parser")]
+    pub fn is_module_def(s: &str) -> bool {
+        // we ignore the syntax error messages, if any; so this path doesn't matter.
+        let path = ModulePath {
+            package_name: None,
+            local_path: "".to_string(),
+        };
+        Self::assert_module_def(path, s).is_ok()
+    }
+
+    /// path is only used to form SyntaxError Interruptions, if they are needed.
+    fn assert_module_def(path: ModulePath, s: &str) -> Result<ModuleFileInit, Interruption> {
         let p = match crate::check::parse(s) {
-            Err(code) => return Err(Interruption::SyntaxError(SyntaxError { path, code })),
+            Err(code) => {
+                return Err(Interruption::SyntaxError(SyntaxError {
+                    package_name: path.package_name,
+                    local_path: path.local_path,
+                    code,
+                }))
+            }
             Ok(r) => r,
         };
         if p.vec.is_empty() {
@@ -2959,8 +3033,19 @@ impl Core {
 
     /// Set the path's file content (initially), or re-set it, when it changes.
     ///
+    /// Optionally, the file is part of a named package, and will be distinct from paths from other packages.
+    ///
     /// The content must be a module.  For actors, see `set_actor` instead.
-    pub fn set_module(&mut self, path: String, file_content: &str) -> Result<(), Interruption> {
+    pub fn set_module(
+        &mut self,
+        package_name: Option<String>,
+        local_path: String,
+        file_content: &str,
+    ) -> Result<(), Interruption> {
+        let path = crate::vm_types::ModulePath {
+            package_name,
+            local_path,
+        };
         let init = Self::assert_module_def(path.clone(), file_content)?;
         let old = self.module_files.map.get(&path).map(|x| x.clone());
         if let Some(ModuleFileState::Defined(old)) = old {
@@ -3186,14 +3271,32 @@ impl Core {
         Ok(())
     }
 
+    /// For running snippets of code as if they were within a package.
+    /// (They import that package's modules as if they are all local).
+    pub fn set_ambient_package_name(
+        &mut self,
+        package: Option<String>,
+    ) -> Result<(), Interruption> {
+        self.assert_idle_agent()
+            .map_err(Interruption::EvalInitError)?;
+        self.agent.active.package = package;
+        Ok(())
+    }
+
     /// Evaluate a new program fragment, assuming agent is idle.
     #[cfg(feature = "parser")]
     pub fn eval(&mut self, new_prog_frag: &str) -> Result<Value_, Interruption> {
         self.assert_idle_agent()
             .map_err(Interruption::EvalInitError)?;
-        let path = "<anonymous>".to_string();
-        let p = crate::check::parse(new_prog_frag)
-            .map_err(|code| Interruption::SyntaxError(SyntaxError { code, path }))?;
+        let local_path = "<anonymous>".to_string();
+        let package_name = None;
+        let p = crate::check::parse(new_prog_frag).map_err(|code| {
+            Interruption::SyntaxError(SyntaxError {
+                code,
+                local_path,
+                package_name,
+            })
+        })?;
         self.agent.active.cont = Cont::Decs(p.vec);
         self.run(&Limits::none())
     }
@@ -3258,9 +3361,15 @@ pub fn eval_limit(prog: &str, limits: &Limits) -> Result<Value_, Interruption> {
     info!("  - prog = {}", prog);
     info!("  - limits = {:#?}", limits);
     //use crate::vm_types::Interruption::SyntaxError;
-    let path = "<anonymous>".to_string();
-    let p = crate::check::parse(prog)
-        .map_err(|code| Interruption::SyntaxError(SyntaxError { code, path }))?;
+    let package_name = None;
+    let local_path = "<anonymous>".to_string();
+    let p = crate::check::parse(prog).map_err(|code| {
+        Interruption::SyntaxError(SyntaxError {
+            code,
+            local_path,
+            package_name,
+        })
+    })?;
     info!("eval_limit: parsed.");
     let mut c = Core::new(p);
     let r = c.run(limits);

@@ -1886,7 +1886,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             ));
             Ok(Step {})
         }
-        _ => nyi!(line!()),
+        e => nyi!(line!(), "{:?}", e),
     }
 }
 

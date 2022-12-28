@@ -5,6 +5,66 @@ use motoko::{
 
 use test_log::test;
 
+#[test]
+fn import_all_your_base() {
+    let import_all = r##"
+ import Array "mo:base/Array";
+ import AssocList "mo:base/AssocList";
+ import Blob "mo:base/Blob";
+ import Bool "mo:base/Bool";
+ import Buffer "mo:base/Buffer";
+ import CertifiedData "mo:base/CertifiedData";
+ import Char "mo:base/Char";
+ import Debug "mo:base/Debug";
+ import Deque "mo:base/Deque";
+ import Error "mo:base/Error";
+ import ExperimentalCycles "mo:base/ExperimentalCycles";
+ import ExperimentalInternetComputer "mo:base/ExperimentalInternetComputer";
+ import ExperimentalStableMemory "mo:base/ExperimentalStableMemory";
+ import Float "mo:base/Float";
+ import Func "mo:base/Func";
+ import Hash "mo:base/Hash";
+ import HashMap "mo:base/HashMap";
+ import Heap "mo:base/Heap";
+ import Int "mo:base/Int";
+ import Int16 "mo:base/Int16";
+ import Int32 "mo:base/Int32";
+ import Int64 "mo:base/Int64";
+ import Int8 "mo:base/Int8";
+ import Iter "mo:base/Iter";
+ import IterType "mo:base/IterType";
+ import List "mo:base/List";
+ import Nat "mo:base/Nat";
+ import Nat16 "mo:base/Nat16";
+ import Nat32 "mo:base/Nat32";
+ import Nat64 "mo:base/Nat64";
+ import Nat8 "mo:base/Nat8";
+ import None "mo:base/None";
+ import Option "mo:base/Option";
+ import Order "mo:base/Order";
+ import Prelude "mo:base/Prelude";
+ import Principal "mo:base/Principal";
+ import RBTree "mo:base/RBTree";
+ import Stack "mo:base/Stack";
+ import Random "mo:base/Random";
+ import Text "mo:base/Text";
+ import Time "mo:base/Time";
+ import Trie "mo:base/Trie";
+ import TrieMap "mo:base/TrieMap";
+ import TrieSet "mo:base/TrieSet";
+   "##;
+
+    let mut core = Core::empty();
+    let base = get_base_library();
+    for (path, file) in base.files.into_iter() {
+        // remove '.mo' from suffix of the filename to produce the path
+        let path = format!("{}", &path[0..path.len() - 3]);
+        core.set_module(Some("base".to_string()), path.clone(), &file.content)
+            .expect("load base");
+    }
+    core.eval(&import_all).expect("eval import all");
+}
+
 fn assert_parse_packages(package: Package) {
     println!(
         "Parsing package: {}, with {} files.",

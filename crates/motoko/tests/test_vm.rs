@@ -278,9 +278,9 @@ fn for_() {
 
 #[test]
 fn prim_debug_print() {
-    assert_("prim \"debugPrint\" \"hello, world\"", "()");
+    assert_("prim \"print\" \"hello, world\"", "()");
     assert_(
-        "let Debug = { print = prim \"debugPrint\" }; Debug.print \"hello, world\"",
+        "let Debug = { print = prim \"print\" }; Debug.print \"hello, world\"",
         "()",
     );
 }
@@ -384,17 +384,17 @@ fn function_call_return_restores_env() {
 fn demo_redex_stepping() {
     let prog = r#"
 let a = 1;
-(prim "debugPrint") "Hello, VM 1!";
-(prim "debugPrint") "Hello, VM 2!";
-(prim "debugPrint") "Hello, VM 3!";
-(prim "debugPrint") "Hello, VM 4!";
+(prim "print") "Hello, VM 1!";
+(prim "print") "Hello, VM 2!";
+(prim "print") "Hello, VM 3!";
+(prim "print") "Hello, VM 4!";
 var y = 666;
-(prim "debugPrint") "Hello, VM 5!";
-(prim "debugPrint") "Hello, VM 6!";
-(prim "debugPrint") "Hello, VM 7!";
+(prim "print") "Hello, VM 5!";
+(prim "print") "Hello, VM 6!";
+(prim "print") "Hello, VM 7!";
 var x = y + a;
-(prim "debugPrint") "Hello, VM 8!";
-(prim "debugPrint") "Hello, VM 9!";
+(prim "print") "Hello, VM 8!";
+(prim "print") "Hello, VM 9!";
 x + 1;
 "#;
     assert_(prog, "668");
@@ -420,7 +420,7 @@ f()
 #[test]
 fn demo_for_() {
     let prog = r#"
-let Debug = { print = prim "debugPrint"};
+let Debug = { print = prim "print"};
 var x = 0;
 let Iter = { range = func(end){
   { next = func() {

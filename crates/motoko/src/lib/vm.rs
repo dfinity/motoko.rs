@@ -674,6 +674,7 @@ mod def {
                         };
                         def::insert_static_field(active, &df.dec.1, &df)?;
                     }
+                    let fields = init.fields.clone(); // -- to do, if the package_name is ⛔, then "promote" everything to be public.
                     let v = def::module(
                         active,
                         path.clone(),
@@ -681,7 +682,7 @@ mod def {
                         Source::CoreSetModule,
                         None,
                         None,
-                        &init.fields,
+                        &fields,
                         None,
                     )?;
                     active.defs().leave_context(saved, &ctxid);

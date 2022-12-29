@@ -674,7 +674,27 @@ mod def {
                         };
                         def::insert_static_field(active, &df.dec.1, &df)?;
                     }
-                    let fields = init.fields.clone(); // -- to do, if the package_name is ⛔, then "promote" everything to be public.
+                    let do_promote_fields_to_public_vis =
+                        // if the package_name is ⛔, then "promote" everything to be public.
+                        active.package().as_ref().map_or(false, |n| n.as_str() == "⛔");
+                    let fields = // promote.
+                        if do_promote_fields_to_public_vis {
+                            crate::ast::Delim{
+                                vec:
+                                init.fields.vec.iter().map(
+                                    |f|
+                                    crate::ast::NodeData(
+                                        DecField{
+                                            vis:Some(
+                                                crate::ast::NodeData(crate::ast::Vis::Public(None),
+                                                                     crate::ast::Source::ImportPrim).share()),
+                                            .. f.0.clone()},
+                                        f.1.clone()).share()).collect(),
+                                    .. init.fields.clone()
+                            }
+                        } else {
+                            init.fields.clone()
+                        };
                     let v = def::module(
                         active,
                         path.clone(),

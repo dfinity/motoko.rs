@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub fn get_base_library() -> Package {
     let mut base_package: Package =
         serde_json::from_str(include_str!("../packages/base.json")).unwrap();
+/*
     // to do -- fix this by making the import semantics understand URIs and package names better.
     let prim_content = include_str!("../packages/prim.mo").to_string();
     base_package.files.insert(
@@ -14,6 +15,7 @@ pub fn get_base_library() -> Package {
             content: prim_content,
         },
     );
+*/
     base_package
 }
 

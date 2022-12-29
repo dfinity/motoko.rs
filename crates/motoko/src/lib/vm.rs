@@ -628,8 +628,8 @@ mod def {
         if let Pat::Var(x) = p.0.clone() {
             let path = format!("{}", &path[1..path.len() - 1]);
             let (package_name, local_path) = if path == "mo:⛔" {
-                // prim module special case where "base" is implied.
-                (Some("base".to_string()), "⛔".to_string())
+                // to do -- generalize the support for package names used without local paths
+                (Some("⛔".to_string()), "lib".to_string())
             } else if path.starts_with("mo:") {
                 let path = format!("{}", &path[3..path.len()]);
                 let mut sep_parts = path.split("/");

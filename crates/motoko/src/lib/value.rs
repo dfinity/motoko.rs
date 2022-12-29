@@ -282,7 +282,7 @@ impl PrimFunction {
         use CollectionFunction::*;
         use PrimFunction::*;
         Ok(match name.as_str() {
-            "\"debugPrint\"" => DebugPrint,
+            "\"print\"" => DebugPrint,
             "\"natToText\"" => NatToText,
             "\"hashMapNew\"" => Collection(HashMap(HashMapFunction::New)),
             "\"hashMapPut\"" => Collection(HashMap(HashMapFunction::Put)),

@@ -68,6 +68,7 @@ pub enum Source {
     CoreUpgradeActor,
     CoreSetModule,
     CoreCall,
+    ImportPrim,
 }
 
 impl Source {
@@ -122,6 +123,7 @@ impl std::fmt::Display for Source {
             Source::CoreUpgradeActor => write!(f, "(Core.upgrade_actor())"),
             Source::CoreCall => write!(f, "(Core.call())"),
             Source::CoreSetModule => write!(f, "(Core.set_module())"),
+            Source::ImportPrim => write!(f, "(import ⛔)"),
         }
     }
 }

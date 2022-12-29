@@ -5,6 +5,39 @@ use motoko::{
 
 use test_log::test;
 
+fn new_core_with_base() -> Core {
+    let mut core = Core::empty();
+
+    let prim = get_prim_library();
+    for (path, file) in prim.files.into_iter() {
+        // remove '.mo' from suffix of the filename to produce the path
+        let path = format!("{}", &path[0..path.len() - 3]);
+        core.set_module(Some("⛔".to_string()), path.clone(), &file.content)
+            .expect("load prim");
+    }
+
+    let base = get_base_library();
+    for (path, file) in base.files.into_iter() {
+        // remove '.mo' from suffix of the filename to produce the path
+        let path = format!("{}", &path[0..path.len() - 3]);
+        core.set_module(Some("base".to_string()), path.clone(), &file.content)
+            .expect("load base");
+    }
+
+    core
+}
+
+#[test]
+fn import_and_eval_debug_print() {
+    let print_hello_world = r##"
+ import Debug "mo:base/Debug";
+ Debug.print "hello world"
+ "##;
+    let mut core = new_core_with_base();
+    core.eval(&print_hello_world)
+        .expect("eval print hello world");
+}
+
 #[test]
 fn import_all_your_base() {
     let import_all = r##"
@@ -54,14 +87,7 @@ fn import_all_your_base() {
  import TrieSet "mo:base/TrieSet";
    "##;
 
-    let mut core = Core::empty();
-    let base = get_base_library();
-    for (path, file) in base.files.into_iter() {
-        // remove '.mo' from suffix of the filename to produce the path
-        let path = format!("{}", &path[0..path.len() - 3]);
-        core.set_module(Some("base".to_string()), path.clone(), &file.content)
-            .expect("load base");
-    }
+    let mut core = new_core_with_base();
     core.eval(&import_all).expect("eval import all");
 }
 
@@ -210,5 +236,8 @@ fn eval_base_library() {
 #[ignore]
 #[test]
 fn eval_base_library_tests() {
-    assert_eval_packages(get_base_library_tests(), vec![get_base_library()]);
+    assert_eval_packages(
+        get_base_library_tests(),
+        vec![get_base_library(), get_prim_library()],
+    );
 }

@@ -19,6 +19,7 @@ writeFileSync(
   join(__dirname, "../crates/motoko/src/packages/prim.mo"),
   `module {\n${primSource
     .replaceAll(/^func/gm, "public func")
+    .replaceAll(/^let/gm, "public let")
     .replaceAll(/^/gm, "  ")}\n}`,
   "utf8"
 );

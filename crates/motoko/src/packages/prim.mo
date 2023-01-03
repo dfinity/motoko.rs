@@ -76,14 +76,14 @@ module {
   
   // Total conversions (fixed to big)
   
-  let int64ToInt = @int64ToInt;
-  let int32ToInt = @int32ToInt;
-  let int16ToInt = @int16ToInt;
-  let int8ToInt = @int8ToInt;
-  let nat64ToNat = @nat64ToNat;
-  let nat32ToNat = @nat32ToNat;
-  let nat16ToNat = @nat16ToNat;
-  let nat8ToNat = @nat8ToNat;
+  public let int64ToInt = @int64ToInt;
+  public let int32ToInt = @int32ToInt;
+  public let int16ToInt = @int16ToInt;
+  public let int8ToInt = @int8ToInt;
+  public let nat64ToNat = @nat64ToNat;
+  public let nat32ToNat = @nat32ToNat;
+  public let nat16ToNat = @nat16ToNat;
+  public let nat8ToNat = @nat8ToNat;
   
   // Trapping conversions (big to fixed)
   
@@ -196,7 +196,7 @@ module {
   public func floatToInt64(f : Float) : Int64 = (prim "num_conv_Float_Int64" : Float -> Int64) (f);
   public func int64ToFloat(n : Int64) : Float = (prim "num_conv_Int64_Float" : Int64 -> Float) (n);
   
-  let floatToText = @text_of_Float;
+  public let floatToText = @text_of_Float;
   
   // Configurable Float formatter
   // mode:
@@ -268,7 +268,7 @@ module {
   public func principalOfActor(act : actor {}) : Principal = (prim "cast" : (actor {}) -> Principal) act;
   
   // Untyped dynamic actor creation from blobs
-  let createActor : (wasm : Blob, argument : Blob) -> async Principal = @create_actor_helper;
+  public let createActor : (wasm : Blob, argument : Blob) -> async Principal = @create_actor_helper;
   
   public func cyclesBalance() : Nat {
     (prim "cyclesBalance" : () -> Nat) ();
@@ -371,7 +371,7 @@ module {
     (prim "stableVarQuery" : () -> (shared query () -> async {size : Nat64})) () ;
   
   
-  let call_raw = @call_raw;
+  public let call_raw = @call_raw;
   
   public func performanceCounter(counter : Nat32) : Nat64 =
     (prim "performanceCounter" : (Nat32) -> Nat64) counter;

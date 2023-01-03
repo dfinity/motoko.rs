@@ -1,18 +1,19 @@
 /*
 The primitive definitions.
+
 This module should contain everything that cannot be implemented in plain
 Motoko. It is available via `import Prim "mo:⛔"`. Normal user code would
 usually not import that module directly, but through `base`, which takes
 care of providing a proper module structure, e.g. exposing `Array_tabulate`
 through `Array.tabulate`.
+
 Therefore, the prim module does not need to provide a stable interface, as its
 only supported consumer is the `base` library, and that is bundled with the
 compiler.
+
 Nevertheless, it shoud be _safe_ to import prim, i.e. the definitions here
 should not break type safety or other guarantees of the language.
 */
-
-module {
 
 module Types = {
   public type Any = prim "Any";
@@ -45,15 +46,18 @@ func shiftRight(x : Nat, shift : Nat32) : Nat { (prim "rsh_Nat" : (Nat, Nat32) -
 func idlHash(x : Text) : Nat32 { (prim "idlHash" : Text -> Nat32) x };
 
 // Printing
+
 func debugPrint(x : Text) { (prim "print" : Text -> ()) x };
 func debugPrintNat(x : Nat) { debugPrint (@text_of_Nat x) };
 func debugPrintInt(x : Int) { debugPrint (@text_of_Int x) };
 func debugPrintChar(x : Char) { debugPrint (charToText x) };
 
 // Trapping
+
 func trap(x : Text) : None { (prim "trap" : Text -> None) x };
 
 // RTS stats
+
 func rts_version() : Text { (prim "rts_version" : () -> Text) () };
 func rts_memory_size() : Nat { (prim "rts_memory_size" : () -> Nat) () };
 func rts_heap_size() : Nat { (prim "rts_heap_size" : () -> Nat) () };
@@ -66,9 +70,11 @@ func rts_mutator_instructions() : Nat { (prim "rts_mutator_instructions" : () ->
 func rts_collector_instructions() : Nat { (prim "rts_collector_instructions" : () -> Nat) () };
 
 // Hashing
+
 func hashBlob(b : Blob) : Nat32 { (prim "crc32Hash" : Blob -> Nat32) b };
 
 // Total conversions (fixed to big)
+
 let int64ToInt = @int64ToInt;
 let int32ToInt = @int32ToInt;
 let int16ToInt = @int16ToInt;
@@ -79,6 +85,7 @@ let nat16ToNat = @nat16ToNat;
 let nat8ToNat = @nat8ToNat;
 
 // Trapping conversions (big to fixed)
+
 func intToInt64(n : Int) : Int64 = (prim "num_conv_Int_Int64" : Int -> Int64) n;
 func intToInt32(n : Int) : Int32 = (prim "num_conv_Int_Int32" : Int -> Int32) n;
 func intToInt16(n : Int) : Int16 = (prim "num_conv_Int_Int16" : Int -> Int16) n;
@@ -90,6 +97,7 @@ func natToNat16(n : Nat) : Nat16 = (prim "num_conv_Nat_Nat16" : Nat -> Nat16) n;
 func natToNat8(n : Nat) : Nat8 = (prim "num_conv_Nat_Nat8" : Nat -> Nat8) n;
 
 // Wrapping conversions (big to fixed, and within fixed)
+
 func intToInt64Wrap(n : Int) : Int64 = (prim "num_wrap_Int_Int64" : Int -> Int64) n;
 func intToInt32Wrap(n : Int) : Int32 = (prim "num_wrap_Int_Int32" : Int -> Int32) n;
 func intToInt16Wrap(n : Int) : Int16 = (prim "num_wrap_Int_Int16" : Int -> Int16) n;
@@ -110,6 +118,7 @@ func int8ToNat8(n : Int8) : Nat8 = (prim "num_wrap_Int8_Nat8" : Int8 -> Nat8) n;
 func nat8ToInt8(n : Nat8) : Int8 = (prim "num_wrap_Nat8_Int8" : Nat8 -> Int8) n;
 
 // Char conversion and properties
+
 func charToNat32(c : Char) : Nat32 = (prim "num_wrap_Char_Nat32" : Char -> Nat32) c;
 func nat32ToChar(w : Nat32) : Char = (prim "num_conv_Nat32_Char" : Nat32 -> Char) w;
 
@@ -171,6 +180,7 @@ func ctzInt64(w : Int64) : Int64 = (prim "ctz64" : Int64 -> Int64) w;
 func btstInt64(w : Int64, amount : Int64) : Bool = (prim "btst64" : (Int64, Int64) -> Int64) (w, amount) != (0 : Int64);
 
 // Float operations
+
 func floatAbs(f : Float) : Float = (prim "fabs" : Float -> Float) f;
 func floatSqrt(f : Float) : Float = (prim "fsqrt" : Float -> Float) f;
 func floatCeil(f : Float) : Float = (prim "fceil" : Float -> Float) f;
@@ -197,6 +207,7 @@ let floatToText = @text_of_Float;
 func floatToFormattedText(f : Float, prec : Nat8, mode : Nat8) : Text = (prim "fmtFloat->Text" : (Float, Nat8, Nat8) -> Text) (f, prec, mode);
 
 // Trigonometric and transcendental functions
+
 func sin(f : Float) : Float = (prim "fsin" : Float -> Float) f;
 func cos(f : Float) : Float = (prim "fcos" : Float -> Float) f;
 func tan(f : Float) : Float = (prim "ftan" : Float -> Float) f;
@@ -209,6 +220,7 @@ func exp(f : Float) : Float = (prim "fexp" : Float -> Float) f;
 func log(f : Float) : Float = (prim "flog" : Float -> Float) f;
 
 // Array utilities
+
 func Array_init<T>(len : Nat,  x : T) : [var T] {
   (prim "Array.init" : <T>(Nat, T) -> [var T])<T>(len, x)
 };
@@ -244,9 +256,11 @@ func errorMessage(e : Error) : Text =
   ((prim "cast" : Error -> (ErrorCode, Text)) e).1;
 
 // Time
+
 func time() : Nat64 = (prim "time" : () -> Nat64) ();
 
 // Principal
+
 func blobOfPrincipal(id : Principal) : Blob = (prim "cast" : Principal -> Blob) id;
 func principalOfBlob(act : Blob) : Principal = (prim "cast" : Blob -> Principal) act;
 
@@ -284,6 +298,7 @@ func setCertifiedData(data : Blob) = (prim "setCertifiedData" : Blob -> ()) data
 func getCertificate() : ?Blob = (prim "getCertificate" : () -> ?Blob) ();
 
 // stable memory
+
 func stableMemorySize() : Nat64 =
   (prim "stableMemorySize" : () -> Nat64) ();
 
@@ -359,5 +374,3 @@ let call_raw = @call_raw;
 
 func performanceCounter(counter : Nat32) : Nat64 =
   (prim "performanceCounter" : (Nat32) -> Nat64) counter;
-
-}

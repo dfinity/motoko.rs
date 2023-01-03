@@ -1,7 +1,7 @@
 "use strict";
 
 const { join } = require("path");
-const { writeFileSync } = require("fs");
+const { readFileSync, writeFileSync } = require("fs");
 const mo = require("motoko");
 
 const packages = [
@@ -16,6 +16,14 @@ Promise.all(
     writeFileSync(
       join(__dirname, `../crates/motoko/src/packages/${name}.json`),
       JSON.stringify(pkg),
+      "utf8"
+    );
+    writeFileSync(
+      join(__dirname, "../crates/motoko/src/packages/prim.mo"),
+      readFileSync(
+        join(__dirname, "../submodules/motoko/src/prelude/prim.mo"),
+        "utf8"
+      ),
       "utf8"
     );
   })

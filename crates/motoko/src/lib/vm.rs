@@ -897,23 +897,29 @@ mod def {
                     Exp::Literal(l) => Value::from_literal(l)?,
                     _ => return Err(Interruption::NonLiteralInit(e.1.clone())),
                 };
-                if let Pat::Var(ref x) = p.0 {
-                    let var_def = Def::Var(VarDef {
-                        owner: def_owner.clone(),
-                        name: x.0.clone(),
-                        init: v.share(),
-                    });
-                    active.defs().insert_field(
-                        &x.0,
-                        source.clone(),
-                        df.vis.clone(),
-                        df.stab.clone(),
-                        var_def,
-                    )?;
-                    //Ok(Value::Pointer(Pointer::NamedPointer(x.0.clone())))
-                    Ok(())
-                } else {
-                    nyi!(line!())
+                let mut pat = &p.0;
+                if let Pat::AnnotPat(ref p, _) = pat {
+                    // Temporary
+                    pat = &p.0;
+                }
+                match pat {
+                    Pat::Var(ref x) => {
+                        let var_def = Def::Var(VarDef {
+                            owner: def_owner.clone(),
+                            name: x.0.clone(),
+                            init: v.share(),
+                        });
+                        active.defs().insert_field(
+                            &x.0,
+                            source.clone(),
+                            df.vis.clone(),
+                            df.stab.clone(),
+                            var_def,
+                        )?;
+                        //Ok(Value::Pointer(Pointer::NamedPointer(x.0.clone())))
+                        Ok(())
+                    }
+                    _ => nyi!(line!()),
                 }
             }
             _ => nyi!(line!()),

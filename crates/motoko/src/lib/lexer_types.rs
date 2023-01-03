@@ -26,23 +26,23 @@ pub enum Token {
     #[regex(r"//[^\n]*", data)]
     LineComment(Data),
 
-    #[regex(r"/\*[^*]*\*/", data)] // precedence
+    // #[regex(r"/\*[^*]*\*/", data, priority = 2)]
     BlockComment(Data),
 
     #[token("(", data!(GroupType::Paren))]
     #[token("{", data!(GroupType::Curly))]
     #[token("[", data!(GroupType::Square))]
     #[token("<", data!(GroupType::Angle))]
-    #[token("/*", data!(GroupType::Comment))]
-    #[token("/**", data!(GroupType::Comment))] // precedence
+    #[token("/*", data!(GroupType::Comment), priority = 3)]
+    #[token("/**", data!(GroupType::Comment), priority = 2)]
     Open((Data, GroupType)),
 
     #[token(")", data!(GroupType::Paren))]
     #[token("}", data!(GroupType::Curly))]
     #[token("]", data!(GroupType::Square))]
     #[token(">", data!(GroupType::Angle))]
-    #[token("*/", data!(GroupType::Comment))]
-    #[token("**/", data!(GroupType::Comment))] // precedence
+    #[token("*/", data!(GroupType::Comment), priority = 3)]
+    #[token("**/", data!(GroupType::Comment), priority = 2)]
     Close((Data, GroupType)),
 
     #[token(".", data)]
@@ -64,7 +64,7 @@ pub enum Token {
     #[token("<:", data)]
     #[regex(r"(\+|-|\*\*?|/|&|\|)%?=?", data)]
     #[regex(r"([\^]|<<>?|( |<)>>|#)(|=)", data)]
-    #[regex("[:%!=<>]=", data)]
+    #[regex(r"[:%!=<>]=", data)]
     #[regex(r" [<>] ", data)]
     Operator(Data),
 

@@ -28,6 +28,7 @@ writeFileSync(
 
 Promise.all(
   packages.map(async ({ name, path }) => {
+    console.log(name, ":", path);
     const pkg = await mo.fetchPackage(name, path);
     writeFileSync(
       join(__dirname, `../crates/motoko/src/packages/${name}.json`),

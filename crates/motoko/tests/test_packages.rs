@@ -1,5 +1,5 @@
 use motoko::{
-    package::{get_base_library, get_base_library_tests, get_prim_library, Package},
+    package::{get_base, get_base_tests, get_prim_library, Package},
     vm_types::Core,
 };
 
@@ -16,7 +16,7 @@ fn new_core_with_base() -> Core {
             .expect("load prim");
     }
 
-    let base = get_base_library();
+    let base = get_base();
     for (path, file) in base.files.into_iter() {
         // remove '.mo' from suffix of the filename to produce the path
         let path = format!("{}", &path[0..path.len() - 3]);
@@ -215,12 +215,12 @@ fn parse_prim_library() {
 
 #[test]
 fn parse_base_library() {
-    assert_parse_packages(get_base_library());
+    assert_parse_packages(get_base());
 }
 
 #[test]
 fn parse_base_library_tests() {
-    assert_parse_packages(get_base_library_tests())
+    assert_parse_packages(get_base_tests())
 }
 
 #[test]
@@ -230,14 +230,14 @@ fn eval_prim_library() {
 
 #[test]
 fn eval_base_library() {
-    assert_eval_packages(get_base_library(), vec![get_prim_library()]);
+    assert_eval_packages(get_base(), vec![get_prim_library()]);
 }
 
 #[ignore]
 #[test]
 fn eval_base_library_tests() {
     assert_eval_packages(
-        get_base_library_tests(),
-        vec![get_base_library(), get_prim_library()],
+        get_base_tests(),
+        vec![get_base(), get_prim_library()],
     );
 }

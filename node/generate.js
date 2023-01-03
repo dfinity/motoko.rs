@@ -10,14 +10,16 @@ const packages = [
   { name: "matchers", path: "kritzcreek/motoko-matchers/master/src" },
 ];
 
-const primSource = readFileSync(
+const primFile = readFileSync(
   join(__dirname, "../submodules/motoko/src/prelude/prim.mo"),
   "utf8"
 );
+const [, primComment, primSource] =
+  /^\s*(\/\*[\s\S]*?\*\/)\s*([\s\S]*)$/gm.exec(primFile);
 
 writeFileSync(
   join(__dirname, "../crates/motoko/src/packages/prim.mo"),
-  `module {\n${primSource
+  `${primComment}\n\nmodule {\n${primSource
     .replaceAll(/^func/gm, "public func")
     .replaceAll(/^let/gm, "public let")
     .replaceAll(/^/gm, "  ")}\n}`,

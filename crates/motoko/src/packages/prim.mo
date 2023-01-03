@@ -1,21 +1,21 @@
+/*
+The primitive definitions.
+
+This module should contain everything that cannot be implemented in plain
+Motoko. It is available via `import Prim "mo:⛔"`. Normal user code would
+usually not import that module directly, but through `base`, which takes
+care of providing a proper module structure, e.g. exposing `Array_tabulate`
+through `Array.tabulate`.
+
+Therefore, the prim module does not need to provide a stable interface, as its
+only supported consumer is the `base` library, and that is bundled with the
+compiler.
+
+Nevertheless, it shoud be _safe_ to import prim, i.e. the definitions here
+should not break type safety or other guarantees of the language.
+*/
+
 module {
-  /*
-  The primitive definitions.
-  
-  This module should contain everything that cannot be implemented in plain
-  Motoko. It is available via `import Prim "mo:⛔"`. Normal user code would
-  usually not import that module directly, but through `base`, which takes
-  care of providing a proper module structure, e.g. exposing `Array_tabulate`
-  through `Array.tabulate`.
-  
-  Therefore, the prim module does not need to provide a stable interface, as its
-  only supported consumer is the `base` library, and that is bundled with the
-  compiler.
-  
-  Nevertheless, it shoud be _safe_ to import prim, i.e. the definitions here
-  should not break type safety or other guarantees of the language.
-  */
-  
   module Types = {
     public type Any = prim "Any";
     public type None = prim "None";

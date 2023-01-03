@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// Temporary: get base library from static file
-pub fn get_base() -> Package {
+pub fn get_base_library() -> Package {
     let mut base_package: Package =
         serde_json::from_str(include_str!("../packages/base.json")).unwrap();
     /*
@@ -20,12 +20,12 @@ pub fn get_base() -> Package {
 }
 
 /// Temporary: get base library tests from static file
-pub fn get_base_tests() -> Package {
+pub fn get_base_library_tests() -> Package {
     serde_json::from_str(include_str!("../packages/base-test.json")).unwrap()
 }
 
 /// Temporary: get `matchers` Vessel package
-pub fn get_matchers() -> Package {
+pub fn get_matchers_library() -> Package {
     serde_json::from_str(include_str!("../packages/matchers.json")).unwrap()
 }
 

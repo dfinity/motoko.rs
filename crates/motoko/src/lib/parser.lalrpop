@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{BinAnnotWasHoisted, hoist_right_type_annotation as hrta, Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind_, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
+use crate::ast::{BinAnnotWasHoisted, hoist_right_type_annotation as hrta, Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, BindSort, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Case_, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -182,6 +182,14 @@ TypeTag: TypeTag = {
 }
 
 #[inline]
+TypeBind_: TypeBind_ = Node<TypeBind>;
+
+TypeBind: TypeBind = {
+    <var:Id_> => TypeBind{ var, sort:BindSort::Type, bound: None },
+    <var:Id_> "<:" <t:Type_> => TypeBind{ var, sort:BindSort::Type, bound: Some(t) },
+}
+
+#[inline]
 TypeField_: TypeField_ = Node<TypeField>;
 
 TypeField: TypeField = {
@@ -316,6 +324,10 @@ ExpNonDec<B>: Exp = {
     <e1:ExpBin0_<B>> <b:BinAssign> <e2:Exp_<Ob>> => Exp::BinAssign(e1, b, e2),
     "if" <e1:ExpNullary_<Ob>> <e2:ExpNest_> "else" <e3:ExpNest_> => Exp::If(e1, e2, Some(e3)),
     "return" <e:Exp_<B>?> => Exp::Return(e),
+    "async" <e:ExpNest_> => Exp::Async(e),
+    "async*" <e:Block_> => Exp::AsyncStar(e),
+    "await" <e:ExpNest_> => Exp::Async(e),
+    "await*" <e:ExpNest_> => Exp::AsyncStar(e),
     "switch" <e:ExpNullary_<Ob>> "{" <cs:Cases> "}" => Exp::Switch(e, cs),
     "loop" <e:ExpNest_> => Exp::Loop(e, None),
     "while"  <e1:ExpNullary_<Ob>> <e2:ExpNest_> => Exp::While(e1, e2),
@@ -327,7 +339,15 @@ ExpNonDec<B>: Exp = {
     "label" <id:Id_> <t:(":" <Type_>)?> <e:ExpNest_> => Exp::Label(id, t, e),
     "debug" <e:ExpNest_> => Exp::Debug(e),
     "import" <txt:StringLiteral> => Exp::Import(txt),
+    "try" <e1:ExpNest_> <c:Catch_> => Exp::Try(e1, c),
 
+}
+
+#[inline]
+Catch_: Case_ = Node<Catch>;
+
+Catch: Case = {
+  "catch" <pat:PatNullary_> <exp:ExpNest_> => Case{ pat, exp },
 }
 
 #[inline]
@@ -625,7 +645,7 @@ ObjSortOpt: Option<ObjSort> = {
 #[inline]
 TypeParamsOpt: Option<Delim<TypeBind_>> = {
     => None,
-    "<" <ts:Delim0<Type, ",">> ">" => None, // to do -- produce AST.
+    "<" <ts:Delim0<TypeBind, ",">> ">" => None, // to do -- produce AST.
 
 }
 

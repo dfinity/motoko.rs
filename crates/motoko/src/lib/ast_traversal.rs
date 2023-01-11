@@ -291,8 +291,8 @@ impl<'a> Traverse for Loc<&'a Exp> {
                 }
             }
             Exp::Debug(e) => f(&e.tree()),
-            Exp::Async(ts, e) => {
-                f(&ts.tree());
+            Exp::Async(e) => {
+                //                f(&ts.tree());
                 f(&e.tree());
             }
             Exp::Await(e) => f(&e.tree()),
@@ -304,8 +304,9 @@ impl<'a> Traverse for Loc<&'a Exp> {
             Exp::Import(..) => {}
             Exp::Throw(e) => f(&e.tree()),
             Exp::Try(e, es) => {
-                f(&e.tree());
-                es.iter().for_each(|e| f(&e.tree()));
+                //                f(&e.tree());
+                //                es.iter().for_each(|e| f(&e.tree()));
+                todo!()
             }
             Exp::Ignore(e) => f(&e.tree()),
             Exp::Paren(e) => f(&e.tree()),
@@ -462,6 +463,7 @@ impl<'a> Traverse for Loc<&'a Case> {
 
 impl<'a> Traverse for Loc<&'a TypeBind> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
-        f(&self.0.bound.tree());
+        //f(&self.0.bound.tree());
+        todo!()
     }
 }

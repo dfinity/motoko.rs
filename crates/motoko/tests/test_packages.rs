@@ -1,5 +1,7 @@
 use motoko::{
-    package::{get_base_library, get_base_library_tests, get_prim_library, Package},
+    package::{
+        get_base_library, get_base_library_tests, get_matchers_library, get_prim_library, Package,
+    },
     vm_types::Core,
 };
 
@@ -224,6 +226,11 @@ fn parse_base_library_tests() {
 }
 
 #[test]
+fn parse_matchers_library() {
+    assert_parse_packages(get_matchers_library())
+}
+
+#[test]
 fn eval_prim_library() {
     assert_eval_packages(get_prim_library(), vec![]);
 }
@@ -238,6 +245,23 @@ fn eval_base_library() {
 fn eval_base_library_tests() {
     assert_eval_packages(
         get_base_library_tests(),
-        vec![get_base_library(), get_prim_library()],
+        vec![
+            get_base_library(),
+            get_prim_library(),
+            get_matchers_library(),
+        ],
+    );
+}
+
+#[ignore]
+#[test]
+fn eval_matchers_library_tests() {
+    assert_eval_packages(
+        get_base_library_tests(),
+        vec![
+            get_base_library(),
+            get_prim_library(),
+            get_matchers_library(),
+        ],
     );
 }

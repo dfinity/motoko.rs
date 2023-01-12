@@ -1104,7 +1104,7 @@ fn exp_is_static(e: &Exp) -> bool {
         Exp::Ignore(e) => exp_is_static(&e.0),
         Exp::Annot(_, e, _) => exp_is_static(&e.0),
         Exp::Paren(e) => exp_is_static(&e.0),
-        Exp::Dot(e1, e2) => exp_is_static(&e1.0) & exp_is_static(&e1.0),
+        Exp::Dot(e1, _e2) => exp_is_static(&e1.0) & exp_is_static(&e1.0),
         _ => {
             log::warn!("Safety check failed: exp_is_static({:?})", e);
             false
@@ -1835,7 +1835,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Do(e) => exp_conts(active, FrameCont::Do, e),
         Assert(e) => exp_conts(active, FrameCont::Assert, e),
         Object(bases, fields) => {
-            if let Some(bases) = bases {
+            if let Some(_bases) = bases {
                 return nyi!(line!());
             };
             if let Some(fields) = fields {
@@ -2913,7 +2913,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                         *active.cont() = Cont::Decs(decs);
                         Ok(Step {})
                     }
-                    Dec::LetObject(id, _, dfs) => {
+                    Dec::LetObject(_id, _, _dfs) => {
                         nyi!(line!())
                     }
                     Dec::LetModule(id, _, dfs) => {

@@ -375,5 +375,14 @@ module {
   
   public func performanceCounter(counter : Nat32) : Nat64 =
     (prim "performanceCounter" : (Nat32) -> Nat64) counter;
-  
+ 
+
+
+  // 20230111 pasted from dfinity/motoko/src/prelude/timers-api.mo
+  //
+  // Timer-related
+
+  public let setTimer = @setTimer;
+  public let cancelTimer = @cancelTimer;
+ 
 }

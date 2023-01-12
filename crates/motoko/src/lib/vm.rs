@@ -626,11 +626,16 @@ fn module_project(
         Pat::Object(pat_fields) => {
             let mut r = vec![];
             for f in pat_fields.vec.iter() {
-                if let Some(Pat::Var(x)) = f.0.pat.clone() {
-                    let fd = resolve_def(defs, &m.fields, true, &f.0.id.0)?;
-                    r.push((x.clone(), fd.def.clone()))
-                } else {
-                    return nyi!(line!());
+                match f.0.pat.clone() {
+                    None => {
+                        let fd = resolve_def(defs, &m.fields, true, &f.0.id.0)?;
+                        r.push((f.0.id.clone(), fd.def.clone()))
+                    }
+                    Some(Pat::Var(x)) => {
+                        let fd = resolve_def(defs, &m.fields, true, &f.0.id.0)?;
+                        r.push((x.clone(), fd.def.clone()))
+                    }
+                    p => return nyi!(line!(), "module_project object-field pattern {:?}", p),
                 }
             }
             Ok(r)
@@ -1338,6 +1343,7 @@ fn call_prim_function<A: Active>(
 ) -> Result<Step, Interruption> {
     use PrimFunction::*;
     match pf {
+        AtSignVar(v) => nyi!(line!(), "call_prim_function({})", v),
         DebugPrint => match &*args {
             Value::Text(s) => {
                 let schedule_choice = active.schedule_choice().clone();
@@ -1787,12 +1793,18 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Return(Some(e)) => exp_conts(active, FrameCont::Return, e),
         Var(x) => match active.env().get(x) {
             None => {
-                let ctx = active.defs().active_ctx.clone();
-                let fd = resolve_def(active.defs(), &ctx, false, x)?;
-                let v = def_as_value(active.defs(), x, &fd.def)?;
-                *active.cont() = Cont::Value_(v);
-                Ok(Step {})
-                /*Err(Interruption::UnboundIdentifer(x.clone()))*/
+                if x.string.starts_with("@") {
+                    let f = crate::value::PrimFunction::AtSignVar(x.to_string());
+                    let v = Value::PrimFunction(f).share();
+                    *active.cont() = Cont::Value_(v);
+                    Ok(Step {})
+                } else {
+                    let ctx = active.defs().active_ctx.clone();
+                    let fd = resolve_def(active.defs(), &ctx, false, x)?;
+                    let v = def_as_value(active.defs(), x, &fd.def)?;
+                    *active.cont() = Cont::Value_(v);
+                    Ok(Step {})
+                }
             }
             Some(v) => {
                 *active.cont() = Cont::Value_(v.fast_clone());

@@ -412,9 +412,20 @@ fn test_line_comments() {
 
 #[test]
 fn test_block_comments() {
-    assert_to("#/**/a", "#a");
     assert_to("/*(*/", "");
+    assert_to("#/**/a", "#a");
+    assert_to("#/***/a", "#a");
+    assert_to("#/****/a", "#a");
+    assert_to("#/* */a", "#a");
+    assert_to("#/** */a", "#a");
+    assert_to("#/* **/a", "#a");
+    assert_to("#/** **/a", "#a");
     assert_to("#/* * */a", "#a");
+    assert_to("#/* /**/ */a", "#a");
+    assert_to("#/* /* */ */a", "#a");
+    assert_to("#/* /** */ */a", "#a");
+    assert_to("#/* /* **/ */a", "#a");
+    assert_to("#/* // */a", "#a");
 }
 
 #[test]

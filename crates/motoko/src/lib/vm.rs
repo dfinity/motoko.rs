@@ -616,11 +616,24 @@ impl Limits {
     }
 }
 
-fn module_project(m: &ModuleDef, pattern: &Pat) -> Result<Vec<(Id_, Def)>, Interruption> {
+fn module_project(
+    defs: &Defs,
+    m: &ModuleDef,
+    pattern: &Pat,
+) -> Result<Vec<(Id_, Def)>, Interruption> {
     match pattern {
         Pat::Var(x) => Ok(vec![(x.clone(), Def::Module(m.clone()))]),
         Pat::Object(pat_fields) => {
-            nyi!(line!(), "module_project ({:?}, {:?})", m, pattern)
+            let mut r = vec![];
+            for f in pat_fields.vec.iter() {
+                if let Some(Pat::Var(x)) = f.0.pat.clone() {
+                    let fd = resolve_def(defs, &m.fields, true, &f.0.id.0)?;
+                    r.push((x.clone(), fd.def.clone()))
+                } else {
+                    return nyi!(line!());
+                }
+            }
+            Ok(r)
         }
         pattern => nyi!(line!(), "module_project ({:?}, {:?})", m, pattern),
     }
@@ -838,7 +851,7 @@ mod def {
             }
             Dec::LetImport(pattern, _, path) => {
                 let m = import(active, path)?;
-                let fields = module_project(&m, &pattern.0)?;
+                let fields = module_project(active.defs(), &m, &pattern.0)?;
                 for (x, def) in fields {
                     active
                         .defs()
@@ -1718,13 +1731,13 @@ fn def_as_value(defs: &Defs, i: &Id, def: &Def) -> Result<Value_, Interruption> 
     }
 }
 
-fn resolve_def<A: ActiveBorrow>(
-    active: &A,
+fn resolve_def(
+    defs: &Defs,
     ctx_id: &CtxId,
     is_public_projection: bool,
     x: &Id,
 ) -> Result<FieldDef, Interruption> {
-    let ctx = active.defs().map.get(&ctx_id).unwrap();
+    let ctx = defs.map.get(&ctx_id).unwrap();
     match ctx.fields.get(x) {
         Some(d) => {
             let f_is_public = match &d.vis {
@@ -1741,7 +1754,7 @@ fn resolve_def<A: ActiveBorrow>(
                 Err(Interruption::UnboundIdentifer(x.clone()))
             } else {
                 match &ctx.parent {
-                    Some(p) => resolve_def(active, p, false, x),
+                    Some(p) => resolve_def(defs, p, false, x),
                     None => Err(Interruption::UnboundIdentifer(x.clone())),
                 }
             }
@@ -1775,7 +1788,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Var(x) => match active.env().get(x) {
             None => {
                 let ctx = active.defs().active_ctx.clone();
-                let fd = resolve_def(active, &ctx, false, x)?;
+                let fd = resolve_def(active.defs(), &ctx, false, x)?;
                 let v = def_as_value(active.defs(), x, &fd.def)?;
                 *active.cont() = Cont::Value_(v);
                 Ok(Step {})
@@ -2472,7 +2485,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 }
             }
             Value::Module(m) => {
-                let fd = resolve_def(active, &m.fields, true, &f.0)?;
+                let fd = resolve_def(active.defs(), &m.fields, true, &f.0)?;
                 let v = def_as_value(active.defs(), &f.0, &fd.def)?;
                 *active.cont() = Cont::Value_(v);
                 Ok(Step {})
@@ -2916,7 +2929,7 @@ fn active_step_<A: Active>(active: &mut A) -> Result<Step, Interruption> {
                     }
                     Dec::LetImport(pattern, _, path) => {
                         let m = def::import(active, path)?;
-                        let fields = module_project(&m, &pattern.0)?;
+                        let fields = module_project(active.defs(), &m, &pattern.0)?;
                         for (x, def) in fields {
                             let val = def_as_value(active.defs(), &x.0, &def)?;
                             active.env().insert(x.0.clone(), val);

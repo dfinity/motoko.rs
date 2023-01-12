@@ -303,7 +303,7 @@ impl<'a> Traverse for Loc<&'a Exp> {
             //            }
             Exp::Import(..) => {}
             Exp::Throw(e) => f(&e.tree()),
-            Exp::Try(e, es) => {
+            Exp::Try(_e, _es) => {
                 //                f(&e.tree());
                 //                es.iter().for_each(|e| f(&e.tree()));
                 todo!()
@@ -403,7 +403,7 @@ impl<'a> Traverse for Loc<&'a Type> {
             Type::Array(_, t) => f(&t.tree()),
             Type::Optional(t) => f(&t.tree()),
             Type::Tuple(ts) => ts.vec.iter().for_each(|t| f(&t.tree())),
-            Type::Function(_, tbs, ts, t) => todo!(),
+            Type::Function(_, _tbs, _ts, _t) => todo!(),
             Type::Async(t1 /*, t2*/) => {
                 f(&t1.tree());
                 //                f(&t2.tree());
@@ -440,8 +440,10 @@ impl<'a> Traverse for Loc<&'a DecField> {
 }
 
 impl<'a> Traverse for Loc<&'a PatField> {
-    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
-        todo!()
+    fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, f: F) {
+        if let Some(pat) = &self.0.pat {
+            Loc(pat, self.1.clone()).for_each_child(f)
+        }
     }
 }
 
@@ -463,7 +465,8 @@ impl<'a> Traverse for Loc<&'a Case> {
 
 impl<'a> Traverse for Loc<&'a TypeBind> {
     fn for_each_child<F: FnMut(&Loc<SyntaxTree>)>(&self, mut f: F) {
-        //f(&self.0.bound.tree());
-        todo!()
+        if let Some(typ) = &self.0.bound {
+            f(&typ.tree())
+        }
     }
 }

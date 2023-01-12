@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Temporary: get base library from static file
 pub fn get_base_library() -> Package {
-    let mut base_package: Package =
+    let base_package: Package =
         serde_json::from_str(include_str!("../packages/base.json")).unwrap();
     /*
         // to do -- fix this by making the import semantics understand URIs and package names better.

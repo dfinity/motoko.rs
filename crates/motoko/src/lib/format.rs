@@ -45,6 +45,7 @@ fn delim<'a, T: ToDoc + Clone>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
 }
 
 // optional delimiter on the left
+#[allow(dead_code)]
 fn delim_left<'a, T: ToDoc + Clone>(d: &'a Delim<T>, sep: &'a str) -> RcDoc<'a> {
     let doc = strict_concat(d.vec.iter().map(|x| x.doc()), sep);
     if d.has_trailing {
@@ -298,7 +299,7 @@ impl ToDoc for Exp {
             //            Annot(e, t) => e.doc().append(" : ").append(t.doc()),
             Import(s) => kwd("import").append(s.doc()), // new permissive syntax?
             Throw(e) => kwd("throw").append(e.doc()),
-            Try(e, cs) => {
+            Try(_e, _cs) => {
                 todo!()
                 // let mut doc = kwd("try").append(e.doc());
                 // // ?????
@@ -423,8 +424,8 @@ impl ToDoc for Pat {
         match self {
             Wild => str("_"),
             Var(s) => s.doc(),
-            UnOpLiteral(u, l) => todo!(),
-            Literal(l) => todo!(),
+            UnOpLiteral(_u, _l) => todo!(),
+            Literal(_l) => todo!(),
             Tuple(ps) => tuple(ps),
             Object(_) => todo!(),
             Optional(p) => str("?").append(p.doc()),
@@ -432,8 +433,8 @@ impl ToDoc for Pat {
                 .append(s.doc())
                 .append(p.as_ref().map(|p| p.doc()).unwrap_or(RcDoc::nil())),
             //            Alt(d) => delim_left(d, " |"),
-            Annot(t) => todo!(),
-            AnnotPat(p, t) => todo!(),
+            Annot(_t) => todo!(),
+            AnnotPat(_p, _t) => todo!(),
             Paren(p) => enclose("(", p.doc(), ")"),
             _ => unimplemented!(),
         }

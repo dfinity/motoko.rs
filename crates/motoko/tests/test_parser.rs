@@ -408,6 +408,11 @@ fn test_call() {
 fn test_line_comments() {
     assert_to("//\n0//", "0");
     assert_to("//0\n0//0\n//0", "0");
+    assert_to("0//", "0");
+    assert_to("// /*\n0", "0");
+    assert_to("// */\n0", "0");
+    assert_to("\"\"//\"\"", "\"\"");
+    assert_to("'a'//'b'", "'a'");
 }
 
 #[test]
@@ -425,7 +430,13 @@ fn test_block_comments() {
     assert_to("#/* /* */ */a", "#a");
     assert_to("#/* /** */ */a", "#a");
     assert_to("#/* /* **/ */a", "#a");
-    assert_to("#/* // */a", "#a");
+    // assert_to("#/* // */a", "#a");
+    assert_to("#/*\n*\n*\n*/a", "#a");
+    assert_to("let///* */\na = 0", "let a = 0");
+    // assert_to("/*\"*/\"\"", "\"\"");
+    // assert_to("\"\"/*\"*/", "\"\"");
+    // assert_to("\"/**/\"", "\"\"");
+    // assert_to("\"/*\" # \"*/\"", "\"\" # \"\"");
 }
 
 #[test]

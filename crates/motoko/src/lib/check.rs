@@ -43,9 +43,6 @@ pub fn parse(input: &str) -> Result<Prog, SyntaxError> {
         message: "Unknown lexer error".to_string(),
     })?;
     info!("parse::tt= {:?}", tt);
-    // let tokens = filter_token_tree(tt)
-    //     .map(TokenTree::flatten)
-    //     .unwrap_or_else(|| vec![]);
     let prepared_tt = prepare_token_tree(tt);
     let input = format!("{}", prepared_tt);
 

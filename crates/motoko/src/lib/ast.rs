@@ -256,7 +256,7 @@ pub type TypeBind_ = Node<TypeBind>;
 pub struct TypeBind {
     pub var: Id_,
     pub sort: BindSort,
-    pub bound: Type_,
+    pub bound: Option<Type_>,
 }
 
 /// Mutability setting, for arrays, record fields and lexically-scoped bindings.
@@ -543,15 +543,17 @@ pub enum Exp {
     Return(Option<Exp_>),
     Debug(Exp_),
     DebugShow(Exp_),
-    Async(TypeBind_, Exp_),
+    Async(Exp_),
+    AsyncStar(Exp_),
     Await(Exp_),
+    AwaitStar(Exp_),
     Assert(Exp_),
     Annot(BinAnnotWasHoisted, Exp_, Type_),
     //Annot(Exp_, Type_),
     //Import(Id_, ResolvedImport),
     Import(String),
     Throw(Exp_),
-    Try(Exp_, Vec<Case_>),
+    Try(Exp_, Case_),
     Ignore(Exp_),
     Paren(Exp_),
 }

@@ -26,23 +26,25 @@ pub enum Token {
     #[regex(r"//[^\n]*", data)]
     LineComment(Data),
 
-    #[regex(r"/\*[^*]*\*/", data)] // precedence
+    #[token(r"/**/", data, priority = 32)]
+    // #[regex(r"/\**[^*]*\**/", data, priority = 31)]
+    // #[regex(r"/\*(\*[^/]|[^*])*\*/", data, priority = 30)]
     BlockComment(Data),
 
     #[token("(", data!(GroupType::Paren))]
     #[token("{", data!(GroupType::Curly))]
     #[token("[", data!(GroupType::Square))]
     #[token("<", data!(GroupType::Angle))]
-    #[token("/*", data!(GroupType::Comment))]
-    #[token("/**", data!(GroupType::Comment))] // precedence
+    #[token("/*", data!(GroupType::Comment), priority = 20)]
+    #[token("/**", data!(GroupType::Comment), priority = 10)]
     Open((Data, GroupType)),
 
     #[token(")", data!(GroupType::Paren))]
     #[token("}", data!(GroupType::Curly))]
     #[token("]", data!(GroupType::Square))]
     #[token(">", data!(GroupType::Angle))]
-    #[token("*/", data!(GroupType::Comment))]
-    #[token("**/", data!(GroupType::Comment))] // precedence
+    #[token("*/", data!(GroupType::Comment), priority = 20)]
+    #[token("**/", data!(GroupType::Comment), priority = 10)]
     Close((Data, GroupType)),
 
     #[token(".", data)]
@@ -64,7 +66,7 @@ pub enum Token {
     #[token("<:", data)]
     #[regex(r"(\+|-|\*\*?|/|&|\|)%?=?", data)]
     #[regex(r"([\^]|<<>?|( |<)>>|#)(|=)", data)]
-    #[regex("[:%!=<>]=", data)]
+    #[regex(r"[:%!=<>]=", data)]
     #[regex(r" [<>] ", data)]
     Operator(Data),
 
@@ -82,8 +84,8 @@ pub enum Token {
     // #[regex(r"[+-][0-9]([0-9_]*[0-9]+)?", data!(PrimType::Int))]
     #[regex(r"[0-9]([0-9_]*[0-9])?[Ee]-?[0-9]([0-9_]*[0-9])?", data!(PrimType::Float))] // exponential without decimal
     #[regex(r"[0-9]([0-9_]*[0-9])?\.([0-9]([0-9_]*[0-9])?)?([Ee]-?[0-9]([0-9_]*[0-9])?)?", data!(PrimType::Float))] // exponential with decimal
-    #[regex(r"'(?:[^\\'\s]|\\.)*'|' '", data!(PrimType::Char))]
-    #[regex(r#""(?:[^\\"\n]|\\.)*""#, data!(PrimType::Text))]
+    #[regex(r"'(?:[^\\'\s]|\\.)*'|' '", data!(PrimType::Char), priority = 10)]
+    #[regex(r#""(?:[^\\"\n]|\\.)*""#, data!(PrimType::Text), priority = 10)]
     Literal((Data, PrimType)),
 
     #[regex(r"[ \t]+", data)]

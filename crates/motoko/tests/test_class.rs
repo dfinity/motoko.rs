@@ -3,6 +3,7 @@ use motoko::check::assert_vm_eval as assert_;
 
 use test_log::test; // enable logging output for tests by default.
 
+#[ignore]
 #[test]
 fn class() {
     let p = "

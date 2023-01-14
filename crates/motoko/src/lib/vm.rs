@@ -664,7 +664,6 @@ mod def {
                     (Some(package_name.to_string()), "lib".to_string())
                 }
             } else {
-                // to do -- When "/" is missing after "mo:", it means the path is a package name, and the module file is "lib.mo"?
                 return nyi!(line!(), "import {}", path);
             }
         } else {

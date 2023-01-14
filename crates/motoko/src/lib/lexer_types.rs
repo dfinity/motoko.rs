@@ -23,28 +23,19 @@ pub type Tokens = Vec<Token_>;
 #[derive(Logos, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "token_type", content = "data")]
 pub enum Token {
-    // #[regex(r"//[^\n]*", data)]
     LineComment(Data),
-
-    // #[token(r"/**/", data, priority = 32)]
-    // #[regex(r"/\**[^*]*\**/", data, priority = 31)]
-    // #[regex(r"/\*(\*[^/]|[^*])*\*/", data, priority = 30)]
     BlockComment(Data),
 
     #[token("(", data!(GroupType::Paren))]
     #[token("{", data!(GroupType::Curly))]
     #[token("[", data!(GroupType::Square))]
     #[token("<", data!(GroupType::Angle))]
-    // #[token("/*", data!(GroupType::Comment), priority = 20)]
-    // #[token("/**", data!(GroupType::Comment), priority = 10)]
     Open((Data, GroupType)),
 
     #[token(")", data!(GroupType::Paren))]
     #[token("}", data!(GroupType::Curly))]
     #[token("]", data!(GroupType::Square))]
     #[token(">", data!(GroupType::Angle))]
-    // #[token("*/", data!(GroupType::Comment), priority = 20)]
-    // #[token("**/", data!(GroupType::Comment), priority = 10)]
     Close((Data, GroupType)),
 
     #[token(".", data)]
@@ -243,7 +234,6 @@ impl std::fmt::Display for TokenTree {
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // write!(f, "{}", get_data(self).unwrap())
         write!(f, "{}", self.data().map_err(|_| std::fmt::Error)?)
     }
 }

@@ -70,6 +70,7 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
     // Tokenize source code (excluding comments)
     let tokenize_source = |tokens: &mut Tokens, input: &str| {
         tokens.extend(Token::lexer(input).spanned().map(|(t, span)| {
+            // Convert errors to the `Unknown` token type
             let t = match t {
                 Token::Error => Token::Unknown(input[span.clone()].to_string()),
                 t => t,

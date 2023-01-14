@@ -180,7 +180,7 @@ fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option
 }
 
 pub fn find_comment_spans(input: &str) -> Vec<Span> {
-    let mut iter = input.chars().enumerate().peekable();
+    let mut iter = input.char_indices().peekable();
     let mut results = vec![];
     let mut block_start: Option<usize> = None;
     let mut nest_depth = 0;

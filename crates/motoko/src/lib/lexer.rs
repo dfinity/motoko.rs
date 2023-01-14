@@ -245,12 +245,5 @@ pub fn find_comment_spans(input: &str) -> Vec<Span> {
             _ => (),
         }
     }
-    println!(
-        "RESULTS: {:?}",
-        results
-            .iter()
-            .map(|r| input[r.clone()].to_string())
-            .collect::<Vec<_>>()
-    );
     results
 }

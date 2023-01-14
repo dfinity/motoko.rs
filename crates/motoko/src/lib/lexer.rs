@@ -65,30 +65,27 @@ pub fn create_token_tree(input: &str) -> LexResult<TokenTree> {
 }
 
 pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
-    // TODO: simplify this logic
     let line_col = LineColLookup::new(input);
-    let create_token_vec_ = |input: &str| -> Tokens {
-        // Tokenize source code (excluding comments)
-        Token::lexer(input)
-            .spanned()
-            .map(|(t, span)| {
-                let t = match t {
-                    Token::Error => Token::Unknown(input[span.clone()].to_string()),
-                    t => t,
-                };
-                let (line, col) = line_col.get(span.start);
-                Loc(t, Source::Known { span, line, col })
-            })
-            .collect()
+    let mut tokens = vec![];
+    // Tokenize source code (excluding comments)
+    let tokenize_source = |tokens: &mut Tokens, input: &str| {
+        tokens.extend(Token::lexer(input).spanned().map(|(t, span)| {
+            let t = match t {
+                Token::Error => Token::Unknown(input[span.clone()].to_string()),
+                t => t,
+            };
+            let (line, col) = line_col.get(span.start);
+            Loc(t, Source::Known { span, line, col })
+        }));
     };
     let comment_spans = find_comment_spans(input);
-    let mut tokens = vec![];
     // Tokenize everything before the first comment (or end of input)
-    tokens.extend(create_token_vec_(
+    tokenize_source(
+        &mut tokens,
         &input[..comment_spans.get(0).map(|s| s.start).unwrap_or(input.len())],
-    ));
+    );
     for (i, span) in comment_spans.iter().enumerate() {
-        // Add comment
+        // Add comment token
         let comment = input[span.clone()].to_string();
         let (line, col) = line_col.get(span.start);
         tokens.push(Loc(
@@ -104,13 +101,14 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
             },
         ));
         // Tokenize source after comment
-        tokens.extend(create_token_vec_(
+        tokenize_source(
+            &mut tokens,
             &input[span.end
                 ..comment_spans
                     .get(i + 1)
                     .map(|s| s.start)
                     .unwrap_or(input.len())],
-        ));
+        );
     }
     Ok(tokens)
 }

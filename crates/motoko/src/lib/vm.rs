@@ -1,6 +1,7 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Id, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog,
-    ProjIndex, RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
+    BinOp, Cases, Dec, DecField, DecField_, Dec_, Delim, Exp, ExpField, ExpField_, Exp_, Id, Id_,
+    Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, ProjIndex, RelOp, Source, Stab_, ToId, Type,
+    UnOp, Vis_,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
@@ -1081,6 +1082,23 @@ mod def {
     }
 }
 
+fn exp_field_is_static(e: &ExpField) -> bool {
+    if let Some(e) = &e.exp {
+        exp_is_static(&e.0)
+    } else {
+        true
+    }
+}
+
+fn object_is_static(d: &crate::ast::Delim<ExpField_>) -> bool {
+    for ef in d.vec.iter() {
+        if !exp_field_is_static(&ef.0) {
+            return false;
+        }
+    }
+    true
+}
+
 fn delim_is_static(d: &crate::ast::Delim<Exp_>) -> bool {
     for e in d.vec.iter() {
         if !exp_is_static(&e.0) {
@@ -1096,6 +1114,13 @@ fn delim_is_static(d: &crate::ast::Delim<Exp_>) -> bool {
 fn exp_is_static(e: &Exp) -> bool {
     match e {
         Exp::ActorUrl(_) => true,
+        Exp::Object(_, efs) => {
+            if let Some(efs) = efs {
+                object_is_static(efs)
+            } else {
+                true
+            }
+        }
         Exp::Literal(_) => true,
         Exp::Function(_) => true,
         Exp::Block(decs) => {

@@ -660,7 +660,7 @@ mod def {
                 if let Some(_) = sep_parts.next() {
                     let local_path = format!("{}", &path[package_name.len() + 1..path.len()]);
                     (Some(package_name.to_string()), local_path)
-                } else {                    
+                } else {
                     (Some(package_name.to_string()), "lib".to_string())
                 }
             } else {
@@ -674,7 +674,11 @@ mod def {
             package_name: package_name.clone(),
             local_path,
         };
-        log::debug!("`import {}` resolves as `import {:?}`.  Attemping to import...", path0, path);
+        log::debug!(
+            "`import {}` resolves as `import {:?}`.  Attemping to import...",
+            path0,
+            path
+        );
         let mf = active.module_files().map.get(&path).map(|x| x.clone());
         let mf = match mf {
             None => return Err(Interruption::ModuleFileNotFound(path)),
@@ -820,13 +824,19 @@ mod def {
                     nyi!(line!())
                 }
             }
-            Dec::Var(_p, _e) => Err(Interruption::ModuleNotStatic(df.dec.1.clone(), Some("var-decl".to_string()))),
+            Dec::Var(_p, _e) => Err(Interruption::ModuleNotStatic(
+                df.dec.1.clone(),
+                Some("var-decl".to_string()),
+            )),
             Dec::Exp(e) => {
                 if exp_is_static(&e.0) {
                     // ignore pure expression with no name.
                     Ok(())
                 } else {
-                    Err(Interruption::ModuleNotStatic(df.dec.1.clone(), Some(format!("non-static-exp({:?})", e))))
+                    Err(Interruption::ModuleNotStatic(
+                        df.dec.1.clone(),
+                        Some(format!("non-static-exp({:?})", e)),
+                    ))
                 }
             }
             Dec::Let(p, e) => {
@@ -835,7 +845,10 @@ mod def {
                         // ignore pure expression with no name.
                         Ok(())
                     } else {
-                        Err(Interruption::ModuleNotStatic(df.dec.1.clone(), Some(format!("non-static-let({:?})", e))))
+                        Err(Interruption::ModuleNotStatic(
+                            df.dec.1.clone(),
+                            Some(format!("non-static-let({:?})", e)),
+                        ))
                     }
                 } else {
                     match get_pat_var(&p.0) {
@@ -851,7 +864,10 @@ mod def {
                                 )?;
                                 Ok(())
                             } else {
-                                Err(Interruption::ModuleNotStatic(source.clone(), Some(format!("non-static-let({:?})", e))))
+                                Err(Interruption::ModuleNotStatic(
+                                    source.clone(),
+                                    Some(format!("non-static-let({:?})", e)),
+                                ))
                             }
                         }
                         None => {

@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Loc, Source},
+    ast::{Loc, Source, Span},
     lexer_types::{GroupType, Token, TokenTree, Tokens},
 };
 use line_col::LineColLookup;
@@ -65,18 +65,53 @@ pub fn create_token_tree(input: &str) -> LexResult<TokenTree> {
 }
 
 pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
+    // TODO: simplify this logic
     let line_col = LineColLookup::new(input);
-    let tokens = Token::lexer(input)
-        .spanned()
-        .map(|(t, span)| {
-            let t = match t {
-                Token::Error => Token::Unknown(input[span.clone()].to_string()),
-                t => t,
-            };
-            let (line, col) = line_col.get(span.start);
-            Loc(t, Source::Known { span, line, col })
-        })
-        .collect();
+    let create_token_vec_ = |input: &str| -> Tokens {
+        // Tokenize source code (excluding comments)
+        Token::lexer(input)
+            .spanned()
+            .map(|(t, span)| {
+                let t = match t {
+                    Token::Error => Token::Unknown(input[span.clone()].to_string()),
+                    t => t,
+                };
+                let (line, col) = line_col.get(span.start);
+                Loc(t, Source::Known { span, line, col })
+            })
+            .collect()
+    };
+    let comment_spans = find_comment_spans(input);
+    let mut tokens = vec![];
+    // Tokenize everything before the first comment (or end of input)
+    tokens.extend(create_token_vec_(
+        &input[..comment_spans.get(0).map(|s| s.start).unwrap_or(input.len())],
+    ));
+    for (i, span) in comment_spans.iter().enumerate() {
+        // Add comment
+        let comment = input[span.clone()].to_string();
+        let (line, col) = line_col.get(span.start);
+        tokens.push(Loc(
+            if comment.starts_with("//") {
+                Token::LineComment(comment)
+            } else {
+                Token::BlockComment(comment)
+            },
+            Source::Known {
+                span: span.clone(),
+                line,
+                col,
+            },
+        ));
+        // Tokenize source after comment
+        tokens.extend(create_token_vec_(
+            &input[span.end
+                ..comment_spans
+                    .get(i + 1)
+                    .map(|s| s.start)
+                    .unwrap_or(input.len())],
+        ));
+    }
     Ok(tokens)
 }
 
@@ -124,9 +159,7 @@ fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option
         if let Token::Open((_, g)) = t {
             if g == sort {
                 depth += 1;
-            } else if
-            /* sort!=&GroupType::Comment */
-            g == &GroupType::Comment {
+            } else if g == &GroupType::Comment {
                 // Skip depth check in block comments
                 if let Some(j) = find_closing(g, tokens, i) {
                     i = j;
@@ -144,4 +177,80 @@ fn find_closing(sort: &GroupType, tokens: &[Loc<Token>], start: usize) -> Option
         i += 1;
     }
     None
+}
+
+pub fn find_comment_spans(input: &str) -> Vec<Span> {
+    let mut iter = input.chars().enumerate().peekable();
+    let mut results = vec![];
+    let mut block_start: Option<usize> = None;
+    let mut nest_depth = 0;
+    while let Some((i, c)) = iter.next() {
+        match c {
+            '"' if nest_depth == 0 => {
+                // String literal
+                let mut escaped = false;
+                while let Some((_, c)) = iter.next() {
+                    if escaped {
+                        // Skip escaped character
+                        escaped = false;
+                    } else if c == '\\' {
+                        // Escape next character
+                        escaped = true;
+                    } else if c == '"' {
+                        // End string literal
+                        break;
+                    }
+                }
+            }
+            '/' => match iter.peek() {
+                Some((_, '*')) => {
+                    // Start block comment
+                    iter.next();
+                    if nest_depth == 0 {
+                        block_start = Some(i);
+                    }
+                    nest_depth += 1;
+                }
+                Some((_, '/')) if nest_depth == 0 => {
+                    // Line comment
+                    loop {
+                        match iter.next() {
+                            Some((j, '\n')) => {
+                                // Newline
+                                results.push(i..j);
+                                break;
+                            }
+                            None => {
+                                // End of input
+                                results.push(i..input.len());
+                                break;
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+                _ => (),
+            },
+            '*' if nest_depth > 0 => {
+                if let Some((_, '/')) = iter.peek() {
+                    // End block comment
+                    nest_depth -= 1;
+                    if nest_depth == 0 {
+                        let (end, _) = iter.next().unwrap();
+                        results.push(block_start.unwrap()..end + 1);
+                        block_start = None;
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
+    println!(
+        "RESULTS: {:?}",
+        results
+            .iter()
+            .map(|r| input[r.clone()].to_string())
+            .collect::<Vec<_>>()
+    );
+    results
 }

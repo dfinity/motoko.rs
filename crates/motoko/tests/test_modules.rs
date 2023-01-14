@@ -60,3 +60,14 @@ fn nested_module() {
     assert M.M.x8 == 0;";
     assert_(p, p)
 }
+
+#[test]
+fn module_with_static_object() {
+    // From mo:matchers/Testable
+    let p = "module { public let textTestable : Testable<Text> = {
+        // TODO Actually escape the text here
+        display = func (text : Text) : Text { text };
+        equals = func (t1 : Text, t2 : Text) : Bool { t1 == t2 }
+    }; }";
+    assert_(p, p)
+}

@@ -1,6 +1,7 @@
 use crate::ast::{
-    BinOp, Cases, Dec, Dec_, Exp, Exp_, Id, Id_, Inst, Literal, Mut, Pat, Pat_, PrimType, Prog,
-    ProjIndex, RelOp, Source, Stab_, ToId, Type, UnOp, Vis_,
+    BinOp, Cases, Dec, DecField, DecField_, Dec_, Delim, Exp, ExpField, ExpField_, Exp_, Id, Id_,
+    Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, ProjIndex, RelOp, Source, Stab_, ToId, Type,
+    UnOp, Vis_,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
@@ -31,7 +32,7 @@ macro_rules! nyi {
     ($line:expr) => {
         Err(Interruption::NotYetImplemented(CoreSource {
             name: None,
-            description: None,
+            description: Some("Not yet implemented in current VM logic".to_string()),
             file: file!().to_string(),
             line: $line,
         }, None))
@@ -39,7 +40,7 @@ macro_rules! nyi {
     ($line:expr, $($mesg:tt)+) => {
         Err(Interruption::NotYetImplemented(CoreSource {
             name: None,
-            description: None,
+            description: Some("Not yet implemented in current VM logic".to_string()),
             file: file!().to_string(),
             line: $line,
         }, Some(format!($($mesg)+)) ))
@@ -649,18 +650,21 @@ mod def {
     use crate::ast::{DecField, DecFields};
 
     pub fn import<A: Active>(active: &mut A, path: &str) -> Result<ModuleDef, Interruption> {
+        let path0 = path.clone(); // for log.
         let path = format!("{}", &path[1..path.len() - 1]);
-        let (package_name, local_path) = if path == "mo:⛔" {
-            // to do -- generalize the support for package names used without local paths
+        let (package_name, local_path) = if path == "mo:⛔" || path == "mo:prim" {
             (Some("⛔".to_string()), "lib".to_string())
         } else if path.starts_with("mo:") {
             let path = format!("{}", &path[3..path.len()]);
             let mut sep_parts = path.split("/");
             if let Some(package_name) = sep_parts.next() {
-                let local_path = format!("{}", &path[package_name.len() + 1..path.len()]);
-                (Some(package_name.to_string()), local_path)
+                if let Some(_) = sep_parts.next() {
+                    let local_path = format!("{}", &path[package_name.len() + 1..path.len()]);
+                    (Some(package_name.to_string()), local_path)
+                } else {
+                    (Some(package_name.to_string()), "lib".to_string())
+                }
             } else {
-                // to do -- When "/" is missing after "mo:", it means the path is a package name, and the module file is "lib.mo"?
                 return nyi!(line!(), "import {}", path);
             }
         } else {
@@ -670,6 +674,11 @@ mod def {
             package_name: package_name.clone(),
             local_path,
         };
+        log::debug!(
+            "`import {}` resolves as `import {:?}`.  Attemping to import...",
+            path0,
+            path
+        );
         let mf = active.module_files().map.get(&path).map(|x| x.clone());
         let mf = match mf {
             None => return Err(Interruption::ModuleFileNotFound(path)),
@@ -751,6 +760,7 @@ mod def {
                 }
             }
         };
+        log::debug!("`import {}` Success.", path0);
         Ok(mf.def())
     }
 
@@ -814,13 +824,19 @@ mod def {
                     nyi!(line!())
                 }
             }
-            Dec::Var(_p, _e) => Err(Interruption::ModuleNotStatic(df.dec.1.clone())),
+            Dec::Var(_p, _e) => Err(Interruption::ModuleNotStatic(
+                df.dec.1.clone(),
+                Some("var-decl".to_string()),
+            )),
             Dec::Exp(e) => {
                 if exp_is_static(&e.0) {
                     // ignore pure expression with no name.
                     Ok(())
                 } else {
-                    Err(Interruption::ModuleNotStatic(df.dec.1.clone()))
+                    Err(Interruption::ModuleNotStatic(
+                        df.dec.1.clone(),
+                        Some(format!("non-static-exp({:?})", e)),
+                    ))
                 }
             }
             Dec::Let(p, e) => {
@@ -829,7 +845,10 @@ mod def {
                         // ignore pure expression with no name.
                         Ok(())
                     } else {
-                        Err(Interruption::ModuleNotStatic(df.dec.1.clone()))
+                        Err(Interruption::ModuleNotStatic(
+                            df.dec.1.clone(),
+                            Some(format!("non-static-let({:?})", e)),
+                        ))
                     }
                 } else {
                     match get_pat_var(&p.0) {
@@ -845,7 +864,10 @@ mod def {
                                 )?;
                                 Ok(())
                             } else {
-                                Err(Interruption::ModuleNotStatic(source.clone()))
+                                Err(Interruption::ModuleNotStatic(
+                                    source.clone(),
+                                    Some(format!("non-static-let({:?})", e)),
+                                ))
                             }
                         }
                         None => {
@@ -1060,6 +1082,23 @@ mod def {
     }
 }
 
+fn exp_field_is_static(e: &ExpField) -> bool {
+    if let Some(e) = &e.exp {
+        exp_is_static(&e.0)
+    } else {
+        true
+    }
+}
+
+fn object_is_static(d: &crate::ast::Delim<ExpField_>) -> bool {
+    for ef in d.vec.iter() {
+        if !exp_field_is_static(&ef.0) {
+            return false;
+        }
+    }
+    true
+}
+
 fn delim_is_static(d: &crate::ast::Delim<Exp_>) -> bool {
     for e in d.vec.iter() {
         if !exp_is_static(&e.0) {
@@ -1075,6 +1114,13 @@ fn delim_is_static(d: &crate::ast::Delim<Exp_>) -> bool {
 fn exp_is_static(e: &Exp) -> bool {
     match e {
         Exp::ActorUrl(_) => true,
+        Exp::Object(_, efs) => {
+            if let Some(efs) = efs {
+                object_is_static(efs)
+            } else {
+                true
+            }
+        }
         Exp::Literal(_) => true,
         Exp::Function(_) => true,
         Exp::Block(decs) => {
@@ -1190,7 +1236,7 @@ fn binop(
             },
             _ => nyi!(line!()),
         },
-        _ => nyi!(line!()),
+        _ => nyi!(line!(), "binop({:?}. {:?}, {:?})", binop, v1, v2),
     }
 }
 
@@ -1219,7 +1265,7 @@ fn relop(
             (Int(i1), Int(i2)) => i1 != i2,
             (v1, v2) => v1 != v2, //            _ => nyi!(line!(), "{:?} == {:?}", v1, v2)?,
         },
-        _ => nyi!(line!())?,
+        _ => nyi!(line!(), "relop({:?}, {:?}, {:?})", relop, v1, v2)?,
     }))
 }
 

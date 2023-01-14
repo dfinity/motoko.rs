@@ -730,7 +730,7 @@ pub enum Interruption {
     NotOwner(Pointer),
     ImportCycle(Vector<ModulePath>),
     ModuleFileNotFound(ModulePath),
-    ModuleNotStatic(Source),
+    ModuleNotStatic(Source, Option<String>),
     ModuleFieldNotPublic(Id),
     TypeMismatch(OptionCoreSource),
     NonLiteralInit(Source),

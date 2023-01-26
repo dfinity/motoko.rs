@@ -1,5 +1,5 @@
 use crate::ast::{
-    BinOp, Cases, Dec, DecField, DecField_, Dec_, Delim, Exp, ExpField, ExpField_, Exp_, Id, Id_,
+    BinOp, Cases, Dec, DecField, Dec_, Delim, Exp, ExpField, ExpField_, Exp_, Id, Id_,
     Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, ProjIndex, RelOp, Source, Stab_, ToId, Type,
     UnOp, Vis_,
 };
@@ -711,7 +711,7 @@ mod def {
                     active.package().as_ref().map_or(false, |n| n.as_str() == "⛔");
                 let fields = // promote.
                     if do_promote_fields_to_public_vis {
-                        crate::ast::Delim{
+                        Delim{
                             vec:
                             init.fields.vec.iter().map(
                                 |f|
@@ -3047,6 +3047,29 @@ impl Core {
         }
     }
 
+    /// New VM with no program, but `base` library is available.
+    pub fn new_with_base() -> Self {
+        use crate::package::{get_prim_library, get_base_library};
+        let mut core = Core::empty();
+
+        let prim = get_prim_library();
+        for (path, file) in prim.files.into_iter() {
+            // remove '.mo' from suffix of the filename to produce the path
+            let path = format!("{}", &path[0..path.len() - 3]);
+            core.set_module(Some("⛔".to_string()), path.clone(), &file.content)
+                .expect("load prim");
+        }
+
+        let base = get_base_library();
+        for (path, file) in base.files.into_iter() {
+            // remove '.mo' from suffix of the filename to produce the path
+            let path = format!("{}", &path[0..path.len() - 3]);
+            core.set_module(Some("base".to_string()), path.clone(), &file.content)
+                .expect("load base");
+        }
+        core
+    }
+
     /// New VM without any program.
     pub fn empty() -> Self {
         let mut c = Self::new(crate::ast::Delim::new());
@@ -3162,7 +3185,7 @@ impl Core {
             let (saved, ctxid, old_ctx) = self.defs().reenter_context(&old.context);
             for dec in init.outer_decs.iter() {
                 let dec = dec.clone();
-                let df = crate::ast::DecField {
+                let df = DecField {
                     vis: None,
                     stab: None,
                     dec,

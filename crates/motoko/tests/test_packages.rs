@@ -13,7 +13,8 @@ fn import_and_eval_debug_print() {
  import Debug "mo:base/Debug";
  Debug.print "hello world"
  "##;
-    let mut core = Core::new_with_base();
+    let mut core = Core::empty();
+    core.load_base().expect("load base");
     core.eval(&print_hello_world)
         .expect("eval print hello world");
 }
@@ -67,7 +68,8 @@ fn import_all_your_base() {
  import TrieSet "mo:base/TrieSet";
    "##;
 
-    let mut core = Core::new_with_base();
+    let mut core = Core::empty();
+    core.load_base().expect("load base");
     core.eval(&import_all).expect("eval import all");
 }
 
@@ -218,7 +220,7 @@ fn eval_base_library() {
     assert_eval_packages(get_base_library(), vec![get_prim_library()]);
 }
 
-#[ignore]
+//#[ignore]
 #[test]
 fn eval_base_library_tests() {
     assert_eval_packages(
@@ -231,7 +233,7 @@ fn eval_base_library_tests() {
     );
 }
 
-#[ignore]
+//#[ignore]
 #[test]
 fn eval_matchers_library_tests() {
     assert_eval_packages(

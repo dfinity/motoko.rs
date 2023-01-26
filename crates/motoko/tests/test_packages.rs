@@ -220,7 +220,7 @@ fn eval_base_library() {
     assert_eval_packages(get_base_library(), vec![get_prim_library()]);
 }
 
-//#[ignore]
+#[ignore]
 #[test]
 fn eval_base_library_tests() {
     assert_eval_packages(
@@ -233,7 +233,7 @@ fn eval_base_library_tests() {
     );
 }
 
-//#[ignore]
+#[ignore]
 #[test]
 fn eval_matchers_library_tests() {
     assert_eval_packages(

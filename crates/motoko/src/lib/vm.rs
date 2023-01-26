@@ -1,7 +1,7 @@
 use crate::ast::{
-    BinOp, Cases, Dec, DecField, Dec_, Delim, Exp, ExpField, ExpField_, Exp_, Id, Id_,
-    Inst, Literal, Mut, Pat, Pat_, PrimType, Prog, ProjIndex, RelOp, Source, Stab_, ToId, Type,
-    UnOp, Vis_,
+    BinOp, Cases, Dec, DecField, Dec_, Delim, Exp, ExpField, ExpField_, Exp_, Id, Id_, Inst,
+    Literal, Mut, Pat, Pat_, PrimType, Prog, ProjIndex, RelOp, Source, Stab_, ToId, Type, UnOp,
+    Vis_,
 };
 //use crate::ast_traversal::ToNode;
 use crate::shared::{FastClone, Share};
@@ -3047,27 +3047,22 @@ impl Core {
         }
     }
 
-    /// New VM with no program, but `base` library is available.
-    pub fn new_with_base() -> Self {
-        use crate::package::{get_prim_library, get_base_library};
-        let mut core = Core::empty();
-
+    /// Load `base` library into an existing Core.
+    pub fn load_base(&mut self) -> Result<(), Interruption> {
+        use crate::package::{get_base_library, get_prim_library};
         let prim = get_prim_library();
         for (path, file) in prim.files.into_iter() {
             // remove '.mo' from suffix of the filename to produce the path
             let path = format!("{}", &path[0..path.len() - 3]);
-            core.set_module(Some("⛔".to_string()), path.clone(), &file.content)
-                .expect("load prim");
+            self.set_module(Some("⛔".to_string()), path.clone(), &file.content)?;
         }
-
         let base = get_base_library();
         for (path, file) in base.files.into_iter() {
             // remove '.mo' from suffix of the filename to produce the path
             let path = format!("{}", &path[0..path.len() - 3]);
-            core.set_module(Some("base".to_string()), path.clone(), &file.content)
-                .expect("load base");
+            self.set_module(Some("base".to_string()), path.clone(), &file.content)?
         }
-        core
+        Ok(())
     }
 
     /// New VM without any program.

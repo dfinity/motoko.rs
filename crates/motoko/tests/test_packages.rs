@@ -13,7 +13,8 @@ fn import_and_eval_debug_print() {
  import Debug "mo:base/Debug";
  Debug.print "hello world"
  "##;
-    let mut core = Core::new_with_base();
+    let mut core = Core::empty();
+    core.load_base().expect("load base");
     core.eval(&print_hello_world)
         .expect("eval print hello world");
 }
@@ -67,7 +68,8 @@ fn import_all_your_base() {
  import TrieSet "mo:base/TrieSet";
    "##;
 
-    let mut core = Core::new_with_base();
+    let mut core = Core::empty();
+    core.load_base().expect("load base");
     core.eval(&import_all).expect("eval import all");
 }
 

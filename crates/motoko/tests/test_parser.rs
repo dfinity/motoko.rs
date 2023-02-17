@@ -454,3 +454,8 @@ fn test_source_comments() {
         "<Exp(<Var(\"a\")@8..9 @ 2:6>)@8..9 @ 2:6>"
     );
 }
+
+#[test]
+fn test_misc() {
+    assert_to(r#"'\"'; //abc"#, r#"'\"';"#);
+}

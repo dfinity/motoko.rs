@@ -185,17 +185,17 @@ pub fn find_comment_spans(input: &str) -> Vec<Span> {
     let mut nest_depth = 0;
     while let Some((i, c)) = iter.next() {
         match c {
-            '"' if nest_depth == 0 => {
+            '"' | '\'' if nest_depth == 0 => {
                 // String literal
                 let mut escaped = false;
-                while let Some((_, c)) = iter.next() {
+                while let Some((_, c1)) = iter.next() {
                     if escaped {
                         // Skip escaped character
                         escaped = false;
-                    } else if c == '\\' {
+                    } else if c1 == '\\' {
                         // Escape next character
                         escaped = true;
-                    } else if c == '"' {
+                    } else if c1 == c {
                         // End string literal
                         break;
                     }

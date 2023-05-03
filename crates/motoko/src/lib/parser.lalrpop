@@ -341,6 +341,7 @@ ExpNonDec<B>: Exp = {
     "import" <txt:StringLiteral> => Exp::Import(txt),
     "try" <e1:ExpNest_> <c:Catch_> => Exp::Try(e1, c),
     "memo" <e:Block_> => Exp::Memo(e),
+    "thunk" <e:Block_> => Exp::Thunk(e),
     "force" <e:ExpNullary_<Ob>> => Exp::Force(e),
     "@"  <e1:ExpNullary_<Ob>> ":=" <e2:ExpNullary_<Ob>> => Exp::NomPut(e1, e2),
     "@"  <e1:ExpNullary_<Ob>> => Exp::NomGet(e1),

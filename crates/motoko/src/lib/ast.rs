@@ -556,6 +556,11 @@ pub enum Exp {
     Try(Exp_, Case_),
     Ignore(Exp_),
     Paren(Exp_),
+    Memo(Exp_),
+    Force(Exp_),
+    Thunk(Exp_),
+    NomPut(Exp_, Exp_),
+    NomGet(Exp_),
 }
 
 impl Exp {

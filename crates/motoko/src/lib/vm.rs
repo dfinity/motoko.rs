@@ -1977,6 +1977,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             ));
             Ok(Step {})
         }
+        Memo(e) => exp_conts(active, FrameCont::Memo, e),
+        Force(e) => exp_conts(active, FrameCont::Force, e),
+        NomPut(e1, e2) => exp_conts(active, FrameCont::NomPut1(e2.fast_clone()), e1),
+        NomGet(e) => exp_conts(active, FrameCont::NomGet, e),
+        // XXX thunk
         e => nyi!(line!(), "{:?}", e),
     }
 }
@@ -2241,7 +2246,12 @@ fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, 
             Call2(..) => true,
             Call3 => false,
             Return => true,
-            //_ => return nyi!(line!()),
+            Memo => true,
+            Force => true,
+            NomGet => true,      // ?
+            NomPut1(_) => false, // ?
+            NomPut2(_) => true,  // ?
+                                  //_ => return nyi!(line!()),
         };
         Ok(r)
     }
@@ -2721,6 +2731,17 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             Ok(Step {})
         }
         Return => return_(active, v),
+        Memo => {
+            // to do -- record it
+            *active.cont() = Cont::Value_(v);
+            Ok(Step {})
+        }
+        Force => {
+            nyi!(line!())
+        }
+        NomPut1(e2) => exp_conts(active, FrameCont::NomPut2(v), &e2),
+        NomPut2(v1) => nyi!(line!()),
+        NomGet => nyi!(line!()),
     }
 }
 

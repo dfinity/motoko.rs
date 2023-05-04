@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::num::Wrapping;
 use std::rc::Rc;
 
-use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut, ToId};
+use crate::ast::{Dec, Decs, Exp, Exp_, Function, Id, Literal, Mut, ToId};
 use crate::dynamic::Dynamic;
 use crate::shared::{FastClone, Share, Shared};
 use crate::vm_types::{def::Actor as ActorDef, def::CtxId, def::Module as ModuleDef, Env};
@@ -17,6 +17,21 @@ use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
 pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum Sym {
+    None,
+    Num(i32),
+    Id(Id),
+    Bin(Box<Sym>, Box<Sym>),
+    /// Nest: Special binary case arising from putting within named nests.
+    Nest(Box<Sym>, Box<Sym>),
+    Tri(Box<Sym>, Box<Sym>, Box<Sym>),
+    Dash,
+    Under,
+    Dot,
+    Tick,
+}
 
 /// Permit sharing and fast concats.
 #[derive(Clone, Debug)]
@@ -131,6 +146,8 @@ pub enum Value {
     Actor(Actor),
     ActorMethod(ActorMethod),
     Module(ModuleDef),
+    Sym(Sym),
+    Thunk(Closed<Exp_>),
 }
 
 /// Actor value.
@@ -527,6 +544,8 @@ impl Value {
             Value::Dynamic(d) => {
                 serde_json::to_value(d).map_err(|e| ValueError::ToRust(e.to_string()))?
             }
+            Value::Sym(_) => Err(ValueError::ToRust("Sym".to_string()))?,
+            Value::Thunk(_) => Err(ValueError::ToRust("Thunk".to_string()))?,
         })
     }
 

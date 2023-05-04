@@ -239,6 +239,11 @@ pub mod stack {
         Call3,
         Return,
         Respond(RespTarget),
+        Memo,
+        Force,
+        NomPut1(Exp_),
+        NomPut2(Value_),
+        NomGet,
     }
     impl FrameCont {
         pub fn formal(&self) -> Option<FormalFrameCont> {

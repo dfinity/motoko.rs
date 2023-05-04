@@ -1832,6 +1832,15 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             })));
             Ok(Step {})
         }
+        Thunk(e) => {
+            let env = active.env().fast_clone();
+            *active.cont() = cont_value(Value::Thunk(Closed {
+                ctx: active.defs().active_ctx.clone(),
+                env,
+                content: e.fast_clone(),
+            }));
+            Ok(Step {})
+        }
         Call(e1, inst, e2) => {
             exp_conts(active, FrameCont::Call1(inst.clone(), e2.fast_clone()), e1)
         }
@@ -2737,7 +2746,17 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             Ok(Step {})
         }
         Force => {
-            nyi!(line!())
+            match &*v {
+                Value::Thunk(closed_exp) => {
+                    // to do -- set other active fields.
+                    *active.cont() = Cont::Exp_(closed_exp.content.fast_clone(), Vector::new());
+                    *active.cont_source() = closed_exp.content.1.clone();
+                    *active.env() = closed_exp.env.clone();
+                    active.defs().active_ctx = closed_exp.ctx.clone();
+                    Ok(Step {})
+                }
+                _ => type_mismatch!(file!(), line!()),
+            }
         }
         NomPut1(e2) => exp_conts(active, FrameCont::NomPut2(v), &e2),
         NomPut2(v1) => nyi!(line!()),

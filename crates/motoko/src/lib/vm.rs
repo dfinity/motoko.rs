@@ -2748,7 +2748,6 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         Force => {
             match &*v {
                 Value::Thunk(closed_exp) => {
-                    // to do -- set other active fields.
                     *active.cont() = Cont::Exp_(closed_exp.content.fast_clone(), Vector::new());
                     *active.cont_source() = closed_exp.content.1.clone();
                     *active.env() = closed_exp.env.clone();

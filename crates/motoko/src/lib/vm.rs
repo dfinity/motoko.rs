@@ -1990,7 +1990,6 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         Force(e) => exp_conts(active, FrameCont::Force, e),
         NomPut(e1, e2) => exp_conts(active, FrameCont::NomPut1(e2.fast_clone()), e1),
         NomGet(e) => exp_conts(active, FrameCont::NomGet, e),
-        // XXX thunk
         e => nyi!(line!(), "{:?}", e),
     }
 }

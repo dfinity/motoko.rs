@@ -343,6 +343,7 @@ ExpNonDec<B>: Exp = {
     "memo" <e:Block_> => Exp::Memo(e),
     "thunk" <e:Block_> => Exp::Thunk(e),
     "force" <e:ExpNullary_<Ob>> => Exp::Force(e),
+    "do" "@" <e1:ExpNullary_<Ob>> <e2:Block_> => Exp::NomDo(e1, e2),
     "@"  <e1:ExpNullary_<Ob>> ":=" <e2:ExpNullary_<Ob>> => Exp::NomPut(e1, e2),
     "@"  <e1:ExpNullary_<Ob>> => Exp::NomGet(e1),
 }

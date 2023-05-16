@@ -147,7 +147,7 @@ impl ToDoc for Literal {
             Text(t) => t,
             Char(c) => c,
             Blob(_) => unimplemented!(),
-            // _ => text("Display-TODO={:?}", self),
+            Sym(_) => unimplemented!(),
         })
     }
 }

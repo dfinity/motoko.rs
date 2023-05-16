@@ -186,6 +186,22 @@ pub enum Literal {
     Char(String), // includes quotes
     Text(String), // includes quotes
     Blob(Vec<u8>),
+    Sym(Sym),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum Sym {
+    None,
+    Num(i32),
+    Id(Id),
+    Bin(Box<Sym>, Box<Sym>),
+    /// Nest: Special binary case arising from putting within named nests.
+    Nest(Box<Sym>, Box<Sym>),
+    Tri(Box<Sym>, Box<Sym>, Box<Sym>),
+    Dash,
+    Under,
+    Dot,
+    Tick,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -559,6 +575,7 @@ pub enum Exp {
     Memo(Exp_),
     Force(Exp_),
     Thunk(Exp_),
+    NomDo(Exp_, Exp_),
     NomPut(Exp_, Exp_),
     NomGet(Exp_),
 }

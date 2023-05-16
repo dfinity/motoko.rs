@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::num::Wrapping;
 use std::rc::Rc;
 
-use crate::ast::{Dec, Decs, Exp, Exp_, Function, Id, Literal, Mut, ToId};
+use crate::ast::{Dec, Decs, Exp, Exp_, Function, Id, Literal, Sym, Mut, ToId};
 use crate::dynamic::Dynamic;
 use crate::shared::{FastClone, Share, Shared};
 use crate::vm_types::{def::Actor as ActorDef, def::CtxId, def::Module as ModuleDef, Env};
@@ -17,21 +17,6 @@ use serde::{Deserialize, Serialize};
 // use float_cmp::ApproxEq; // in case we want to implement the `Eq` trait for `Value`
 
 pub type Result<T = Value, E = ValueError> = std::result::Result<T, E>;
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum Sym {
-    None,
-    Num(i32),
-    Id(Id),
-    Bin(Box<Sym>, Box<Sym>),
-    /// Nest: Special binary case arising from putting within named nests.
-    Nest(Box<Sym>, Box<Sym>),
-    Tri(Box<Sym>, Box<Sym>, Box<Sym>),
-    Dash,
-    Under,
-    Dot,
-    Tick,
-}
 
 /// Permit sharing and fast concats.
 #[derive(Clone, Debug)]
@@ -405,6 +390,7 @@ impl Value {
             Literal::Char(s) => Char(s[1..s.len() - 1].parse().map_err(|_| ValueError::Char)?),
             Literal::Text(s) => Text(crate::value::Text::from(s[1..s.len() - 1].to_string())),
             Literal::Blob(v) => Blob(v.clone()),
+	    Literal::Sym(s) => Sym(s.clone()),
         })
     }
 }

@@ -1,3 +1,4 @@
+pub mod adapton;
 pub mod ast;
 pub mod ast_traversal;
 pub mod candid_utils;
@@ -28,7 +29,6 @@ pub mod shared;
 pub mod value;
 pub mod vm;
 pub mod vm_types;
-pub mod adapton;
 
 #[cfg(feature = "parser")]
 pub use crate::check::parse;

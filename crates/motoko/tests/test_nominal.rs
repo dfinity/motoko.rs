@@ -22,3 +22,8 @@ fn memo_137_plus_137() {
 fn get_put_4() {
     assert_("@(@1 := 4)", "4")
 }
+
+#[test]
+fn do_at() {
+    assert_("do @1 { 2 + 3 }", "5")
+}

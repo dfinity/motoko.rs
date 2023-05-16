@@ -1986,10 +1986,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             ));
             Ok(Step {})
         }
-        Memo(e) => exp_conts(active, FrameCont::Memo, e),
+        Memo(e) => exp_conts(active, FrameCont::Memo(e.fast_clone()), e),
         Force(e) => exp_conts(active, FrameCont::Force, e),
         NomPut(e1, e2) => exp_conts(active, FrameCont::NomPut1(e2.fast_clone()), e1),
         NomGet(e) => exp_conts(active, FrameCont::NomGet, e),
+        NomDo(e1, e2) => exp_conts(active, FrameCont::NomDo1(e2.fast_clone()), e1),
         e => nyi!(line!(), "{:?}", e),
     }
 }
@@ -2254,12 +2255,13 @@ fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, 
             Call2(..) => true,
             Call3 => false,
             Return => true,
-            Memo => true,
+            Memo(_) => true,
             Force => true,
-            NomGet => true,      // ?
-            NomPut1(_) => false, // ?
-            NomPut2(_) => true,  // ?
-                                  //_ => return nyi!(line!()),
+            NomGet => true,
+            NomPut1(_) => false,
+            NomPut2(_) => true,
+            NomDo1(_) => false,
+            NomDo2(_) => true,
         };
         Ok(r)
     }
@@ -2739,23 +2741,27 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             Ok(Step {})
         }
         Return => return_(active, v),
-        Memo => {
-            // to do -- record it
+        Memo(_e) => {
+            // to do -- record it; use original exp as name.
             *active.cont() = Cont::Value_(v);
             Ok(Step {})
         }
-        Force => {
-            match &*v {
-                Value::Thunk(closed_exp) => {
-                    *active.cont() = Cont::Exp_(closed_exp.content.fast_clone(), Vector::new());
-                    *active.cont_source() = closed_exp.content.1.clone();
-                    *active.env() = closed_exp.env.clone();
-                    active.defs().active_ctx = closed_exp.ctx.clone();
-                    Ok(Step {})
-                }
-                _ => type_mismatch!(file!(), line!()),
-            }
+        NomDo1(e2) => exp_conts(active, FrameCont::NomDo2(v), &e2),
+        NomDo2(_name) => {
+            // to do -- record it at name, which should be a "symbol value".
+            *active.cont() = Cont::Value_(v);
+            Ok(Step {})
         }
+        Force => match &*v {
+            Value::Thunk(closed_exp) => {
+                *active.cont() = Cont::Exp_(closed_exp.content.fast_clone(), Vector::new());
+                *active.cont_source() = closed_exp.content.1.clone();
+                *active.env() = closed_exp.env.clone();
+                active.defs().active_ctx = closed_exp.ctx.clone();
+                Ok(Step {})
+            }
+            _ => type_mismatch!(file!(), line!()),
+        },
         NomPut1(e2) => exp_conts(active, FrameCont::NomPut2(v), &e2),
         NomPut2(v1) => nyi!(line!()),
         NomGet => nyi!(line!()),

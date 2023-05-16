@@ -6,7 +6,7 @@ use im_rc::HashMap;
 #[derive(Debug, Clone)]
 pub enum Name {
     Value_(Value_), // uses Rc for O(1) copying.
-    Exp_(Exp_), // uses Rc for O(1) copying.
+    Exp_(Exp_),     // uses Rc for O(1) copying.
     Sym(Sym),
 }
 

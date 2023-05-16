@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::num::Wrapping;
 use std::rc::Rc;
 
-use crate::ast::{Dec, Decs, Exp, Exp_, Function, Id, Literal, Sym, Mut, ToId};
+use crate::ast::{Dec, Decs, Exp, Exp_, Function, Id, Literal, Mut, Sym, ToId};
 use crate::dynamic::Dynamic;
 use crate::shared::{FastClone, Share, Shared};
 use crate::vm_types::{def::Actor as ActorDef, def::CtxId, def::Module as ModuleDef, Env};
@@ -390,7 +390,7 @@ impl Value {
             Literal::Char(s) => Char(s[1..s.len() - 1].parse().map_err(|_| ValueError::Char)?),
             Literal::Text(s) => Text(crate::value::Text::from(s[1..s.len() - 1].to_string())),
             Literal::Blob(v) => Blob(v.clone()),
-	    Literal::Sym(s) => Sym(s.clone()),
+            Literal::Sym(s) => Sym(s.clone()),
         })
     }
 }

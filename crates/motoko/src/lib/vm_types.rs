@@ -2,6 +2,7 @@ use im_rc::{HashMap, Vector};
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
+use crate::adapton;
 use crate::ast::{Inst, Mut};
 #[cfg(feature = "parser")]
 use crate::parser_types::SyntaxError as SyntaxErrorCode;
@@ -438,6 +439,7 @@ pub struct Agent {
     pub store: Store,
     pub counts: Counts,
     pub active: Activation,
+    pub adapton_core: adapton::Core,
 }
 
 /// Components for a single activated thread of control.
@@ -489,6 +491,7 @@ pub struct Actor {
     pub counts: Counts,
     pub active: Option<Activation>,
     pub awaiting: HashMap<RespId, Activation>,
+    pub adapton_core: adapton::Core,
 }
 
 /// Unique response Id, for coordinating message responses from the
@@ -623,7 +626,7 @@ pub trait Active: ActiveBorrow {
     fn alloc(&mut self, value: impl Into<Value_>) -> Pointer {
         self.store().alloc(value)
     }
-
+    fn adapton_core<'a>(&'a mut self) -> &'a mut adapton::Core;
     fn create(
         &mut self,
         path: String,
@@ -768,6 +771,13 @@ pub enum Interruption {
     Unknown,
     Impossible,
     Other(String),
+    Adapton(adapton::Interruption),
+}
+
+impl From<adapton::Interruption> for Interruption {
+    fn from(i: adapton::Interruption) -> Self {
+        Interruption::Adapton(i)
+    }
 }
 
 impl From<SyntaxError> for Interruption {

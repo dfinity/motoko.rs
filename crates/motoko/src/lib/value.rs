@@ -132,6 +132,7 @@ pub enum Value {
     ActorMethod(ActorMethod),
     Module(ModuleDef),
     Sym(Sym),
+    Ptr(Sym),
     Thunk(Closed<Exp_>),
 }
 
@@ -531,6 +532,7 @@ impl Value {
                 serde_json::to_value(d).map_err(|e| ValueError::ToRust(e.to_string()))?
             }
             Value::Sym(_) => Err(ValueError::ToRust("Sym".to_string()))?,
+            Value::Ptr(_) => Err(ValueError::ToRust("Ptr".to_string()))?,
             Value::Thunk(_) => Err(ValueError::ToRust("Thunk".to_string()))?,
         })
     }

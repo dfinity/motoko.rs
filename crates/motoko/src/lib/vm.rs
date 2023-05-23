@@ -1,3 +1,4 @@
+use crate::adapton;
 use crate::ast::{
     BinOp, Cases, Dec, DecField, Dec_, Delim, Exp, ExpField, ExpField_, Exp_, Id, Id_, Inst,
     Literal, Mut, Pat, Pat_, PrimType, Prog, ProjIndex, RelOp, Source, Stab_, ToId, Type, UnOp,
@@ -406,6 +407,7 @@ impl Active for Core {
             counts: Counts::default(),
             active: None,
             awaiting: HashMap::new(),
+            adapton_core: adapton::Core::new(),
         };
         let a0 = self.actors.map.insert(name, a);
         if let Some(_a0) = a0 {
@@ -463,6 +465,7 @@ impl Active for Core {
             counts,
             active: None,
             awaiting: HashMap::new(),
+            adapton_core: adapton::Core::new(),
         };
         self.actors.map.insert(name, a);
         Ok(v.share())
@@ -484,6 +487,14 @@ impl Active for Core {
         module: ModuleDef,
     ) -> Result<Value_, Interruption> {
         Ok(crate::value::Value::Module(module).share())
+    }
+
+    fn adapton_core<'a>(&'a mut self) -> &'a mut adapton::Core {
+        use ScheduleChoice::*;
+        match &self.schedule_choice {
+            Agent => &mut self.agent.adapton_core,
+            Actor(ref n) => &mut self.actors.map.get_mut(n).unwrap().adapton_core,
+        }
     }
 }
 
@@ -1172,6 +1183,7 @@ fn agent_init(prog: Prog) -> Agent {
         //debug_print_out: Vector::new(),
         counts: Counts::default(),
         active: Activation::new(),
+        adapton_core: adapton::Core::new(),
     };
     a.active.cont = Cont::Decs(prog.vec);
     a
@@ -2763,8 +2775,27 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             _ => type_mismatch!(file!(), line!()),
         },
         NomPut1(e2) => exp_conts(active, FrameCont::NomPut2(v), &e2),
-        NomPut2(v1) => nyi!(line!()),
-        NomGet => nyi!(line!()),
+        NomPut2(v1) => match &*v1 {
+            Value::Sym(s) => {
+                active.adapton_core().put(adapton::Name::Sym(s.clone()), v);
+                *active.cont() = Cont::Value_(Value::Ptr(s.clone()).into());
+                Ok(Step {})
+            }
+            _ => type_mismatch!(file!(), line!()),
+        },
+        NomGet => match &*v {
+            Value::Ptr(s) => {
+                let v = active.adapton_core().get(adapton::Name::Sym(s.clone()))?;
+                *active.cont() = Cont::Value_(v);
+                Ok(Step {})
+            }
+            Value::Sym(s) => {
+                let v = active.adapton_core().get(adapton::Name::Sym(s.clone()))?;
+                *active.cont() = Cont::Value_(v);
+                Ok(Step {})
+            }
+            _ => type_mismatch!(file!(), line!()),
+        },
     }
 }
 

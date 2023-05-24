@@ -2782,7 +2782,12 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 Value::Thunk(closed_exp) => {
                     *active.env() = closed_exp.env.clone();
                     active.defs().active_ctx = closed_exp.ctx.clone();
-                    exp_conts(active, FrameCont::Force2(None), &closed_exp.content)
+                    active.adapton_core().nest_begin(name.clone());
+                    exp_conts(
+                        active,
+                        FrameCont::Force2(Some(name.clone())),
+                        &closed_exp.content,
+                    )
                 }
                 _ => type_mismatch!(file!(), line!()),
             },

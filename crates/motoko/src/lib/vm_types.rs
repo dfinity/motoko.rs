@@ -243,7 +243,8 @@ pub mod stack {
         Memo(Exp_), // save Exp_ to use as the node name.
         NomDo1(Exp_),
         NomDo2(Value_),
-        Force, // to do -- save optional thunk pointer for recording in graph/trace.
+        Force1,
+        Force2(Option<crate::adapton::Name>),
         NomPut1(Exp_),
         NomPut2(Value_),
         NomGet,

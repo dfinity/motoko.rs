@@ -1,5 +1,6 @@
 use crate::shared::{Share, Shared};
 use crate::value::PrimFunction;
+use num_bigint::{BigInt, BigUint};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -192,7 +193,7 @@ pub enum Literal {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Sym {
     None,
-    Num(i32),
+    Nat(BigUint),
     Id(Id),
     Bin(Box<Sym>, Box<Sym>),
     /// Nest: Special binary case arising from putting within named nests.

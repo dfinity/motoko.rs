@@ -27,3 +27,8 @@ fn get_put_4() {
 fn do_at() {
     assert_("do @1 { 2 + 3 }", "5")
 }
+
+#[test]
+fn force_thunk_ptr() {
+    assert_("force(@1 := (thunk { 13 + 13 }))", "26")
+}

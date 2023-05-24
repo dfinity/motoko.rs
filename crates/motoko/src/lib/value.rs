@@ -132,7 +132,7 @@ pub enum Value {
     ActorMethod(ActorMethod),
     Module(ModuleDef),
     Sym(Sym),
-    Ptr(Sym),
+    Ptr(crate::adapton::Name),
     Thunk(Closed<Exp_>),
 }
 
@@ -635,6 +635,14 @@ impl Value {
                     Some(v) => Ok(v.val.fast_clone()),
                 }
             }
+            _ => Err(err),
+        }
+    }
+
+    pub fn into_sym_or<E>(&self, err: E) -> Result<Sym, E> {
+        match self {
+            Value::Sym(s) => Ok(s.clone()),
+            Value::Nat(n) => Ok(Sym::Nat(n.clone())),
             _ => Err(err),
         }
     }

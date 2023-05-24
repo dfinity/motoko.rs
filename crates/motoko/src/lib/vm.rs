@@ -1826,6 +1826,15 @@ fn resolve_def(
     }
 }
 
+fn closed<A: Active, Content>(active: &mut A, content: Content) -> Closed<Content> {
+    let env = active.env().fast_clone();
+    Closed {
+        ctx: active.defs().active_ctx.clone(),
+        env,
+        content,
+    }
+}
+
 fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> {
     use Exp::*;
     let source = exp.1.clone();
@@ -1836,21 +1845,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             Ok(Step {})
         }
         Function(f) => {
-            let env = active.env().fast_clone();
-            *active.cont() = cont_value(Value::Function(ClosedFunction(Closed {
-                ctx: active.defs().active_ctx.clone(),
-                env,
-                content: f.clone(), // TODO: `Shared<Function>`?
-            })));
+            *active.cont() = cont_value(Value::Function(ClosedFunction(closed(active, f.clone()))));
             Ok(Step {})
         }
         Thunk(e) => {
-            let env = active.env().fast_clone();
-            *active.cont() = cont_value(Value::Thunk(Closed {
-                ctx: active.defs().active_ctx.clone(),
-                env,
-                content: e.fast_clone(),
-            }));
+            *active.cont() = cont_value(Value::Thunk(closed(active, e.fast_clone())));
             Ok(Step {})
         }
         Call(e1, inst, e2) => {
@@ -1998,11 +1997,15 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             ));
             Ok(Step {})
         }
-        Memo(e) => exp_conts(active, FrameCont::Memo(e.fast_clone()), e),
-        Force(e) => exp_conts(active, FrameCont::Force, e),
+        Memo(e) => {
+            let ce = closed(active, e.fast_clone());
+            active.adapton_core().nest_begin(adapton::Name::Exp_(ce));
+            exp_conts(active, FrameCont::Memo(e.fast_clone()), e)
+        }
+        NomDo(e1, e2) => exp_conts(active, FrameCont::NomDo1(e2.fast_clone()), e1),
+        Force(e) => exp_conts(active, FrameCont::Force1, e),
         NomPut(e1, e2) => exp_conts(active, FrameCont::NomPut1(e2.fast_clone()), e1),
         NomGet(e) => exp_conts(active, FrameCont::NomGet, e),
-        NomDo(e1, e2) => exp_conts(active, FrameCont::NomDo1(e2.fast_clone()), e1),
         e => nyi!(line!(), "{:?}", e),
     }
 }
@@ -2268,7 +2271,8 @@ fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, 
             Call3 => false,
             Return => true,
             Memo(_) => true,
-            Force => true,
+            Force1 => false,
+            Force2(_) => true,
             NomGet => true,
             NomPut1(_) => false,
             NomPut2(_) => true,
@@ -2754,43 +2758,59 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         }
         Return => return_(active, v),
         Memo(_e) => {
-            // to do -- record it; use original exp as name.
+            active.adapton_core().nest_end();
             *active.cont() = Cont::Value_(v);
             Ok(Step {})
         }
-        NomDo1(e2) => exp_conts(active, FrameCont::NomDo2(v), &e2),
+        NomDo1(e2) => {
+            let s = v.into_sym_or(type_mismatch_!(file!(), line!()))?;
+            active.adapton_core().nest_begin(adapton::Name::Sym(s));
+            exp_conts(active, FrameCont::NomDo2(v), &e2)
+        }
         NomDo2(_name) => {
-            // to do -- record it at name, which should be a "symbol value".
+            active.adapton_core().nest_end();
             *active.cont() = Cont::Value_(v);
             Ok(Step {})
         }
-        Force => match &*v {
+        Force1 => match &*v {
             Value::Thunk(closed_exp) => {
-                *active.cont() = Cont::Exp_(closed_exp.content.fast_clone(), Vector::new());
-                *active.cont_source() = closed_exp.content.1.clone();
                 *active.env() = closed_exp.env.clone();
                 active.defs().active_ctx = closed_exp.ctx.clone();
-                Ok(Step {})
+                exp_conts(active, FrameCont::Force2(None), &closed_exp.content)
             }
+            Value::Ptr(name) => match &*(active.adapton_core().get(name)?) {
+                Value::Thunk(closed_exp) => {
+                    *active.env() = closed_exp.env.clone();
+                    active.defs().active_ctx = closed_exp.ctx.clone();
+                    exp_conts(active, FrameCont::Force2(None), &closed_exp.content)
+                }
+                _ => type_mismatch!(file!(), line!()),
+            },
             _ => type_mismatch!(file!(), line!()),
         },
+        Force2(adapton_name) => {
+            match adapton_name {
+                None => {}
+                Some(_n) => active.adapton_core().nest_end(),
+            };
+            *active.cont() = Cont::Value_(v);
+            Ok(Step {})
+        }
         NomPut1(e2) => exp_conts(active, FrameCont::NomPut2(v), &e2),
-        NomPut2(v1) => match &*v1 {
-            Value::Sym(s) => {
-                active.adapton_core().put(adapton::Name::Sym(s.clone()), v);
-                *active.cont() = Cont::Value_(Value::Ptr(s.clone()).into());
-                Ok(Step {})
-            }
-            _ => type_mismatch!(file!(), line!()),
-        },
+        NomPut2(v1) => {
+            let s = v1.into_sym_or(type_mismatch_!(file!(), line!()))?;
+            active.adapton_core().put(adapton::Name::Sym(s.clone()), v);
+            *active.cont() = Cont::Value_(Value::Ptr(adapton::Name::Sym(s.clone()).into()).share());
+            Ok(Step {})
+        }
         NomGet => match &*v {
-            Value::Ptr(s) => {
-                let v = active.adapton_core().get(adapton::Name::Sym(s.clone()))?;
+            Value::Ptr(name) => {
+                let v = active.adapton_core().get(name)?;
                 *active.cont() = Cont::Value_(v);
                 Ok(Step {})
             }
             Value::Sym(s) => {
-                let v = active.adapton_core().get(adapton::Name::Sym(s.clone()))?;
+                let v = active.adapton_core().get(&adapton::Name::Sym(s.clone()))?;
                 *active.cont() = Cont::Value_(v);
                 Ok(Step {})
             }

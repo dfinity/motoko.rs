@@ -19,12 +19,17 @@ fn memo_137_plus_137() {
 }
 
 #[test]
-fn get_put_4() {
+fn get_at_1_put_4() {
     assert_("@(@1 := 4)", "4")
 }
 
 #[test]
-fn do_at() {
+fn get_at_x_put_4() {
+    assert_("@(@$x := 4)", "4")
+}
+
+#[test]
+fn do_at_1_2_plus_3() {
     assert_("do @1 { 2 + 3 }", "5")
 }
 
@@ -56,6 +61,17 @@ fn sym_literal_foo_() {
 #[test]
 fn sym_literal_foo_no_paren() {
     assert_("$foo_", "$foo_")
+}
+
+#[test]
+fn sym_literal_foo_space_under() {
+    assert_("$(foo _)", "$(foo _)")
+}
+
+#[test]
+fn sym_literal_foo_space_under_vs_no_space() {
+    // $foo_ is not the same as $(foo _)
+    // assert_("$(foo _)", "$(foo_)")
 }
 
 #[test]

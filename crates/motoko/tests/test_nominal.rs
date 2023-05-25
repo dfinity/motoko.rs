@@ -75,7 +75,7 @@ fn sym_literal_foo_space_under() {
 
 #[test]
 fn sym_literal_foo_space_under_bar() {
-    // space works with parens, but is a binary composition (not single Id).
+    // under as ternary composition (not single Id).
     assert_("$(foo _ bar)", "$(foo _ bar)")
 }
 

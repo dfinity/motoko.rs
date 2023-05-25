@@ -45,38 +45,44 @@ fn sym_literal_num() {
 
 #[test]
 fn sym_literal_id() {
+    // parens are optional for $foo
     assert_("$(foo)", "$foo")
 }
 
 #[test]
 fn sym_literal_foo_dot_1() {
+    // need parens for dot to work.
     assert_("$(foo.1)", "$(foo.1)")
 }
 
 #[test]
 fn sym_literal_foo_() {
-    assert_("$(foo_)", "$(foo_)")
+    // parens are optional for $foo_
+    assert_("$(foo_)", "$foo_")
 }
 
 #[test]
-fn sym_literal_foo_no_paren() {
-    assert_("$foo_", "$foo_")
+fn sym_literal_foo_bar() {
+    // parens are optional for $foo_bar
+    assert_("$(foo_bar)", "$foo_bar")
 }
 
 #[test]
 fn sym_literal_foo_space_under() {
+    // space works with parens, but is a binary composition (not single Id).
     assert_("$(foo _)", "$(foo _)")
+}
+
+#[test]
+fn sym_literal_foo_space_under_bar() {
+    // space works with parens, but is a binary composition (not single Id).
+    assert_("$(foo _ bar)", "$(foo _ bar)")
 }
 
 #[test]
 fn sym_literal_foo_space_under_vs_no_space() {
     // $foo_ is not the same as $(foo _)
-    // assert_("$(foo _)", "$(foo_)")
-}
-
-#[test]
-fn sym_literal_foo_bar() {
-    assert_("$(foo_bar)", "$(foo_bar)")
+    // assert_not_equal("$(foo _)", "$(foo_)")
 }
 
 #[test]

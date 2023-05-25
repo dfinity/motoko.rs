@@ -35,12 +35,12 @@ fn force_thunk_ptr() {
 
 #[test]
 fn sym_literal_num() {
-    assert_("$(1)", "$(1)")
+    assert_("$(1)", "$1")
 }
 
 #[test]
 fn sym_literal_id() {
-    assert_("$(foo)", "$(foo)")
+    assert_("$(foo)", "$foo")
 }
 
 #[test]
@@ -51,6 +51,11 @@ fn sym_literal_foo_dot_1() {
 #[test]
 fn sym_literal_foo_() {
     assert_("$(foo_)", "$(foo_)")
+}
+
+#[test]
+fn sym_literal_foo_no_paren() {
+    assert_("$foo_", "$foo_")
 }
 
 #[test]

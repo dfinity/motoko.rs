@@ -90,3 +90,8 @@ fn sym_literal_big() {
     // 3_11 is parsed as a single number, 311.
     assert_("$(foo - goo . 3 _ 11)", "$(foo-goo.3_ 11)")
 }
+
+#[test]
+fn sym_dash_composition_operator() {
+    assert_("$foo - $bar", "$(foo-bar)")
+}

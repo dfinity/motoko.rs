@@ -2,7 +2,7 @@
 //use std::collections::HashMap;
 // use crate::ast_utils::Syntax;
 use crate::parser_utils::{dec_node_into_exp, get_one};
-use crate::ast::{BinAnnotWasHoisted, hoist_right_type_annotation as hrta, Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, BindSort, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Case, Case_, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
+use crate::ast::{BinAnnotWasHoisted, hoist_right_type_annotation as hrta, Class, Node, NodeData, Source, Id, Id_, ToId, Pat, Pat_, PatField, PatField_, Exp, Exp_, ExpField, Function, ObjSort, Type, Type_, TypeField, TypeField_, TypeBind, TypeBind_, BindSort, TypeTag, TypeTag_, ValTypeField, TypePath, TypePath_, PrimType, Literal, Sym, Case, Case_, Cases, Decs, Dec, Dec_, UnOp, BinOp, RelOp, Delim, Mut, SortPat, Sugar, Vis, Vis_, Stab, Stab_, DecField, DecField_, DecFields, ProjIndex};
 use crate::value::PrimFunction;
 // use crate::lexer_types::Token;
 use line_col::LineColLookup;
@@ -84,6 +84,7 @@ pub Literal: Literal = {
     "true" => Literal::Bool(true),
     "false" => Literal::Bool(false),
     "(" ")" => Literal::Unit,
+    "$" "(" <s:Sym> ")" => Literal::Sym(s),
     r"[+-]?[0-9]([0-9_]*[0-9])?[Ee][0-9]([0-9_]*[0-9])?" => Literal::Float(<>.to_string()), // exponential without decimal
     r"[+-]?[0-9]([0-9_]*[0-9])?\.([0-9]([0-9_]*[0-9])?)?([Ee][0-9]([0-9_]*[0-9])?)?" => Literal::Float(<>.to_string()), // exponential with decimal
     r"0x[0-9a-fA-F]([0-9a-fA-F_]*[0-9a-fA-F])?" => Literal::Nat(<>.to_string()), // hexadecimal
@@ -724,3 +725,28 @@ DecField_: DecField_ = Node<DecField>;
 DecField: DecField = {
     <vis:(Vis_)?> <stab:(Stab_)?> <dec:Dec_> => DecField{ vis, stab, dec }
 }
+
+
+// Adapton symbols -- we do not include source location within them.
+
+pub SymBox: Box<Sym> = {
+    Sym => Box::new(<>),
+};
+
+pub Sym: Sym = {
+    <s1:SymHdBox> "_" => Sym::Bin(s1, Box::new(Sym::Under)),
+    <s1:SymHdBox> "_" <s2:SymBox> => Sym::Tri(s1, Box::new(Sym::Under), s2),
+    <s1:SymHdBox> "." <s2:SymBox> => Sym::Tri(s1, Box::new(Sym::Dot), s2),
+    <s1:SymHdBox> "-" <s2:SymBox> => Sym::Tri(s1, Box::new(Sym::Dash), s2),
+    SymHd,
+};
+
+pub SymHd: Sym = {
+    r"[0-9]([0-9_]*[0-9])?" => Sym::Nat(<>.parse().unwrap()),
+    Id => Sym::Id(<>),
+    "(" <s:Sym> ")" => s,
+};
+
+pub SymHdBox: Box<Sym> = {
+    SymHd => Box::new(<>),
+};

@@ -202,7 +202,6 @@ pub enum Sym {
     Dash,
     Under,
     Dot,
-    Tick,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

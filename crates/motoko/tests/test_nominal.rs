@@ -32,3 +32,34 @@ fn do_at() {
 fn force_thunk_ptr() {
     assert_("force(@1 := (thunk { 13 + 13 }))", "26")
 }
+
+#[test]
+fn sym_literal_num() {
+    assert_("$(1)", "$(1)")
+}
+
+#[test]
+fn sym_literal_id() {
+    assert_("$(foo)", "$(foo)")
+}
+
+#[test]
+fn sym_literal_foo_dot_1() {
+    assert_("$(foo.1)", "$(foo.1)")
+}
+
+#[test]
+fn sym_literal_foo_() {
+    assert_("$(foo_)", "$(foo_)")
+}
+
+#[test]
+fn sym_literal_foo_bar() {
+    assert_("$(foo_bar)", "$(foo_bar)")
+}
+
+#[test]
+fn sym_literal_big() {
+    // 3_11 is parsed as a single number, 311.
+    assert_("$(foo - goo . 3 _ 11)", "$(foo-goo.3_ 11)")
+}

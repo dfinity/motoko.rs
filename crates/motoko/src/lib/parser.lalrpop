@@ -103,12 +103,12 @@ SymLiteral: Literal = {
     "$" <i:r"[@]?[a-zA-Z_][a-zA-Z_0-9]*"> => Literal::Sym(Sym::Id(i.to_id())),
 }
 
-// SymLiteralExp: Exp = {
-//     SymLiteral => Exp::Literal(<>)
-// }
+SymLiteralExp: Exp = {
+    SymLiteral => Exp::Literal(<>)
+}
 
-// #[inline]
-// SymLiteralExp_: Exp_ = Node<SymLiteralExp>;
+#[inline]
+SymLiteralExp_: Exp_ = Node<SymLiteralExp>;
 
 // --- Patterns --- //
 
@@ -412,7 +412,7 @@ ExpPost<B>: Exp = {
     <e1:ExpPost_<B>> "." <i:NatIndex> => Exp::Proj(e1, ProjIndex::Usize(i)),
     <e1:ExpPost_<B>> "." <f:FloatIndex> => Exp::Proj(e1, ProjIndex::FloatLike(f)),
     <e1:ExpPost_<B>> "." <i:Id_> => Exp::Dot(e1, i),
-    <e1:ExpPost_<B>> "." <e2:ExpPlain_> => Exp::Dot(e1, e2),
+    <e1:ExpPost_<B>> "." <e2:SymLiteralExp_> => Exp::DotSym(e1, e2),
     <e1:ExpPost_<B>> "<" <inst:Delim0<Type_, ",">> ">" <e2:ExpNullary_<Ob>> => Exp::Call(e1, Some(inst), e2),
     <e1:ExpPost_<B>> <e2:ExpNullary_<Ob>> => Exp::Call(e1, None, e2),
     <e:ExpPost_<B>> "!" => Exp::Bang(e),

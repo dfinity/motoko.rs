@@ -4,38 +4,43 @@ use motoko::check::assert_vm_eval as assert_;
 use test_log::test; // enable logging output for tests by default.
 
 #[test]
-fn sanity_1_plus_2_equals_3() {
-    assert_("1 + 2", "3")
+fn memo_13_plus_13() {
+    // depdency graph of one node, named `13 + 13`, holding 26.
+    assert_("memo {13 + 13}", "26")
 }
 
 #[test]
-fn force_thunk_2() {
-    assert_("force (thunk { 2 })", "2")
+fn force_thunk_13_plus_13() {
+    // no depdency graph here:
+    assert_("force (thunk { 13 + 13 })", "26")
 }
 
 #[test]
-fn memo_137_plus_137() {
-    assert_("memo {137 + 137}", "274")
-}
-
-#[test]
-fn get_at_1_put_4() {
-    assert_("@(@1 := 4)", "4")
-}
-
-#[test]
-fn get_at_x_put_4() {
-    assert_("@(@$x := 4)", "4")
-}
-
-#[test]
-fn do_at_1_2_plus_3() {
-    assert_("do @1 { 2 + 3 }", "5")
-}
-
-#[test]
-fn force_thunk_ptr() {
+fn force_thunk_ptr_13_plus_13() {
+    // depdency graph of one node, named $1.
     assert_("force(@1 := (thunk { 13 + 13 }))", "26")
+}
+
+#[test]
+fn do_at_1_13_plus_13() {
+    // depdency graph of one node, named $1.
+    assert_("do @1 { 13 + 13 }", "26")
+}
+
+#[test]
+fn get_at_1_put_26() {
+    // depdency graph of one node, named $1.
+    // holds value 26.
+    // to do -- elim need for parens around 13 + 13.
+    assert_("@(@1 := (13 + 13))", "26")
+}
+
+#[test]
+fn get_at_x_put_26() {
+    // depdency graph of one node, named $x.
+    // holds value 26.
+    // to do -- elim need for parens around 13 + 13.
+    assert_("@(@$x := (13 + 13))", "26")
 }
 
 #[test]
@@ -94,4 +99,35 @@ fn sym_literal_big() {
 #[test]
 fn sym_dash_composition_operator() {
     assert_("$foo - $bar", "$(foo-bar)")
+}
+
+#[test]
+fn sym_dash_composition_operator_twice() {
+    assert_("$foo - $bar - $baz", "$(foo-bar-baz)");
+
+    // '-' associates to the left.
+    assert_("( $foo - $bar ) - $baz", "$(foo-bar-baz)")
+}
+
+#[test]
+fn sym_dot_composition_operator() {
+    assert_("$foo . $bar", "$(foo.bar)")
+}
+
+#[test]
+fn sym_dot_composition_operator_twice() {
+    assert_("$foo . $bar . $baz", "$(foo.bar.baz)");
+
+    // '.' associates to the left.
+    assert_("( $foo . $bar ) . $baz", "$(foo.bar.baz)")
+}
+
+#[test]
+fn sym_dot_dash_composition_precedence() {
+    // dot binds tighter than dash.
+    // dash binds looser than dot.
+    assert_(
+        "$foo . $bar - $baz . $goo",
+        "( $foo . $bar ) - ( $baz . $goo )",
+    )
 }

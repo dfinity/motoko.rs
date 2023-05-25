@@ -538,6 +538,7 @@ pub enum Exp {
     Object(Option<Delim<Exp_>>, Option<ExpFields>),
     Variant(Id_, Option<Exp_>),
     Dot(Exp_, Id_),
+    DotSym(Exp_, Exp_),
     Assign(Exp_, Exp_),
     BinAssign(Exp_, BinOp, Exp_),
     Array(Mut, Delim<Exp_>),

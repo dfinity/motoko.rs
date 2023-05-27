@@ -748,19 +748,19 @@ pub SymBox: Box<Sym> = {
 };
 
 pub Sym: Sym = {
-    <s1:SymHdBox> "_" => Sym::Bin(s1, Box::new(Sym::Under)),
-    <s1:SymHdBox> "_" <s2:SymBox> => Sym::Tri(s1, Box::new(Sym::Under), s2),
-    <s1:SymHdBox> "." <s2:SymBox> => Sym::Tri(s1, Box::new(Sym::Dot), s2),
-    <s1:SymHdBox> "-" <s2:SymBox> => Sym::Tri(s1, Box::new(Sym::Dash), s2),
-    SymHd,
+    <s1:SymBox> "_" => Sym::Bin(s1, Box::new(Sym::Under)),
+    <s1:SymBox> "_" <s2:SymUnBox> => Sym::Tri(s1, Box::new(Sym::Under), s2),
+    <s1:SymBox> "." <s2:SymUnBox> => Sym::Tri(s1, Box::new(Sym::Dot), s2),
+    <s1:SymBox> "-" <s2:SymUnBox> => Sym::Tri(s1, Box::new(Sym::Dash), s2),
+    SymUn,
 };
 
-pub SymHd: Sym = {
+pub SymUn: Sym = {
     r"[0-9]([0-9_]*[0-9])?" => Sym::Nat(<>.parse().unwrap()),
     Id => Sym::Id(<>),
     "(" <s:Sym> ")" => s,
 };
 
-pub SymHdBox: Box<Sym> = {
-    SymHd => Box::new(<>),
+pub SymUnBox: Box<Sym> = {
+    SymUn => Box::new(<>),
 };

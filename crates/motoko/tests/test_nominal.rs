@@ -104,7 +104,10 @@ fn sym_dash_composition_operator() {
 #[test]
 fn sym_dash_composition_operator_twice() {
     assert_("$foo - $bar - $baz", "$(foo-bar-baz)");
+}
 
+#[test]
+fn sym_dash_composition_operator_associates_left() {
     // '-' associates to the left.
     assert_("( $foo - $bar ) - $baz", "$(foo-bar-baz)")
 }
@@ -117,7 +120,10 @@ fn sym_dot_composition_operator() {
 #[test]
 fn sym_dot_composition_operator_twice() {
     assert_("$foo . $bar . $baz", "$(foo.bar.baz)");
+}
 
+#[test]
+fn sym_dot_composition_operator_associates_left() {
     // '.' associates to the left.
     assert_("( $foo . $bar ) . $baz", "$(foo.bar.baz)")
 }
@@ -128,6 +134,6 @@ fn sym_dot_dash_composition_precedence() {
     // dash binds looser than dot.
     assert_(
         "$foo . $bar - $baz . $goo",
-        "( $foo . $bar ) - ( $baz . $goo )",
+        "( $foo . $bar )  - ( $baz  . $goo )",
     )
 }

@@ -179,7 +179,7 @@ pub mod stack {
     use super::{def::CtxId, Cont, Env, Pointer, RespTarget, Vector};
     use crate::ast::{
         BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, ProjIndex, RelOp,
-        Source, Type_, UnOp,
+        Source, Sym, Type_, UnOp,
     };
     use crate::value::{Value, Value_};
     use serde::{Deserialize, Serialize};
@@ -214,6 +214,8 @@ pub mod stack {
         BinAssign2(Value_, BinOp),
         Proj(ProjIndex),
         Dot(Id_),
+        DotSym1(Exp_),
+        DotSym2(Sym),
         If(Exp_, Option<Exp_>),
         RelOp1(RelOp, Exp_),
         RelOp2(Value_, RelOp),

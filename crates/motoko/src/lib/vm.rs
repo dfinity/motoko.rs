@@ -1229,7 +1229,14 @@ fn binop(
             (Int(i1), Nat(n2)) => Ok(Int(i1 - n2.to_bigint().unwrap())),
             (Nat(n1), Int(i2)) => Ok(Int(n1.to_bigint().unwrap() - i2)),
             // _ => nyi!(line!()),
-            (v1, v2) => unimplemented!("{:?} - {:?}", v1, v2),
+            (v1, v2) => match (v1.into_sym_or(()), v2.into_sym_or(())) {
+                (Ok(s1), Ok(s2)) => Ok(Sym(crate::ast::Sym::Tri(
+                    Box::new(s1),
+                    Box::new(crate::ast::Sym::Dash),
+                    Box::new(s2),
+                ))),
+                _ => unimplemented!("{:?} - {:?}", v1, v2),
+            },
         },
         Mul => match (&*v1, &*v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
@@ -1970,6 +1977,7 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         ),
         Proj(e1, i) => exp_conts(active, FrameCont::Proj(i.clone()), e1),
         Dot(e1, f) => exp_conts(active, FrameCont::Dot(f.fast_clone()), e1),
+        DotSym(e1, f) => exp_conts(active, FrameCont::DotSym1(f.fast_clone()), e1),
         If(e1, e2, e3) => exp_conts(active, FrameCont::If(e2.fast_clone(), e3.fast_clone()), e1),
         Rel(e1, relop, e2) => exp_conts(
             active,
@@ -2247,6 +2255,8 @@ fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, 
             Annot(..) => false,
             Proj(..) => true,
             Dot(..) => true,
+            DotSym1(..) => false,
+            DotSym2(..) => true,
             Debug => false,
             If(_, _) => true,
             While1(_, _) => true,
@@ -2569,6 +2579,18 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             }
             _ => type_mismatch!(file!(), line!()),
         },
+        DotSym1(e2) => {
+            let s1 = v.into_sym_or(type_mismatch_!(file!(), line!()))?;
+            exp_conts(active, FrameCont::DotSym2(s1), &e2)
+        }
+        DotSym2(s1) => {
+            use crate::ast::Sym;
+            let s2 = v.into_sym_or(type_mismatch_!(file!(), line!()))?;
+            *active.cont() = Cont::Value_(
+                Value::Sym(Sym::Tri(Box::new(s1), Box::new(Sym::Dot), Box::new(s2))).into(),
+            );
+            Ok(Step {})
+        }
         Dot(f) => match &*v {
             Value::Object(fs) => {
                 if let Some(f) = fs.get(&f.0) {

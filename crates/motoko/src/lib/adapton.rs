@@ -76,7 +76,7 @@ impl Core {
         }
     }
 
-    pub fn put(&mut self, name: Name, val: Value_) {
+    pub fn put_(&mut self, name: Name, val: Value_) {
         let node = match &*val {
             Value::Thunk(closed_exp) => Node {
                 initial_exp: Some(closed_exp.clone()),
@@ -89,6 +89,21 @@ impl Core {
         };
         let _ = self.graph.insert(name.clone(), node);
         self.trace_action(TraceAction::Put(name, val));
+    }
+
+    pub fn put(&mut self, name: Name, val: Value_) {
+        self.put_(name.clone(), val.clone());
+        self.trace_action(TraceAction::Put(name, val));
+    }
+
+    pub fn memo_exists(&mut self, _closed_exp: &Closed<Exp_>) -> bool {
+        // to do.
+        false
+    }
+
+    pub fn memo_put(&mut self, closed_exp: &Closed<Exp_>, val: Value_) {
+        let name = Name::Exp_(closed_exp.clone());
+        self.put_(name, val)
     }
 
     pub fn get(&mut self, name: &Name) -> Result<Value_, Interruption> {

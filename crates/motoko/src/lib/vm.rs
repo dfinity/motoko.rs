@@ -2007,8 +2007,13 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
         }
         Memo(e) => {
             let ce = closed(active, e.fast_clone());
-            active.adapton_core().nest_begin(adapton::Name::Exp_(ce));
-            exp_conts(active, FrameCont::Memo(e.fast_clone()), e)
+            let name = adapton::Name::Exp_(ce.clone());
+            if active.adapton_core().memo_exists(&ce) {
+                Cont::Value_(Value::Ptr(name.clone().into()).share());
+                return Ok(Step {});
+            };
+            active.adapton_core().nest_begin(name);
+            exp_conts(active, FrameCont::Memo(ce), e)
         }
         NomDo(e1, e2) => exp_conts(active, FrameCont::NomDo1(e2.fast_clone()), e1),
         Force(e) => exp_conts(active, FrameCont::Force1, e),
@@ -2779,9 +2784,11 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             Ok(Step {})
         }
         Return => return_(active, v),
-        Memo(_e) => {
+        Memo(ce) => {
             active.adapton_core().nest_end();
-            *active.cont() = Cont::Value_(v);
+            active.adapton_core().memo_put(&ce, v.clone());
+            let name = crate::adapton::Name::Exp_(ce.clone());
+            *active.cont() = Cont::Value_(Value::Ptr(name.into()).share());
             Ok(Step {})
         }
         NomDo1(e2) => {

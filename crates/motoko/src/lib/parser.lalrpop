@@ -748,8 +748,6 @@ pub SymBox: Box<Sym> = {
 };
 
 pub Sym: Sym = {
-    <s1:SymBox> "_" => Sym::Bin(s1, Box::new(Sym::Under)),
-    <s1:SymBox> "_" <s2:SymUnBox> => Sym::Tri(s1, Box::new(Sym::Under), s2),
     <s1:SymBox> "." <s2:SymUnBox> => Sym::Tri(s1, Box::new(Sym::Dot), s2),
     <s1:SymBox> "-" <s2:SymUnBox> => Sym::Tri(s1, Box::new(Sym::Dash), s2),
     SymUn,

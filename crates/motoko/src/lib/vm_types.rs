@@ -181,7 +181,7 @@ pub mod stack {
         BinOp, Cases, Dec_, ExpField_, Exp_, Id_, Inst, Mut, Pat_, PrimType, ProjIndex, RelOp,
         Source, Sym, Type_, UnOp,
     };
-    use crate::value::{Value, Value_};
+    use crate::value::{Closed, Value, Value_};
     use serde::{Deserialize, Serialize};
 
     /// Local continuation, stored in a stack frame.
@@ -242,7 +242,7 @@ pub mod stack {
         Call3,
         Return,
         Respond(RespTarget),
-        Memo(Exp_), // save Exp_ to use as the node name.
+        Memo(Closed<Exp_>), // save Closed Exp_ to use as the node name.
         NomDo1(Exp_),
         NomDo2(Value_),
         Force1,

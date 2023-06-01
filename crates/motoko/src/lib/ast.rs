@@ -1,6 +1,6 @@
 use crate::shared::{Share, Shared};
 use crate::value::PrimFunction;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -200,7 +200,6 @@ pub enum Sym {
     Nest(Box<Sym>, Box<Sym>),
     Tri(Box<Sym>, Box<Sym>, Box<Sym>),
     Dash,
-    Under,
     Dot,
 }
 

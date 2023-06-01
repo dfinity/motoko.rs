@@ -6,7 +6,13 @@ use test_log::test; // enable logging output for tests by default.
 #[test]
 fn memo_13_plus_13() {
     // depdency graph of one node, named `13 + 13`, holding 26.
-    assert_("memo {13 + 13}", "26")
+    assert_("@(memo {13 + 13})", "26")
+}
+
+#[test]
+fn force_memo_thunk_13_plus_13() {
+    // depdency graph of one node, named `13 + 13`, holding 26.
+    assert_("force (memo {thunk {13 + 13 }})", "26")
 }
 
 #[test]
@@ -73,27 +79,9 @@ fn sym_literal_foo_bar() {
 }
 
 #[test]
-fn sym_literal_foo_space_under() {
-    // space works with parens, but is a binary composition (not single Id).
-    assert_("$(foo _)", "$(foo _)")
-}
-
-#[test]
-fn sym_literal_foo_space_under_bar() {
-    // under as ternary composition (not single Id).
-    assert_("$(foo _ bar)", "$(foo _ bar)")
-}
-
-#[test]
-fn sym_literal_foo_space_under_vs_no_space() {
-    // $foo_ is not the same as $(foo _)
-    // assert_not_equal("$(foo _)", "$(foo_)")
-}
-
-#[test]
 fn sym_literal_big() {
     // 3_11 is parsed as a single number, 311.
-    assert_("$(foo - goo . 3 _ 11)", "$(foo-goo.3_ 11)")
+    assert_("$(foo - goo_ . 3_11)", "$(foo-goo_.311)")
 }
 
 #[test]

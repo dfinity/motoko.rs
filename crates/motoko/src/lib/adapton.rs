@@ -1,6 +1,5 @@
 use crate::ast::{Exp_, Sym};
-use crate::shared::Share;
-use crate::value::{Closed, Value, Value_};
+use crate::value::{Closed, Value_};
 use im_rc::{HashMap, Vector};
 use serde::{Deserialize, Serialize};
 
@@ -14,8 +13,8 @@ pub enum Name {
 /// Nodes in a demand-driven dependency graph.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Node {
-    initial_exp: Option<Closed<Exp_>>,
-    final_value: Option<Value_>,
+    put: Value_,
+    force: Option<Value_>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -77,15 +76,9 @@ impl Core {
     }
 
     pub fn put_(&mut self, name: Name, val: Value_) {
-        let node = match &*val {
-            Value::Thunk(closed_exp) => Node {
-                initial_exp: Some(closed_exp.clone()),
-                final_value: None,
-            },
-            _ => Node {
-                initial_exp: None,
-                final_value: Some(val.clone()),
-            },
+        let node = Node {
+            put: val.clone(),
+            force: None,
         };
         let _ = self.graph.insert(name.clone(), node);
         self.trace_action(TraceAction::Put(name, val));
@@ -94,6 +87,13 @@ impl Core {
     pub fn put(&mut self, name: Name, val: Value_) {
         self.put_(name.clone(), val.clone());
         self.trace_action(TraceAction::Put(name, val));
+    }
+
+    pub fn set_force(&mut self, name: Name, val: Value_) {
+        match self.graph.get_mut(&name) {
+            Some(node) => node.force = Some(val),
+            None => unreachable!(),
+        }
     }
 
     pub fn memo_exists(&mut self, _closed_exp: &Closed<Exp_>) -> bool {
@@ -108,17 +108,7 @@ impl Core {
 
     pub fn get(&mut self, name: &Name) -> Result<Value_, Interruption> {
         let v = match self.graph.get(name) {
-            Some(node) => {
-                // Either the final_value is known, or the node
-                // represents a thunk with a known, closed initial expression.
-                match &node.final_value {
-                    Some(v) => Ok(v.clone()),
-                    None => match &node.initial_exp {
-                        None => unreachable!(),
-                        Some(ce) => Ok(Value::Thunk(ce.clone()).share()),
-                    },
-                }
-            }
+            Some(node) => Ok(node.put.clone()),
             None => Err(Interruption::NomGet(name.clone())),
         };
         let v = v?;

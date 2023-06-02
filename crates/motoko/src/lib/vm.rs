@@ -2825,7 +2825,10 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         Force2(adapton_name) => {
             match adapton_name {
                 None => {}
-                Some(_n) => active.adapton_core().nest_end(),
+                Some(n) => {
+                    active.adapton_core().set_force(n, v.clone());
+                    active.adapton_core().nest_end()
+                }
             };
             *active.cont() = Cont::Value_(v);
             Ok(Step {})

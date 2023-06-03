@@ -1586,6 +1586,46 @@ fn call_function<A: Active>(
     }
 }
 
+fn force_thunk_begin<A: Active>(
+    active: &mut A,
+    name: Option<crate::adapton::Name>,
+    closed_exp: &Closed<Exp_>,
+) -> Result<Step, Interruption> {
+    let source_saved = active.cont_source().clone();
+    let context_saved = active.defs().active_ctx.clone();
+    let env_saved = active.env().fast_clone();
+
+    active.stack().push_front(Frame {
+        context: context_saved,
+        source: source_saved,
+        env: env_saved,
+        cont: FrameCont::Force2(name),
+        cont_prim_type: None, /* to do */
+    }); // to match with Return, if any.
+
+    active.defs().active_ctx = closed_exp.ctx.clone();
+    *active.env() = closed_exp.env.clone();
+    *active.cont() = Cont::Exp_(closed_exp.content.fast_clone(), Vector::new());
+
+    Ok(Step {})
+}
+
+fn force_thunk_end<A: Active>(
+    active: &mut A,
+    name: Option<crate::adapton::Name>,
+    v: Value_,
+) -> Result<Step, Interruption> {
+    match name {
+        None => {}
+        Some(n) => {
+            active.adapton_core().set_force_val(&n, v.clone());
+            active.adapton_core().nest_end(v.clone())
+        }
+    };
+    *active.cont() = Cont::Value_(v);
+    Ok(Step {})
+}
+
 fn call_cont<A: Active>(
     active: &mut A,
     func_value: Value_,
@@ -2175,6 +2215,12 @@ fn return_<A: Active>(active: &mut A, v: Value_) -> Result<Step, Interruption> {
     loop {
         if let Some(fr) = stack.pop_front() {
             match fr.cont {
+                FrameCont::Force2(name) => {
+                    active.defs().active_ctx = fr.context;
+                    *active.env() = fr.env;
+                    *active.stack() = stack;
+                    return force_thunk_end(active, name, v);
+                }
                 FrameCont::Call3 => {
                     active.defs().active_ctx = fr.context;
                     *active.env() = fr.env;
@@ -2787,8 +2833,8 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         }
         Return => return_(active, v),
         Memo(ce) => {
-            active.adapton_core().nest_end(v.clone());
             active.adapton_core().memo_put(&ce, v.clone());
+            active.adapton_core().nest_end(v.clone());
             let name = crate::adapton::Name::Exp_(ce.clone());
             *active.cont() = Cont::Value_(Value::Ptr(name.into()).share());
             Ok(Step {})
@@ -2806,12 +2852,8 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             Ok(Step {})
         }
         Force1 => match &*v {
-            Value::Thunk(closed_exp) => {
-                *active.env() = closed_exp.env.clone();
-                active.defs().active_ctx = closed_exp.ctx.clone();
-                exp_conts(active, FrameCont::Force2(None), &closed_exp.content)
-            }
-            Value::Ptr(name) => match &*(active.adapton_core().get(name)?) {
+            Value::Thunk(closed_exp) => force_thunk_begin(active, None, closed_exp),
+            Value::Ptr(name) => match &*(active.adapton_core().get_(name)?) {
                 Value::Thunk(closed_exp) => {
                     // 1. to do -- if node has value and is clean, return that value.
                     // 2. to do -- if node has value is not clean, begin to clean it, pushing stack.
@@ -2830,33 +2872,16 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                         }
                         None => {}
                     };
-
-                    *active.env() = closed_exp.env.clone();
-                    active.defs().active_ctx = closed_exp.ctx.clone();
                     active
                         .adapton_core()
                         .nest_begin(adapton::TraceNestKind::Force, name.clone());
-                    exp_conts(
-                        active,
-                        FrameCont::Force2(Some(name.clone())),
-                        &closed_exp.content,
-                    )
+                    force_thunk_begin(active, Some(name.clone()), &closed_exp)
                 }
                 _ => type_mismatch!(file!(), line!()),
             },
             _ => type_mismatch!(file!(), line!()),
         },
-        Force2(adapton_name) => {
-            match adapton_name {
-                None => {}
-                Some(n) => {
-                    active.adapton_core().set_force_val(&n, v.clone());
-                    active.adapton_core().nest_end(v.clone())
-                }
-            };
-            *active.cont() = Cont::Value_(v);
-            Ok(Step {})
-        }
+        Force2(adapton_name) => force_thunk_end(active, adapton_name, v),
         NomPut1(e2) => exp_conts(active, FrameCont::NomPut2(v), &e2),
         NomPut2(v1) => {
             let s = v1.into_sym_or(type_mismatch_!(file!(), line!()))?;

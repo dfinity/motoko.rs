@@ -56,6 +56,27 @@ pub enum Interruption {
 }
 
 impl Core {
+    // Internal stuff
+
+    fn trace_action(&mut self, ta: TraceAction) {
+        match self.trace_stack.back_mut() {
+            None => self.trace.push_back(ta),
+            Some(frame) => frame.trace.push_back(ta),
+        }
+    }
+
+    fn put_(&mut self, name: Name, val: Value_) {
+        let node = Node {
+            put: val.clone(),
+            force: None,
+        };
+        drop(self.graph.insert(name.clone(), node));
+    }
+
+    //
+    // # API used by VM module
+    //
+
     pub fn new() -> Core {
         Core {
             graph: HashMap::new(),
@@ -87,28 +108,12 @@ impl Core {
         }
     }
 
-    fn trace_action(&mut self, ta: TraceAction) {
-        match self.trace_stack.back_mut() {
-            None => self.trace.push_back(ta),
-            Some(frame) => frame.trace.push_back(ta),
-        }
-    }
-
-    pub fn put_(&mut self, name: Name, val: Value_) {
-        let node = Node {
-            put: val.clone(),
-            force: None,
-        };
-        drop(self.graph.insert(name.clone(), node));
-    }
-
     pub fn put(&mut self, name: Name, val: Value_) {
         self.put_(name.clone(), val.clone());
         self.trace_action(TraceAction::Put(name, val));
     }
 
     pub fn set_force_val(&mut self, name: &Name, val: Value_) {
-        self.trace_action(TraceAction::Ret(val.clone()));
         match self.graph.get_mut(name) {
             Some(node) => node.force = Some(val),
             None => unreachable!(),
@@ -130,15 +135,17 @@ impl Core {
     pub fn memo_put(&mut self, closed_exp: &Closed<Exp_>, val: Value_) {
         let name = Name::Exp_(closed_exp.clone());
         self.put_(name, val.clone());
-        self.trace_action(TraceAction::Ret(val));
+    }
+
+    pub fn get_(&mut self, name: &Name) -> Result<Value_, Interruption> {
+        match self.graph.get(name) {
+            Some(node) => Ok(node.put.clone()),
+            None => Err(Interruption::NomGet(name.clone())),
+        }
     }
 
     pub fn get(&mut self, name: &Name) -> Result<Value_, Interruption> {
-        let v = match self.graph.get(name) {
-            Some(node) => Ok(node.put.clone()),
-            None => Err(Interruption::NomGet(name.clone())),
-        };
-        let v = v?;
+        let v = self.get_(name)?;
         self.trace_action(TraceAction::Get(name.clone(), v.clone()));
         Ok(v)
     }

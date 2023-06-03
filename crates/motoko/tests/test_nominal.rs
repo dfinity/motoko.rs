@@ -22,6 +22,18 @@ fn force_thunk_13_plus_13() {
 }
 
 #[test]
+fn force_thunk_return_26() {
+    // no depdency graph here:
+    assert_("force (thunk { return 26; return \"wrong\" })", "26")
+}
+
+#[test]
+fn post_force_thunk_restores_prior_env() {
+    // no depdency graph here:
+    assert_("let t = thunk { 0 }; let x = 26; force t; x", "26")
+}
+
+#[test]
 fn double_force_thunk_13_plus_13() {
     // no depdency graph here:
     assert_(

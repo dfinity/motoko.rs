@@ -99,8 +99,7 @@ impl Core {
             put: val.clone(),
             force: None,
         };
-        let _ = self.graph.insert(name.clone(), node);
-        self.trace_action(TraceAction::Put(name, val));
+        drop(self.graph.insert(name.clone(), node));
     }
 
     pub fn put(&mut self, name: Name, val: Value_) {
@@ -130,7 +129,8 @@ impl Core {
 
     pub fn memo_put(&mut self, closed_exp: &Closed<Exp_>, val: Value_) {
         let name = Name::Exp_(closed_exp.clone());
-        self.put_(name, val)
+        self.put_(name, val.clone());
+        self.trace_action(TraceAction::Ret(val));
     }
 
     pub fn get(&mut self, name: &Name) -> Result<Value_, Interruption> {

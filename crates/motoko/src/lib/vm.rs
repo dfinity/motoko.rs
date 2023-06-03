@@ -2012,7 +2012,9 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
                 Cont::Value_(Value::Ptr(name.clone().into()).share());
                 return Ok(Step {});
             };
-            active.adapton_core().nest_begin(name);
+            active
+                .adapton_core()
+                .nest_begin(crate::adapton::TraceNestKind::Memo, name);
             exp_conts(active, FrameCont::Memo(ce), e)
         }
         NomDo(e1, e2) => exp_conts(active, FrameCont::NomDo1(e2.fast_clone()), e1),
@@ -2785,7 +2787,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         }
         Return => return_(active, v),
         Memo(ce) => {
-            active.adapton_core().nest_end();
+            active.adapton_core().nest_end(v.clone());
             active.adapton_core().memo_put(&ce, v.clone());
             let name = crate::adapton::Name::Exp_(ce.clone());
             *active.cont() = Cont::Value_(Value::Ptr(name.into()).share());
@@ -2793,11 +2795,13 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
         }
         NomDo1(e2) => {
             let s = v.into_sym_or(type_mismatch_!(file!(), line!()))?;
-            active.adapton_core().nest_begin(adapton::Name::Sym(s));
+            active
+                .adapton_core()
+                .nest_begin(adapton::TraceNestKind::DoAt, adapton::Name::Sym(s));
             exp_conts(active, FrameCont::NomDo2(v), &e2)
         }
         NomDo2(_name) => {
-            active.adapton_core().nest_end();
+            active.adapton_core().nest_end(v.clone());
             *active.cont() = Cont::Value_(v);
             Ok(Step {})
         }
@@ -2811,7 +2815,9 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
                 Value::Thunk(closed_exp) => {
                     *active.env() = closed_exp.env.clone();
                     active.defs().active_ctx = closed_exp.ctx.clone();
-                    active.adapton_core().nest_begin(name.clone());
+                    active
+                        .adapton_core()
+                        .nest_begin(adapton::TraceNestKind::Force, name.clone());
                     exp_conts(
                         active,
                         FrameCont::Force2(Some(name.clone())),
@@ -2826,8 +2832,8 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             match adapton_name {
                 None => {}
                 Some(n) => {
-                    active.adapton_core().set_force(n, v.clone());
-                    active.adapton_core().nest_end()
+                    active.adapton_core().set_force_val(n, v.clone());
+                    active.adapton_core().nest_end(v.clone())
                 }
             };
             *active.cont() = Cont::Value_(v);

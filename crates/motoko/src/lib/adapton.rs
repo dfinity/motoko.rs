@@ -19,16 +19,26 @@ pub struct Node {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TraceAction {
-    Nest(Name, Trace), // for `memo`, `do @ _ { }`, `force`
+    Memo(Name, Trace),
+    DoAt(Name, Trace),
+    Force(Name, Trace),
     Put(Name, Value_),
     Get(Name, Value_),
     Ret(Value_),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TraceNestKind {
+    Memo,
+    DoAt,
+    Force,
 }
 
 pub type Trace = Vector<TraceAction>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TraceStackFrame {
+    pub kind: TraceNestKind,
     pub name: Name,
     pub trace: Trace,
 }
@@ -54,17 +64,26 @@ impl Core {
         }
     }
 
-    pub fn nest_begin(&mut self, name: Name) {
+    pub fn nest_begin(&mut self, kind: TraceNestKind, name: Name) {
         self.trace_stack.push_back(TraceStackFrame {
+            kind,
             name,
             trace: Vector::new(),
         })
     }
 
-    pub fn nest_end(&mut self) {
+    pub fn nest_end(&mut self, return_value: Value_) {
+        self.trace_action(TraceAction::Ret(return_value));
         match self.trace_stack.pop_back() {
             None => unreachable!(),
-            Some(frame) => self.trace_action(TraceAction::Nest(frame.name, frame.trace)),
+            Some(frame) => {
+                let ta = match frame.kind {
+                    TraceNestKind::Memo => TraceAction::Memo(frame.name, frame.trace),
+                    TraceNestKind::Force => TraceAction::Force(frame.name, frame.trace),
+                    TraceNestKind::DoAt => TraceAction::DoAt(frame.name, frame.trace),
+                };
+                self.trace_action(ta);
+            }
         }
     }
 
@@ -89,7 +108,8 @@ impl Core {
         self.trace_action(TraceAction::Put(name, val));
     }
 
-    pub fn set_force(&mut self, name: Name, val: Value_) {
+    pub fn set_force_val(&mut self, name: Name, val: Value_) {
+        self.trace_action(TraceAction::Ret(val.clone()));
         match self.graph.get_mut(&name) {
             Some(node) => node.force = Some(val),
             None => unreachable!(),

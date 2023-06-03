@@ -22,6 +22,15 @@ fn force_thunk_13_plus_13() {
 }
 
 #[test]
+fn double_force_thunk_13_plus_13() {
+    // no depdency graph here:
+    assert_(
+        "let t = memo{thunk{13 + 13}}; (force t, force t)",
+        "(26, 26)",
+    )
+}
+
+#[test]
 fn force_thunk_ptr_13_plus_13() {
     // depdency graph of one node, named $1.
     assert_("force(@1 := (thunk { 13 + 13 }))", "26")

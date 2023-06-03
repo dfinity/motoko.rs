@@ -2813,6 +2813,24 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             }
             Value::Ptr(name) => match &*(active.adapton_core().get(name)?) {
                 Value::Thunk(closed_exp) => {
+                    // 1. to do -- if node has value and is clean, return that value.
+                    // 2. to do -- if node has value is not clean, begin to clean it, pushing stack.
+                    // 3. if node has no value, push stack to evaluate it (current code here).
+                    match active.adapton_core().get_force_val(name) {
+                        Some(v) => {
+                            active
+                                .adapton_core()
+                                .nest_begin(adapton::TraceNestKind::Force, name.clone());
+                            // to do -- check that node is clean.
+                            // if so, then DO
+                            active.adapton_core().nest_end(v.clone());
+                            *active.cont() = Cont::Value_(v);
+                            return Ok(Step {});
+                            // DONE.
+                        }
+                        None => {}
+                    };
+
                     *active.env() = closed_exp.env.clone();
                     active.defs().active_ctx = closed_exp.ctx.clone();
                     active
@@ -2832,7 +2850,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             match adapton_name {
                 None => {}
                 Some(n) => {
-                    active.adapton_core().set_force_val(n, v.clone());
+                    active.adapton_core().set_force_val(&n, v.clone());
                     active.adapton_core().nest_end(v.clone())
                 }
             };

@@ -108,10 +108,17 @@ impl Core {
         self.trace_action(TraceAction::Put(name, val));
     }
 
-    pub fn set_force_val(&mut self, name: Name, val: Value_) {
+    pub fn set_force_val(&mut self, name: &Name, val: Value_) {
         self.trace_action(TraceAction::Ret(val.clone()));
-        match self.graph.get_mut(&name) {
+        match self.graph.get_mut(name) {
             Some(node) => node.force = Some(val),
+            None => unreachable!(),
+        }
+    }
+
+    pub fn get_force_val(&mut self, name: &Name) -> Option<Value_> {
+        match self.graph.get(name) {
+            Some(node) => node.force.clone(),
             None => unreachable!(),
         }
     }

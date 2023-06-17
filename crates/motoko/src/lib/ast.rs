@@ -217,6 +217,7 @@ pub enum Dec {
     Var(Pat_, Exp_),
     Type(TypId_, Option<TypeBinds>, Type_),
     Class(Class),
+    ActorClass(Class),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

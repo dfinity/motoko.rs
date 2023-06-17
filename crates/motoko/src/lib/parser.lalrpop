@@ -632,6 +632,16 @@ DecNonVar: Dec = {
         typ: t,
         name: None,
         fields: b
+    }),
+    <sp:SharedPatOpt> "actor" "class" <oso:ObjSortOpt> <id:(Id_)?> <tpo:TypeParamsOpt> <p:PatPlain_> <t:(":" <Type_>)?> <b:ObjBody> => Dec::ActorClass(Class {
+        shared: sp,
+        sort: oso,
+        typ_id: id,
+        binds: tpo,
+        input: p,
+        typ: t,
+        name: None,
+        fields: b
     })
 }
 
@@ -652,7 +662,7 @@ TypeParamsOpt: Option<Delim<TypeBind_>> = {
 #[inline]
 SharedPatOpt: Option<SortPat> = {
     => None,
-  "shared" => None, // to do -- produce AST.
+  "shared" <op:PatOpt> => None, // to do -- produce AST.
   "shared" "query" <op:PatOpt> => None, // to do -- produce AST.
   "query" <op:PatOpt> => None, // to do -- produce AST.
 }

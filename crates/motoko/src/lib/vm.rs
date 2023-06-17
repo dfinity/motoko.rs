@@ -898,6 +898,11 @@ mod def {
                 // nyi!(line!())
                 Ok(())
             }
+            Dec::ActorClass(_class) => {
+                // 20230617-1440 to do.
+                // nyi!(line!())
+                Ok(())
+            }
         }
     }
 

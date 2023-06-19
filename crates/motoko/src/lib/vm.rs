@@ -3104,6 +3104,10 @@ impl Core {
         let last = vec.pop_back();
         match last {
             Some(d) => match &d.0 {
+		Dec::ActorClass(class) => {
+		    // to do -- check that the args (class.input) is unit type.
+		    Ok((vec, class.name.clone(), class.fields.clone()))
+		},
                 Dec::LetActor(id, _, dfs) => Ok((vec, id.clone(), dfs.clone())),
                 _ => Err(Interruption::NotAnActorDefinition),
             },

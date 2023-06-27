@@ -204,7 +204,7 @@ pub fn find_comment_spans(input: &str) -> Vec<Span> {
             '/' => match iter.peek() {
                 Some((_, '*')) => {
                     // Start block comment
-                    iter.next();
+                    iter.next().unwrap();
                     if nest_depth == 0 {
                         block_start = Some(i);
                     }

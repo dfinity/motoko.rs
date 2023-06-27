@@ -435,6 +435,7 @@ fn test_block_comments() {
     assert_to("let///* */\na = 0", "let a = 0");
     assert_to("/*\"*/\"\"", "\"\"");
     assert_to("\"\"/*\"*/", "\"\"");
+    assert_to("/*\"*/\"\"/*\"*/", "\"\"");
     assert_to("\"/**/\"", "\"/**/\"");
     assert_to("\"/*\" # \"*/\"", "\"/*\" # \"*/\"");
     assert_to("\"/*//\\\\\\\"\"", "\"/*//\\\\\\\"\"");
@@ -453,6 +454,12 @@ fn test_source_comments() {
         format!("{:?}", ast.vec[0]),
         "<Exp(<Var(\"a\")@8..9 @ 2:6>)@8..9 @ 2:6>"
     );
+}
+
+#[test]
+fn test_multiline_text() {
+    assert_to("/*\"*/ \"~\n\n~\" /*\"*/", "\"~\n\n~\"");
+    // assert_to("\"A\nB\"", "\"A\\nB\""); // Possible corner case depending on the final OCaml implementation
 }
 
 #[test]

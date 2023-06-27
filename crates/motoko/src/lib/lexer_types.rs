@@ -76,7 +76,7 @@ pub enum Token {
     #[regex(r"[0-9]([0-9_]*[0-9])?[Ee]-?[0-9]([0-9_]*[0-9])?", data!(PrimType::Float))] // exponential without decimal
     #[regex(r"[0-9]([0-9_]*[0-9])?\.([0-9]([0-9_]*[0-9])?)?([Ee]-?[0-9]([0-9_]*[0-9])?)?", data!(PrimType::Float))] // exponential with decimal
     #[regex(r"'(?:[^\\'\s]|\\.)*'|' '", data!(PrimType::Char))]
-    #[regex(r#""(?:[^\\"\n]|\\.)*""#, data!(PrimType::Text))]
+    #[regex(r#""(?:[^\\"]|\\.)*""#, data!(PrimType::Text))]
     Literal((Data, PrimType)),
 
     #[regex(r"[ \t]+", data)]

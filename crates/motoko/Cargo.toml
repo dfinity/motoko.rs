@@ -1,6 +1,6 @@
 [package]
 name = "motoko"
-version = "0.0.25"
+version = "0.0.26"
 authors = ["Matthew Hammer", "Ryan Vandersmith"]
 edition = "2018"
 build = "build.rs"

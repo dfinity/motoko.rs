@@ -457,10 +457,29 @@ fn test_source_comments() {
 
 #[test]
 fn test_multiline_text() {
-    assert_to(r#"let x = "A\n\nB";"#, r#""A\n\nB";"#);
-    assert_to(r#"let x = /*"*/ "A\n\nB"; /*"*/"#, r#""A\n\nB";"#);
-}
+    assert_to(
+        r#"let x = "A
+                B";"#,
+        r#""A
+                B";"#,
+    );
+    assert_to(
+        r#"let x = "A
+    
+                B";"#,
+        r#""A
 
+                B";"#,
+    );
+    assert_to(
+        r#"let x = /*"*/ "A
+    
+                B"; /*"*/"#,
+        r#""A
+    
+                B";"#,
+    );
+}
 
 #[test]
 fn test_misc() {

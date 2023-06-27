@@ -456,6 +456,13 @@ fn test_source_comments() {
 }
 
 #[test]
+fn test_multiline_text() {
+    assert_to(r#"let x = "A\n\nB";"#, r#""A\n\nB";"#);
+    assert_to(r#"let x = /*"*/ "A\n\nB"; /*"*/"#, r#""A\n\nB";"#);
+}
+
+
+#[test]
 fn test_misc() {
     assert_to(r#"'\"'; //abc"#, r#"'\"';"#);
 }

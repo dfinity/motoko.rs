@@ -15,6 +15,7 @@ pub const KEYWORDS: &[&str] = &[
     "case",
     "catch",
     "class",
+    "composite",
     "continue",
     "debug",
     "else",

@@ -761,7 +761,6 @@ pub enum Interruption {
     Unknown,
     Impossible,
     Other(String),
-    DynamicFieldNotFound(Id),
 }
 
 impl From<SyntaxError> for Interruption {

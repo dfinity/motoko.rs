@@ -1626,6 +1626,10 @@ pub fn assert_value_is_f64<'a>(v: &'a Value) -> Result<f64, Interruption> {
     v.to_rust().map_err(Interruption::ValueError)
 }
 
+pub fn assert_value_is_string<'a>(v: &'a Value) -> Result<String, Interruption> {
+    v.to_rust().map_err(Interruption::ValueError)
+}
+
 pub fn assert_value_is_option_u32<'a>(v: &'a Value) -> Result<Option<u32>, Interruption> {
     match assert_value_is_optional(v)? {
         None => Ok(None),
@@ -1990,9 +1994,11 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
 }
 
 pub fn match_tuple(size: u16, v: Value_) -> Result<Vec<Value_>, Interruption> {
-    match pattern_matches_temps(&pattern::temps(size), v) {
-	Some(v) => Ok(v),
-	None => type_mismatch!(file!(), line!())
+    if size == 0 && &*v == &Value::Unit { return Ok(vec!()) } else {
+	match pattern_matches_temps(&pattern::temps(size), v) {
+	    Some(v) => Ok(v),
+	    None => type_mismatch!(file!(), line!())
+	}
     }
 }
 

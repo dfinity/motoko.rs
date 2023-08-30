@@ -93,7 +93,7 @@ pub Literal: Literal = {
 }
 
 StringLiteral: String = {
-    r#""(?:[^\\"\n]|\\.)*""# => <>.to_string(), // TODO more test cases
+    r#""(?:[^\\"]|\\.)*""# => <>.to_string(), // TODO more test cases
 }
 
 // --- Patterns --- //

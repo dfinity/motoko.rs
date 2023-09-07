@@ -1606,7 +1606,7 @@ mod pattern {
     }
 }
 
-fn assert_value_is_optional<'a>(v: &'a Value) -> Result<Option<&'a Value_>, Interruption> {
+pub fn assert_value_is_optional<'a>(v: &'a Value) -> Result<Option<&'a Value_>, Interruption> {
     match v {
         Value::Option(v) => Ok(Some(v)),
         Value::Null => Ok(None),
@@ -1614,18 +1614,30 @@ fn assert_value_is_optional<'a>(v: &'a Value) -> Result<Option<&'a Value_>, Inte
     }
 }
 
-fn assert_value_is_u32<'a>(v: &'a Value) -> Result<u32, Interruption> {
+pub fn assert_value_is_u32<'a>(v: &'a Value) -> Result<u32, Interruption> {
     v.to_rust().map_err(Interruption::ValueError)
 }
 
-fn assert_value_is_option_u32<'a>(v: &'a Value) -> Result<Option<u32>, Interruption> {
+pub fn assert_value_is_f32<'a>(v: &'a Value) -> Result<f32, Interruption> {
+    v.to_rust().map_err(Interruption::ValueError)
+}
+
+pub fn assert_value_is_f64<'a>(v: &'a Value) -> Result<f64, Interruption> {
+    v.to_rust().map_err(Interruption::ValueError)
+}
+
+pub fn assert_value_is_string<'a>(v: &'a Value) -> Result<String, Interruption> {
+    v.to_rust().map_err(Interruption::ValueError)
+}
+
+pub fn assert_value_is_option_u32<'a>(v: &'a Value) -> Result<Option<u32>, Interruption> {
     match assert_value_is_optional(v)? {
         None => Ok(None),
         Some(v) => Ok(Some(assert_value_is_u32(v)?)),
     }
 }
 
-fn assert_value_is_opaque_pointer(v: &Value) -> Result<Pointer, Interruption> {
+pub fn assert_value_is_opaque_pointer(v: &Value) -> Result<Pointer, Interruption> {
     match v {
         Value::Opaque(p) => Ok(p.clone()),
         _ => type_mismatch!(file!(), line!()),
@@ -1978,6 +1990,15 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
             Ok(Step {})
         }
         e => nyi!(line!(), "{:?}", e),
+    }
+}
+
+pub fn match_tuple(size: u16, v: Value_) -> Result<Vec<Value_>, Interruption> {
+    if size == 0 && &*v == &Value::Unit { return Ok(vec!()) } else {
+	match pattern_matches_temps(&pattern::temps(size), v) {
+	    Some(v) => Ok(v),
+	    None => type_mismatch!(file!(), line!())
+	}
     }
 }
 

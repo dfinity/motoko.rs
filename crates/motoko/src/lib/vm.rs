@@ -1830,6 +1830,10 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
     use Exp::*;
     let source = exp.1.clone();
     match &exp.0 {
+        Value_(v) => {
+            *active.cont() = cont_value((**v).clone());
+            Ok(Step {})
+        }
         Literal(l) => {
             // TODO: partial evaluation would now be highly efficient due to value sharing
             *active.cont() = cont_value(Value::from_literal(l).map_err(Interruption::ValueError)?);

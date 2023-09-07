@@ -1,5 +1,5 @@
 use crate::shared::{Share, Shared};
-use crate::value::PrimFunction;
+use crate::value::{PrimFunction, Value_};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -47,6 +47,9 @@ pub type Span = Range<usize>;
 impl<X: Clone> NodeData<X> {
     pub fn new(x: X, s: Source) -> Self {
         NodeData(x, s)
+    }
+    pub fn eval(x: X) -> Self {
+        NodeData(x, Source::Evaluation)
     }
     pub fn data_ref(&self) -> &X {
         &self.0
@@ -502,6 +505,7 @@ pub enum ProjIndex {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Exp {
+    Value_(Value_),
     Hole,
     Prim(Result<PrimFunction, String>),
     Var(Id),

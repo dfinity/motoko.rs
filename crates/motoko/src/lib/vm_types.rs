@@ -13,6 +13,8 @@ use crate::{
 };
 use crate::{Share, Value};
 
+pub type Result<T = Value_, E = Interruption> = std::result::Result<T, E>;
+
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SyntaxError {
     pub package_name: Option<String>,

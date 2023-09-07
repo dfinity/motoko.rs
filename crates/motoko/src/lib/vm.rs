@@ -1994,11 +1994,13 @@ fn exp_step<A: Active>(active: &mut A, exp: Exp_) -> Result<Step, Interruption> 
 }
 
 pub fn match_tuple(size: u16, v: Value_) -> Result<Vec<Value_>, Interruption> {
-    if size == 0 && &*v == &Value::Unit { return Ok(vec!()) } else {
-	match pattern_matches_temps(&pattern::temps(size), v) {
-	    Some(v) => Ok(v),
-	    None => type_mismatch!(file!(), line!())
-	}
+    if size == 0 && &*v == &Value::Unit {
+        return Ok(vec![]);
+    } else {
+        match pattern_matches_temps(&pattern::temps(size), v) {
+            Some(v) => Ok(v),
+            None => type_mismatch!(file!(), line!()),
+        }
     }
 }
 
@@ -3480,6 +3482,14 @@ impl Core {
         self.assert_idle_agent()
             .map_err(Interruption::EvalInitError)?;
         self.agent.active.cont = Cont::Decs(prog.vec);
+        self.run(&Limits::none())
+    }
+
+    /// Evaluate a new program fragment, assuming agent is idle.
+    pub fn eval_exp(&mut self, e: Exp_) -> Result<Value_, Interruption> {
+        self.assert_idle_agent()
+            .map_err(Interruption::EvalInitError)?;
+        self.agent.active.cont = Cont::Exp_(e, Vector::new());
         self.run(&Limits::none())
     }
 

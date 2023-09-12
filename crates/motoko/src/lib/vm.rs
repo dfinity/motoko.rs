@@ -1202,6 +1202,7 @@ fn binop(
         Add => match (&*v1, &*v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 + n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 + i2)),
+            (Float(f1), Float(f2)) => Ok(Float(*f1 + *f2)),
             // _ => nyi!(line!()),
             (v1, v2) => unimplemented!("{:?} + {:?}", v1, v2),
         },
@@ -1265,7 +1266,31 @@ fn relop(
             (Int(i1), Int(i2)) => i1 != i2,
             (v1, v2) => v1 != v2, //            _ => nyi!(line!(), "{:?} == {:?}", v1, v2)?,
         },
-        _ => nyi!(line!(), "relop({:?}, {:?}, {:?})", relop, v1, v2)?,
+        Lt => match (&*v1, &*v2) {
+            (Unit, Unit) => false,
+            (Nat(n1), Nat(n2)) => n1 < n2,
+            (Int(i1), Int(i2)) => i1 < i2,
+            _ => nyi!(line!(), "{:?} < {:?}", v1, v2)?,
+        },
+        Le => match (&*v1, &*v2) {
+            (Unit, Unit) => false,
+            (Nat(n1), Nat(n2)) => n1 <= n2,
+            (Int(i1), Int(i2)) => i1 <= i2,
+            _ => nyi!(line!(), "{:?} <= {:?}", v1, v2)?,
+        },
+        Gt => match (&*v1, &*v2) {
+            (Unit, Unit) => false,
+            (Nat(n1), Nat(n2)) => n1 > n2,
+            (Int(i1), Int(i2)) => i1 > i2,
+            _ => nyi!(line!(), "{:?} > {:?}", v1, v2)?,
+        },
+        Ge => match (&*v1, &*v2) {
+            (Unit, Unit) => false,
+            (Nat(n1), Nat(n2)) => n1 >= n2,
+            (Int(i1), Int(i2)) => i1 >= i2,
+            _ => nyi!(line!(), "{:?} >= {:?}", v1, v2)?,
+        },
+        //        _ => nyi!(line!(), "relop({:?}, {:?}, {:?})", relop, v1, v2)?,
     }))
 }
 

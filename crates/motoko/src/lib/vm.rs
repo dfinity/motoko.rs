@@ -2032,6 +2032,13 @@ fn bang_null<A: Active>(active: &mut A) -> Result<Step, Interruption> {
     }
 }
 
+// TODO: possibly refactor to `Cont::Value(Value)` and `Cont::Value_(Value_)`
+#[inline(always)]
+fn cont_value(value: Value) -> Cont {
+    // TODO: memoize (), true, false, null, variants, etc.
+    Cont::Value_(value.share())
+}
+
 fn return_<A: Active>(active: &mut A, v: Value_) -> Result<Step, Interruption> {
     let mut stack = active.stack().fast_clone();
     loop {
@@ -2661,25 +2668,7 @@ fn check_for_redex<A: ActiveBorrow>(active: &A, limits: &Limits) -> Result<usize
 }
 
 pub fn active_step<A: Active>(active: &mut A, limits: &Limits) -> Result<Step, Interruption> {
-    /* to do -- check for pending send.
-
-        if self.check_for_send_limit(limits) {
-            return Err(Interruption::Limit(Limit::Send));
-        };
-        self.counts()
-            .send
-            .checked_add(1)
-            .expect("Cannot count sends.");
-
-    fn check_for_send_limit(&self, limits: &Limits) -> bool {
-        if let Some(s) = limits.send {
-            self.counts().send >= s
-        } else {
-            false
-        }
-    }
-
-    */
+    /* to do -- check for pending send. */
     if let Some(break_span) = check_for_breakpoint(active, limits) {
         return Err(Interruption::Breakpoint(break_span));
     }
@@ -2968,11 +2957,4 @@ pub fn eval(prog: &str) -> Result<Value_, Interruption> {
 #[cfg(feature = "parser")]
 pub fn eval_into<T: serde::de::DeserializeOwned>(prog: &str) -> Result<T, Interruption> {
     eval(prog)?.to_rust().map_err(Interruption::ValueError)
-}
-
-// TODO: possibly refactor to `Cont::Value(Value)` and `Cont::Value_(Value_)`
-#[inline(always)]
-fn cont_value(value: Value) -> Cont {
-    // TODO: memoize (), true, false, null, variants, etc.
-    Cont::Value_(value.share())
 }

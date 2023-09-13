@@ -1206,6 +1206,13 @@ fn binop(
             // _ => nyi!(line!()),
             (v1, v2) => unimplemented!("{:?} + {:?}", v1, v2),
         },
+        Div => match (&*v1, &*v2) {
+            (Nat(n1), Nat(n2)) => Ok(Nat(n1 / n2)),
+            (Int(i1), Int(i2)) => Ok(Int(i1 / i2)),
+            (Float(f1), Float(f2)) => Ok(Float(*f1 / *f2)),
+            // _ => nyi!(line!()),
+            (v1, v2) => unimplemented!("{:?} + {:?}", v1, v2),
+        },
         Sub => match (&*v1, &*v2) {
             (Nat(n1), Nat(n2)) => {
                 if n2 > n1 {
@@ -1217,12 +1224,14 @@ fn binop(
             (Int(i1), Int(i2)) => Ok(Int(i1 - i2)),
             (Int(i1), Nat(n2)) => Ok(Int(i1 - n2.to_bigint().unwrap())),
             (Nat(n1), Int(i2)) => Ok(Int(n1.to_bigint().unwrap() - i2)),
+            (Float(f1), Float(f2)) => Ok(Float(*f1 - *f2)),
             // _ => nyi!(line!()),
             (v1, v2) => unimplemented!("{:?} - {:?}", v1, v2),
         },
         Mul => match (&*v1, &*v2) {
             (Nat(n1), Nat(n2)) => Ok(Nat(n1 * n2)),
             (Int(i1), Int(i2)) => Ok(Int(i1 * i2)),
+            (Float(f1), Float(f2)) => Ok(Float(*f1 * *f2)),
             // _ => nyi!(line!()),
             (v1, v2) => unimplemented!("{:?} * {:?}", v1, v2),
         },

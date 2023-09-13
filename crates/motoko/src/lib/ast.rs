@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
+use std::rc::Rc;
 
 /// A "located `X`" has a source location of type `Source`.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -62,7 +63,7 @@ impl<X: Clone> NodeData<X> {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(tag = "source_type")]
 pub enum Source {
-    Known { span: Span, line: usize, col: usize },
+    Known(Rc<SourceKnown>),
     // ExpStep { source: Shared<Source> },
     Unknown,
     Evaluation,
@@ -74,11 +75,18 @@ pub enum Source {
     ImportPrim,
 }
 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct SourceKnown {
+    pub span: Span,
+    pub line: usize,
+    pub col: usize,
+}
+
 impl Source {
     pub fn span(&self) -> Option<Span> {
         use Source::*;
         match self {
-            Known { span, .. } => Some(span.clone()),
+            Known(k) => Some(k.span.clone()),
             _ => None,
         }
     }
@@ -86,16 +94,11 @@ impl Source {
         use Source::*;
         match (self, other) {
             (Unknown, Unknown) => Source::Unknown,
-            (
-                Known { span, line, col },
-                Known {
-                    span: other_span, ..
-                },
-            ) => Known {
-                span: span.start..other_span.end,
-                line: *line,
-                col: *col,
-            },
+            (Known(k1), Known(k2)) => Known(Rc::new(SourceKnown {
+                span: k1.span.start..k2.span.end,
+                line: k1.line,
+                col: k2.col,
+            })),
             (_, Unknown) => self.clone(),
             (Unknown, _) => other.clone(),
             (CoreInit, _) => todo!(),
@@ -113,8 +116,8 @@ impl std::fmt::Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             //Source::Known { line, col, .. } => write!(f, "{}:{}", line, col),
-            Source::Known { span, line, col } => {
-                write!(f, "{}..{} @ {}:{}", span.start, span.end, line, col)
+            Source::Known(k) => {
+                write!(f, "{}..{} @ {}:{}", k.span.start, k.span.end, k.line, k.col)
             }
             // Source::ExpStep { source } => {
             //     write!(f, "ExpStep({})", source)

@@ -12,10 +12,10 @@ pub fn get_breakpoint_span_from_line<'a>(
     breakpoint_line: usize,
 ) -> Option<Span> {
     match &tree.1 {
-        Source::Known { span, line, .. } => {
-            if *line == breakpoint_line {
-                Some(span.clone())
-            } else if *line < breakpoint_line {
+        Source::Known(k) => {
+            if k.line == breakpoint_line {
+                Some(k.span.clone())
+            } else if k.line < breakpoint_line {
                 let mut span = None;
                 tree.for_each_child(|x| {
                     match (&span, get_breakpoint_span_from_line(x, breakpoint_line)) {

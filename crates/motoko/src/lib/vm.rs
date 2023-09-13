@@ -1511,7 +1511,10 @@ pub fn assert_value_is_f32<'a>(v: &'a Value) -> Result<f32, Interruption> {
 }
 
 pub fn assert_value_is_f64<'a>(v: &'a Value) -> Result<f64, Interruption> {
-    v.to_rust().map_err(Interruption::ValueError)
+    match v {
+	Value::Float(f) => Ok((*f).into()),
+	v => v.to_rust().map_err(Interruption::ValueError),
+    }
 }
 
 pub fn assert_value_is_string<'a>(v: &'a Value) -> Result<String, Interruption> {

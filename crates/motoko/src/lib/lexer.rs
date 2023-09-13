@@ -1,9 +1,10 @@
 use crate::{
-    ast::{Loc, Source, Span},
+    ast::{Loc, Source, SourceKnown, Span},
     lexer_types::{GroupType, Token, TokenTree, Tokens},
 };
 use line_col::LineColLookup;
 use logos::Logos;
+use std::rc::Rc;
 
 pub const KEYWORDS: &[&str] = &[
     "actor",
@@ -77,7 +78,7 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
                 t => t,
             };
             let (line, col) = line_col.get(span.start);
-            Loc(t, Source::Known { span, line, col })
+            Loc(t, Source::Known(Rc::new(SourceKnown { span, line, col })))
         }));
     };
     let comment_spans = find_comment_spans(input);
@@ -96,11 +97,11 @@ pub fn create_token_vec(input: &str) -> LexResult<Tokens> {
             } else {
                 Token::BlockComment(comment)
             },
-            Source::Known {
+            Source::Known(Rc::new(SourceKnown {
                 span: span.clone(),
                 line,
                 col,
-            },
+            })),
         ));
         // Tokenize source after comment
         tokenize_source(

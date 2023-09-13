@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::ast::{Inst, ToId};
 use crate::value::{DynamicValue, Value, Value_};
-use crate::vm_types::{CoreSource, Interruption, Store};
+use crate::vm_types::{Interruption, Store};
 
 pub use dyn_clone::DynClone;
 

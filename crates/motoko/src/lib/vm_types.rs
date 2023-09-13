@@ -28,28 +28,34 @@ macro_rules! type_mismatch_ {
         Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(None))
     };
     ($file:expr, $line:expr) => {
-        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
-            name: None,
-            description: None,
-            file: $file.to_string(),
-            line: $line,
-        })))
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(
+            $crate::vm_types::CoreSource {
+                name: None,
+                description: None,
+                file: $file.to_string(),
+                line: $line,
+            },
+        )))
     };
     ($file:expr, $line:expr, $name:expr) => {
-        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
-            name: Some($name.to_string()),
-            description: None,
-            file: $file.to_string(),
-            line: $line,
-        })))
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(
+            $crate::vm_types::CoreSource {
+                name: Some($name.to_string()),
+                description: None,
+                file: $file.to_string(),
+                line: $line,
+            },
+        )))
     };
     ($file:expr, $line:expr, $name:expr, $description:expr) => {
-        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(CoreSource {
-            name: Some($name.to_string()),
-            description: Some($description.to_string()),
-            file: $file.to_string(),
-            line: $line,
-        })))
+        Interruption::TypeMismatch($crate::vm_types::OptionCoreSource(Some(
+            $crate::vm_types::CoreSource {
+                name: Some($name.to_string()),
+                description: Some($description.to_string()),
+                file: $file.to_string(),
+                line: $line,
+            },
+        )))
     };
 }
 
@@ -57,6 +63,26 @@ macro_rules! type_mismatch_ {
 macro_rules! type_mismatch {
     ($file:expr, $line:expr) => {
         return Err($crate::type_mismatch_!($file, $line))
+    };
+}
+
+#[macro_export]
+macro_rules! nyi {
+    ($line:expr) => {
+        Err(Interruption::NotYetImplemented($crate::vm_types::CoreSource {
+            name: None,
+            description: Some("Not yet implemented in current VM logic".to_string()),
+            file: file!().to_string(),
+            line: $line,
+        }, None))
+    };
+    ($line:expr, $($mesg:tt)+) => {
+        Err(Interruption::NotYetImplemented($crate::vm_types::CoreSource {
+            name: None,
+            description: Some("Not yet implemented in current VM logic".to_string()),
+            file: file!().to_string(),
+            line: $line,
+        }, Some(format!($($mesg)+)) ))
     };
 }
 

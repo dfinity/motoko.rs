@@ -17,7 +17,10 @@ use crate::{nyi, type_mismatch};
 pub fn unop(un: UnOp, v: Value_) -> Result<Value, Interruption> {
     match (un, &*v) {
         (UnOp::Neg, Value::Nat(n)) => Ok(Value::Int(-n.to_bigint().unwrap())),
-        _ => crate::nyi!(line!()),
+        (UnOp::Neg, _) => crate::nyi!(line!()),
+        (UnOp::Pos, _) => crate::nyi!(line!()),
+        (UnOp::Not, _) => crate::nyi!(line!()),
+        /* _ => crate::nyi!(line!()), */
     }
 }
 
@@ -83,7 +86,9 @@ pub fn binop(
             },
             _ => nyi!(line!()),
         },
-        _ => nyi!(line!(), "binop({:?}. {:?}, {:?})", binop, v1, v2),
+
+        Mod | Pow | And | Or | Xor | ShL | ShR | RotL | RotR | WSub | WMul | WPow | Cat | BitOr
+        | BitAnd => nyi!(line!(), "binop({:?}. {:?}, {:?})", binop, v1, v2),
     }
 }
 

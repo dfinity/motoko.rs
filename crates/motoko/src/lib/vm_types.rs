@@ -202,6 +202,25 @@ pub enum Cont {
     LetVarRet(Source, Option<Id_>),
 }
 
+pub fn source_from_cont(cont: &Cont) -> Source {
+    use Cont::*;
+    match cont {
+        Taken => {
+            unreachable!("no source for Taken continuation. This signals a VM bug.  Please report.")
+        }
+        Decs(decs) => crate::ast::source_from_decs(decs),
+        Exp_(exp_, decs) => {
+            if decs.is_empty() {
+                exp_.1.clone()
+            } else {
+                exp_.1.expand(&decs.back().unwrap().1)
+            }
+        }
+        LetVarRet(s, _) => s.clone(),
+        Value_(_v) => Source::Evaluation,
+    }
+}
+
 pub mod stack {
     use super::{def::CtxId, Cont, Env, Pointer, RespTarget, Vector};
     use crate::ast::{
@@ -789,6 +808,25 @@ pub enum Interruption {
     Unknown,
     Impossible,
     Other(String),
+}
+
+impl From<()> for Interruption {
+    // try to avoid this conversion, except in temp code.
+    fn from(_x: ()) -> Interruption {
+        Interruption::Unknown
+    }
+}
+
+impl Interruption {
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            Interruption::Send(..) => true,
+            Interruption::Response(..) => true,
+            Interruption::Breakpoint(..) => true,
+            Interruption::Limit(..) => true,
+            _ => false,
+        }
+    }
 }
 
 impl From<SyntaxError> for Interruption {

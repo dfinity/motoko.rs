@@ -6,6 +6,7 @@ use crate::ast::{Dec, Decs, Exp, Function, Id, Literal, Mut, ToId};
 use crate::dynamic::Dynamic;
 use crate::shared::{FastClone, Share, Shared};
 use crate::vm_types::{def::Actor as ActorDef, def::CtxId, def::Module as ModuleDef, Env};
+use crate::Interruption;
 
 use im_rc::HashMap;
 use im_rc::Vector;
@@ -682,4 +683,15 @@ impl serde::de::Error for ValueError {
     fn custom<T: std::fmt::Display>(msg: T) -> Self {
         ValueError::ToRust(msg.to_string())
     }
+}
+
+pub fn string_from_value(v: &Value) -> Result<String, Interruption> {
+    //Ok(crate::format::format_one_line(v))
+    Ok(format!("{:?}", v))
+}
+
+#[inline]
+pub fn usize_from_biguint(n: &BigUint) -> Result<usize, Interruption> {
+    n.to_usize()
+        .ok_or(Interruption::ValueError(ValueError::BigInt))
 }

@@ -792,3 +792,15 @@ pub fn hoist_right_type_annotation(e: Exp) -> Exp {
         _ => e,
     }
 }
+
+pub fn source_from_decs(decs: &im_rc::Vector<Dec_>) -> Source {
+    if decs.is_empty() {
+        Source::Unknown
+    } else {
+        let first = decs.front().unwrap().1.clone();
+        match decs.back() {
+            None => first,
+            Some(back) => first.expand(&back.1),
+        }
+    }
+}

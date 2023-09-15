@@ -11,7 +11,7 @@ Motoko tools for Rust.
 ## Out of scope
 
  - No static type system here. 
- - [See Motoko compiler project for type system, and definitive semantics.](https://github.com/dfinity/motoko).
+ - [See Motoko compiler project for type system, and definitive semantics](https://github.com/dfinity/motoko).
 
 
 ## Related

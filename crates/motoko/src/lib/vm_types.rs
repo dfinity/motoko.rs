@@ -72,7 +72,7 @@ macro_rules! nyi {
         Err(Interruption::NotYetImplemented($crate::vm_types::CoreSource {
             name: None,
             description: Some("Not yet implemented in current VM logic".to_string()),
-            file: file!().to_string(),
+            file: file!().to_string(), // to do -- take as arg
             line: $line,
         }, None))
     };
@@ -80,7 +80,7 @@ macro_rules! nyi {
         Err(Interruption::NotYetImplemented($crate::vm_types::CoreSource {
             name: None,
             description: Some("Not yet implemented in current VM logic".to_string()),
-            file: file!().to_string(),
+            file: file!().to_string(), // to do -- take as arg
             line: $line,
         }, Some(format!($($mesg)+)) ))
     };

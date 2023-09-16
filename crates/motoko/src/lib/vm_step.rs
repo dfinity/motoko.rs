@@ -528,6 +528,7 @@ fn stack_cont_has_redex<A: ActiveBorrow>(active: &A, v: &Value) -> Result<bool, 
             Call2(..) => true,
             Call3 => false,
             Return => true,
+            Fast(_) => false,
             //_ => return nyi!(line!()),
         };
         Ok(r)
@@ -1013,6 +1014,7 @@ fn nonempty_stack_cont<A: Active>(active: &mut A, v: Value_) -> Result<Step, Int
             Ok(Step {})
         }
         Return => return_(active, v),
+        Fast(_) => unreachable!(),
     }
 }
 

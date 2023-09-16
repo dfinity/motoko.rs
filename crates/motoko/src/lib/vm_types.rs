@@ -286,6 +286,12 @@ pub mod stack {
         Call3,
         Return,
         Respond(RespTarget),
+        Fast(FastInfo),
+    }
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct FastInfo {
+        // True to indicate that we should not dereference pointers implicitly; they are to be produced as values, to become the targets of a surrounding assignment.
+        pub assignment_lhs: bool,
     }
     impl FrameCont {
         pub fn formal(&self) -> Option<FormalFrameCont> {

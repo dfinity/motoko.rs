@@ -1,5 +1,5 @@
 use crate::ast::{
-    Cases, Dec_, Decs, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, ProjIndex, Source, Type,
+    Cases, Dec, Dec_, Decs, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, ProjIndex, Source, Type,
 };
 use crate::shared::{FastClone, Share};
 use crate::value::{
@@ -8,13 +8,69 @@ use crate::value::{
 };
 use crate::vm_types::{
     def::{Def, Field as FieldDef, Function as FunctionDef},
-    stack::{FieldContext, FieldValue, Frame, FrameCont},
+    stack::{FastInfo, FieldContext, FieldValue, Frame, FrameCont},
     Active, ActiveBorrow, Breakpoint, Cont, DebugPrintLine, Env, Interruption, Limit, Limits,
     ModulePath, Pointer, Response, Step,
 };
 use im_rc::{HashMap, Vector};
 
 use crate::{nyi, type_mismatch, type_mismatch_};
+
+fn eval_decs<A: Active>(active: &mut A, decs: &Decs) -> Result<Value_, Interruption> {
+    let mut ret = Value::Unit.into();
+    for dec in decs.vec.iter() {
+        ret = eval_dec_(active, dec)?;
+    }
+    Ok(ret)
+}
+
+fn begin<A: Active>(active: &mut A, assignment_lhs: bool) {
+    let env = active.env().fast_clone();
+    let source = active.cont_source().clone();
+    let context = active.defs().active_ctx.clone();
+    active.stack().push_front(Frame {
+        context,
+        env,
+        cont: FrameCont::Fast(FastInfo { assignment_lhs }),
+        cont_prim_type: None,
+        source,
+    })
+}
+
+fn end<A: Active>(active: &mut A) {
+    match active.stack().pop_front() {
+        Some(Frame {
+            cont: FrameCont::Fast(_),
+            ..
+        }) => (),
+        _ => unreachable!(),
+    }
+}
+
+fn info<'a, A: Active>(active: &'a A) -> &'a FastInfo {
+    match active.stack().front() {
+        Some(Frame {
+            cont: FrameCont::Fast(info),
+            ..
+        }) => info,
+        _ => unreachable!(),
+    }
+}
+
+pub fn eval_exp<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interruption> {
+    begin(active, false);
+    let r = eval_exp_(active, exp);
+    end(active);
+    r
+}
+
+fn deref<A: Active>(active: &mut A, v: &Value_) -> Result<Value_, Interruption> {
+    todo!()
+}
+
+fn assign<A: Active>(active: &mut A, v1: &Value_, v2: &Value_) -> Result<Value_, Interruption> {
+    todo!()
+}
 
 fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interruption> {
     use Exp::*;
@@ -25,9 +81,17 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
         Var(x) => {
             todo!()
         }
+        Tuple(es) => {
+            let mut vs = Vector::new();
+            for e in es.vec.iter() {
+                vs.push_back(eval_exp_(active, e)?)
+            }
+            Ok(Value::Tuple(vs).into())
+        }
         Paren(e) => eval_exp_(active, e),
         Ignore(e) => {
-            todo!()
+            drop(eval_exp_(active, e)?);
+            Ok(Value::Unit.into())
         }
         Bin(e1, binop, e2) => {
             let v1 = eval_exp_(active, e1)?;
@@ -49,10 +113,20 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
             Ok(Value::Unit.into())
         }
         BinAssign(e1, binop, e2) => {
-            todo!()
+            begin(active, true);
+            let v1 = eval_exp_(active, e1)?;
+            end(active);
+            let v2 = eval_exp_(active, e2)?;
+            let v3 = deref(active, &v1)?;
+            let v4 = crate::vm_ops::binop(&None, binop.clone(), v3, v2)?.into();
+            assign(active, &v1, &v4)
         }
         Assign(e1, e2) => {
-            todo!()
+            begin(active, true);
+            let v1 = eval_exp_(active, e1)?;
+            end(active);
+            let v2 = eval_exp_(active, e2)?;
+            assign(active, &v1, &v2)
         }
         Proj(e1, pi) => {
             todo!()
@@ -60,15 +134,27 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
         Call(e1, _, e2) => {
             todo!()
         }
-        Block(decs) => eval_decs(active, decs),
+        Block(decs) => {
+            begin(active, false);
+            let r = eval_decs(active, decs);
+            end(active);
+            r
+        }
         _ => nyi!(line!()),
     }
 }
 
-fn eval_decs<A: Active>(active: &mut A, decs: &Decs) -> Result<Value_, Interruption> {
-    todo!()
-}
-
 fn eval_dec_<A: Active>(active: &mut A, dec: &Dec_) -> Result<Value_, Interruption> {
-    todo!()
+    use Dec::*;
+    match &dec.0 {
+        Exp(e) => eval_exp_(active, e),
+        Let(p, e) => {
+            todo!()
+        }
+        Func(f) => {
+            // to do -- consolidate common code.
+            todo!()
+        }
+        _ => nyi!(line!()),
+    }
 }

@@ -148,12 +148,46 @@ fn eval_dec_<A: Active>(active: &mut A, dec: &Dec_) -> Result<Value_, Interrupti
     use Dec::*;
     match &dec.0 {
         Exp(e) => eval_exp_(active, e),
+        Var(p, e) => {
+            let v = eval_exp_(active, e)?;
+            if let Some(x) = crate::vm_match::get_pat_var(&p.0) {
+                let ptr = active.alloc(v);
+                let v = Value::Pointer(ptr).share();
+                active
+                    .env()
+                    .insert(x.as_ref().data_ref().clone(), v.fast_clone());
+                Ok(v.fast_clone())
+            } else {
+                nyi!(line!(), "Dec::Var({:?}, _)", p)
+            }
+        }
         Let(p, e) => {
-            todo!()
+            let v = eval_exp_(active, e)?;
+            if let Some(env) = crate::vm_match::pattern_matches(
+                active.env().clone(),
+                p.as_ref().data_ref(),
+                v.fast_clone(),
+            ) {
+                *active.env() = env;
+                Ok(v)
+            } else {
+                type_mismatch!(file!(), line!())
+            }
         }
         Func(f) => {
-            // to do -- consolidate common code.
-            todo!()
+            let id = f.name.clone();
+            let v = Value::Function(ClosedFunction(Closed {
+                ctx: active.defs().active_ctx.clone(),
+                env: active.env().fast_clone(),
+                content: f.clone(),
+            }))
+            .share();
+            if let Some(i) = id {
+                active
+                    .env()
+                    .insert(i.as_ref().data_ref().clone(), v.fast_clone());
+            };
+            Ok(v)
         }
         _ => nyi!(line!()),
     }

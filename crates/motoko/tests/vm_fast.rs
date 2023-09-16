@@ -1,6 +1,16 @@
 use motoko::check::assert_vm_fast_eval;
 
 #[test]
+fn tuple_proj() {
+    assert_vm_fast_eval("3", r#"(1, 2, 3, 4).2"#);
+}
+
+#[test]
+fn binop() {
+    assert_vm_fast_eval("4", "2 + 2")
+}
+
+#[test]
 fn let_() {
     assert_vm_fast_eval(
         "2",
@@ -34,11 +44,6 @@ fn var_() {
           var x = 2;
         "#,
     );
-}
-
-#[test]
-fn binop() {
-    assert_vm_fast_eval("4", "2 + 2")
 }
 
 #[test]

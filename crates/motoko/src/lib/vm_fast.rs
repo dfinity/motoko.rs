@@ -112,6 +112,7 @@ pub fn eval_exp<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interru
 fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interruption> {
     use Exp::*;
     match &exp.0 {
+        Value_(v) => Ok(v.fast_clone()),
         Literal(l) => Ok(Value::from_literal(l)
             .map_err(Interruption::ValueError)?
             .into()),
@@ -179,9 +180,25 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
             assign(active, &v1, &v2)
         }
         Proj(e1, pi) => {
-            todo!()
+            let v = eval_exp_(active, e1)?;
+            match &*v {
+                Value::Tuple(vs) => {
+                    if let ProjIndex::Usize(i) = pi {
+                        if let Some(v) = vs.get(*i).map(|v| (*v).clone().into()) {
+                            Ok(v)
+                        } else {
+                            type_mismatch!(file!(), line!())
+                        }
+                    } else {
+                        nyi!(line!())
+                    }
+                }
+                _ => type_mismatch!(file!(), line!()),
+            }
         }
         Call(e1, _, e2) => {
+            let v1 = eval_exp_(active, e1)?;
+            let v2 = eval_exp_(active, e2)?;
             todo!()
         }
         Block(decs) => {
@@ -189,6 +206,15 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
             let r = eval_decs_(active, decs);
             end(active);
             r
+        }
+        Dot(e, f) => {
+            let v = eval_exp_(active, e)?;
+            match &*v {
+                Value::Object(fs) => todo!(),
+                Value::Module(m) => todo!(),
+                Value::Dynamic(d) => d.dynamic().get_field(active.store(), f.0.as_str()),
+                _ => nyi!(line!()),
+            }
         }
         _ => nyi!(line!()),
     }

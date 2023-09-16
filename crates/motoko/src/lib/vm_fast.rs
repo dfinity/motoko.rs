@@ -213,7 +213,12 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
                 Value::Object(fs) => todo!(),
                 Value::Module(m) => todo!(),
                 Value::Dynamic(d) => d.dynamic().get_field(active.store(), f.0.as_str()),
-                _ => nyi!(line!()),
+                v => Err(type_mismatch_!(
+                    file!(),
+                    line!(),
+                    "dot-operator-is-matching-operand",
+                    format!("{:?} @ {}", v, active.cont_source())
+                )),
             }
         }
         _ => nyi!(line!()),

@@ -1,5 +1,5 @@
 use crate::ast::{
-    Cases, Dec, Dec_, Decs, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, ProjIndex, Source, Type,
+    Cases, Dec, Dec_, Decs, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, Prog, ProjIndex, Source, Type,
 };
 use crate::shared::{FastClone, Share};
 use crate::value::{
@@ -15,14 +15,6 @@ use crate::vm_types::{
 use im_rc::{HashMap, Vector};
 
 use crate::{nyi, type_mismatch, type_mismatch_};
-
-fn eval_decs<A: Active>(active: &mut A, decs: &Decs) -> Result<Value_, Interruption> {
-    let mut ret = Value::Unit.into();
-    for dec in decs.vec.iter() {
-        ret = eval_dec_(active, dec)?;
-    }
-    Ok(ret)
-}
 
 fn begin<A: Active>(active: &mut A, assignment_lhs: bool) {
     let env = active.env().fast_clone();
@@ -57,15 +49,18 @@ fn info<'a, A: Active>(active: &'a A) -> &'a FastInfo {
     }
 }
 
-pub fn eval_exp<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interruption> {
-    begin(active, false);
-    let r = eval_exp_(active, exp);
-    end(active);
-    r
-}
-
 fn assign<A: Active>(active: &mut A, v1: &Value_, v2: &Value_) -> Result<Value_, Interruption> {
-    todo!()
+    let r = match &**v1 {
+        Value::Pointer(p) => active.store().mutate(p.clone(), v2.fast_clone()),
+        Value::Index(p, i) => {
+            active
+                .store()
+                .mutate_index(p.clone(), i.fast_clone(), v2.fast_clone())
+        }
+        _ => type_mismatch!(file!(), line!()),
+    };
+    r?;
+    Ok(Value::Unit.share())
 }
 
 fn deref<A: Active>(active: &mut A, v: &Value_) -> Result<Value_, Interruption> {
@@ -90,6 +85,28 @@ fn eval_value_<A: Active>(active: &mut A, v: &Value_) -> Result<Value_, Interrup
         }
         _ => Ok(v.fast_clone()),
     }
+}
+
+pub fn eval_decs<A: Active>(active: &mut A, decs: &Decs) -> Result<Value_, Interruption> {
+    begin(active, false);
+    let r = eval_decs_(active, decs);
+    end(active);
+    r
+}
+
+pub fn eval_decs_<A: Active>(active: &mut A, decs: &Decs) -> Result<Value_, Interruption> {
+    let mut ret = Value::Unit.into();
+    for dec in decs.vec.iter() {
+        ret = eval_dec_(active, dec)?;
+    }
+    Ok(ret)
+}
+
+pub fn eval_exp<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interruption> {
+    begin(active, false);
+    let r = eval_exp_(active, exp);
+    end(active);
+    r
 }
 
 fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interruption> {
@@ -169,7 +186,7 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
         }
         Block(decs) => {
             begin(active, false);
-            let r = eval_decs(active, decs);
+            let r = eval_decs_(active, decs);
             end(active);
             r
         }
@@ -189,7 +206,7 @@ fn eval_dec_<A: Active>(active: &mut A, dec: &Dec_) -> Result<Value_, Interrupti
                 active
                     .env()
                     .insert(x.as_ref().data_ref().clone(), v.fast_clone());
-                Ok(v.fast_clone())
+                Ok(eval_value_(active, &v)?)
             } else {
                 nyi!(line!(), "Dec::Var({:?}, _)", p)
             }
@@ -225,3 +242,10 @@ fn eval_dec_<A: Active>(active: &mut A, dec: &Dec_) -> Result<Value_, Interrupti
         _ => nyi!(line!()),
     }
 }
+
+pub fn eval(prog: &str) -> Result<Value_, Interruption> {
+    let decs = crate::check::parse(prog).unwrap();
+    eval_decs(&mut crate::vm_types::Core::empty(), &decs)
+}
+
+mod test {}

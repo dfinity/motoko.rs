@@ -92,3 +92,17 @@ fn binop_assignment() {
     "#,
     );
 }
+
+#[test]
+fn while_() {
+    assert_vm_fast_eval(
+        "10",
+        r#"
+      var x = 0;
+      while(x < 10) {
+        x := x + 1
+      };
+      x
+    "#,
+    );
+}

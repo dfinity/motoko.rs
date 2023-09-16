@@ -247,5 +247,3 @@ pub fn eval(prog: &str) -> Result<Value_, Interruption> {
     let decs = crate::check::parse(prog).unwrap();
     eval_decs(&mut crate::vm_types::Core::empty(), &decs)
 }
-
-mod test {}

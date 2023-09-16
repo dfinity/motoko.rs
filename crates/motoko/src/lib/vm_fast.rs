@@ -64,12 +64,32 @@ pub fn eval_exp<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interru
     r
 }
 
-fn deref<A: Active>(active: &mut A, v: &Value_) -> Result<Value_, Interruption> {
+fn assign<A: Active>(active: &mut A, v1: &Value_, v2: &Value_) -> Result<Value_, Interruption> {
     todo!()
 }
 
-fn assign<A: Active>(active: &mut A, v1: &Value_, v2: &Value_) -> Result<Value_, Interruption> {
-    todo!()
+fn deref<A: Active>(active: &mut A, v: &Value_) -> Result<Value_, Interruption> {
+    match &**v {
+        Value::Pointer(p) => active.deref(p),
+        _ => type_mismatch!(file!(), line!()),
+    }
+}
+
+fn eval_value_<A: Active>(active: &mut A, v: &Value_) -> Result<Value_, Interruption> {
+    // We implicitly deref store pointers when they are evaluated
+    // outside the context of an assignment LHS.  When on the LHS of
+    // an assignment, their evaluation retains their pointer identity,
+    // in preparation for being re-assigned a new value.
+    match &**v {
+        Value::Pointer(p) => {
+            if info(active).assignment_lhs {
+                Ok(v.fast_clone())
+            } else {
+                active.deref(p)
+            }
+        }
+        _ => Ok(v.fast_clone()),
+    }
 }
 
 fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interruption> {
@@ -79,7 +99,20 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
             .map_err(Interruption::ValueError)?
             .into()),
         Var(x) => {
-            todo!()
+            let vo = active.env().get(x).map(|v| v.clone());
+            match vo {
+                Some(v) => eval_value_(active, &v),
+                None => {
+                    if x.string.starts_with("@") {
+                        let f = crate::value::PrimFunction::AtSignVar(x.to_string());
+                        Ok(Value::PrimFunction(f).share())
+                    } else {
+                        let ctx = active.defs().active_ctx.clone();
+                        let fd = crate::vm_def::resolve_def(active.defs(), &ctx, false, x)?;
+                        crate::vm_def::def_as_value(active.defs(), x, &fd.def)
+                    }
+                }
+            }
         }
         Tuple(es) => {
             let mut vs = Vector::new();
@@ -164,7 +197,7 @@ fn eval_dec_<A: Active>(active: &mut A, dec: &Dec_) -> Result<Value_, Interrupti
         Let(p, e) => {
             let v = eval_exp_(active, e)?;
             if let Some(env) = crate::vm_match::pattern_matches(
-                active.env().clone(),
+                active.env().clone(), /* to do -- avoid clones here. */
                 p.as_ref().data_ref(),
                 v.fast_clone(),
             ) {

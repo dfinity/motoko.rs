@@ -106,3 +106,28 @@ fn while_() {
     "#,
     );
 }
+
+#[test]
+fn nested_while_() {
+    assert_vm_fast_eval(
+        "()",
+        r#"
+var i = 0;
+var y = 0.0;
+var j = 0;
+var x = 0.0;
+i := 0;
+y := 0.0;
+while(i < 30) {
+ j := 0;
+ x := 0.0;
+ while(j < 20) {
+   x := x + 16.0;
+   j := j + 1;
+ };
+ i := i + 1;
+ y := y + 16.0;
+};
+"#,
+    );
+}

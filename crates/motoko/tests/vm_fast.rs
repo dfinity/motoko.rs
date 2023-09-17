@@ -136,3 +136,14 @@ while(i < 30) {
 "#,
     );
 }
+
+#[test]
+fn func_def_call() {
+    assert_vm_fast_eval(
+        "2",
+        r#"
+func f(x) { x + 1 };
+f(1)
+"#,
+    );
+}

@@ -20,6 +20,7 @@ fn begin<A: Active>(active: &mut A, assignment_lhs: bool) {
     let env = active.env().fast_clone();
     let source = active.cont_source().clone();
     let context = active.defs().active_ctx.clone();
+    // to do -- Set current cont to Hole? (connote no meaningful expression in that slot)
     active.stack().push_front(Frame {
         context,
         env,
@@ -67,6 +68,50 @@ fn deref<A: Active>(active: &mut A, v: &Value_) -> Result<Value_, Interruption> 
     match &**v {
         Value::Pointer(p) => active.deref(p),
         _ => type_mismatch!(file!(), line!()),
+    }
+}
+
+fn call<A: Active>(
+    active: &mut A,
+    v1: &Value_,
+    inst: &Option<Inst>,
+    v2: &Value_,
+) -> Result<Value_, Interruption> {
+    match &**v1 {
+        Value::Function(cf) => {
+            if let Some(env_) = crate::vm_match::pattern_matches(
+                cf.0.env.fast_clone(),
+                &cf.0.content.input.0,
+                v2.fast_clone(),
+            ) {
+                // Push stack.
+                begin(active, false);
+                // Bind variables.
+                *active.env() = env_;
+                // Do recursive function binding.
+                cf.0.content
+                    .name
+                    .fast_clone()
+                    .map(|f| active.env().insert(f.0.clone(), v1.fast_clone()));
+                // Use static bindings from the lexical scope of the function def.
+                active.defs().active_ctx = cf.0.ctx.clone();
+                // Run the body of the function.
+                let res = eval_exp_(active, &cf.0.content.exp)?;
+                // Pop stack.
+                end(active);
+                Ok(res)
+            } else {
+                type_mismatch!(file!(), line!())
+            }
+        }
+        Value::PrimFunction(pf) => nyi!(line!()),
+        _ => {
+            let func_value = active.deref_value(v1.fast_clone())?; // Account for dynamic value pointers
+            match &*func_value {
+                Value::Dynamic(d) => d.dynamic_mut().call(active.store(), inst, v2.fast_clone()),
+                _ => type_mismatch!(file!(), line!()),
+            }
+        }
     }
 }
 
@@ -196,10 +241,10 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
                 _ => type_mismatch!(file!(), line!()),
             }
         }
-        Call(e1, _, e2) => {
+        Call(e1, inst, e2) => {
             let v1 = eval_exp_(active, e1)?;
             let v2 = eval_exp_(active, e2)?;
-            todo!()
+            call(active, &v1, inst, &v2)
         }
         Block(decs) => {
             begin(active, false);

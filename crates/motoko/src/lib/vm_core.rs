@@ -775,6 +775,20 @@ impl Core {
         }
     }
 
+    pub fn run_fast(&mut self) -> Result<Value_, Interruption> {
+        let c = self.cont().clone();
+        let v = match c {
+            Cont::Decs(decs) => crate::vm_fast::eval_decs(self, &decs)?,
+            Cont::Exp_(e, decs) => {
+                assert_eq!(decs.len(), 0);
+                crate::vm_fast::eval_exp(self, &e)?
+            }
+            _ => todo!(),
+        };
+        *self.cont() = Cont::Value_(v.fast_clone());
+        Ok(v)
+    }
+
     /// Assert that the Agent is idle.
     pub fn assert_idle_agent(&self) -> Result<(), EvalInitError> {
         if self.schedule_choice != ScheduleChoice::Agent {

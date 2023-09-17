@@ -1,5 +1,5 @@
 use crate::ast::{
-    Cases, Dec, Dec_, Decs, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, Prog, ProjIndex, Source, Type,
+    Cases, Dec, Dec_, Exp, Exp_, Inst, Literal, Mut, Pat, Pat_, Prog, ProjIndex, Source, Type,
 };
 use crate::shared::{FastClone, Share};
 use crate::value::{
@@ -13,6 +13,7 @@ use crate::vm_types::{
     ModulePath, Pointer, Response, Step,
 };
 use im_rc::{HashMap, Vector};
+pub type Decs = Vector<Dec_>;
 
 use crate::{nyi, type_mismatch, type_mismatch_};
 
@@ -141,7 +142,7 @@ pub fn eval_decs<A: Active>(active: &mut A, decs: &Decs) -> Result<Value_, Inter
 
 pub fn eval_decs_<A: Active>(active: &mut A, decs: &Decs) -> Result<Value_, Interruption> {
     let mut ret = Value::Unit.into();
-    for dec in decs.vec.iter() {
+    for dec in decs.iter() {
         ret = eval_dec_(active, dec)?;
     }
     Ok(ret)
@@ -248,7 +249,7 @@ fn eval_exp_<A: Active>(active: &mut A, exp: &Exp_) -> Result<Value_, Interrupti
         }
         Block(decs) => {
             begin(active, false);
-            let r = eval_decs_(active, decs);
+            let r = eval_decs_(active, &decs.vec);
             end(active);
             r
         }
@@ -321,5 +322,5 @@ fn eval_dec_<A: Active>(active: &mut A, dec: &Dec_) -> Result<Value_, Interrupti
 
 pub fn eval(prog: &str) -> Result<Value_, Interruption> {
     let decs = crate::check::parse(prog).unwrap();
-    eval_decs(&mut crate::vm_types::Core::empty(), &decs)
+    eval_decs(&mut crate::vm_types::Core::empty(), &decs.vec)
 }

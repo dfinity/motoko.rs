@@ -194,7 +194,7 @@ pub mod def {
     use crate::ast::{DecField, DecFields};
 
     pub fn import<A: Active>(active: &mut A, path: &str) -> Result<ModuleDef, Interruption> {
-        let path0 = path.clone(); // for log.
+        let path0 = path; // for log.
         let path = format!("{}", &path[1..path.len() - 1]);
         let (package_name, local_path) = if path == "mo:⛔" || path == "mo:prim" {
             (Some("⛔".to_string()), "lib".to_string())

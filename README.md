@@ -15,7 +15,7 @@ Motoko tools for Rust.
 
 ## Related
 
-[MoVM UI (Online Demo)](https://mo-vm.netlify.app/)
+[Online interpreter](https://mo-vm.netlify.app/)
 
 ## Contributing
 

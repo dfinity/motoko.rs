@@ -820,6 +820,11 @@ impl Core {
         self.run(&Limits::none())
     }
 
+    pub fn eval_str(&mut self, input: &str) -> Result<Value_, Interruption> {
+        let prog = crate::check::parse(input)?;
+        self.eval_prog(prog)
+    }
+
     /// Evaluate a new program fragment, assuming agent is idle.
     ///
     /// The block may refer to variables

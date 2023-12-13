@@ -784,6 +784,7 @@ pub enum Interruption {
     NoMatchingCase,
     #[cfg(feature = "parser")]
     SyntaxError(SyntaxError),
+    SyntaxErrorCode(SyntaxErrorCode),
     ValueError(ValueError),
     EvalInitError(EvalInitError),
     UnboundIdentifer(Id),
@@ -832,6 +833,12 @@ impl Interruption {
 impl From<SyntaxError> for Interruption {
     fn from(err: SyntaxError) -> Self {
         Interruption::SyntaxError(err)
+    }
+}
+
+impl From<SyntaxErrorCode> for Interruption {
+    fn from(err: SyntaxErrorCode) -> Self {
+        Interruption::SyntaxErrorCode(err)
     }
 }
 

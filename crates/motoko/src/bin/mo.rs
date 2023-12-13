@@ -7,6 +7,9 @@ use structopt::{clap, clap::Shell};
 use motoko::format::{format_one_line, format_pretty};
 use motoko::vm_types::Limits;
 
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
+
 pub type OurResult<X> = Result<X, OurError>;
 
 impl From<()> for OurError {
@@ -82,6 +85,7 @@ pub enum CliCommand {
 
         input: String,
     },
+    Repl,
 }
 
 fn init_log(level_filter: log::LevelFilter) {
@@ -131,6 +135,37 @@ fn main() -> OurResult<()> {
             };
             let v = motoko::vm::eval_limit(&input, &limits);
             println!("final value: {:?}", v)
+        }
+        CliCommand::Repl => {
+            let mut rl = Editor::<()>::new();
+            if rl.load_history("history.txt").is_err() {
+                println!("No previous history.");
+            }
+            use motoko::vm_types::Core;
+            let mut core = Core::empty();
+            loop {
+                let readline = rl.readline("mo> ");
+                match readline {
+                    Ok(line) => {
+                        let v = core.eval_str(&line);
+                        println!("{:?}", v);
+                        rl.add_history_entry(line.as_str());
+                    }
+                    Err(ReadlineError::Interrupted) => {
+                        println!("CTRL-C");
+                        break;
+                    }
+                    Err(ReadlineError::Eof) => {
+                        println!("CTRL-D");
+                        break;
+                    }
+                    Err(err) => {
+                        println!("Error: {:?}", err);
+                        break;
+                    }
+                }
+            }
+            rl.save_history("history.txt").unwrap();
         }
     };
     Ok(())

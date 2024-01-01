@@ -32,8 +32,8 @@ serde_path_to_error = { version = "0.1.8", optional = true }
 # serde_with = "2.0.1"
 test-log = "0.2.11"
 dyn-clone = "1.0.9"
-candid = "0.8.4"
-rustyline = "7.0.0"
+candid = "0.8"
+rustyline = { version = "7.0.0", optional = true }
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -44,15 +44,15 @@ lalrpop = "0.19.7"
 [lib]
 name = "motoko"
 path = "src/lib/mod.rs"
-test = true            # Is tested by default.
-doctest = true         # Documentation examples are tested by default.
-bench = true           # Is benchmarked by default.
-doc = true             # Is documented by default.
-plugin = false         # Used as a compiler plugin (deprecated).
-harness = true         # Use libtest harness.
-edition = "2018"       # The edition of the target.
-crate-type = ["lib"]   # The crate types to generate.
-required-features = [] # Features required to build this target (N/A for lib).
+test = true             # Is tested by default.
+doctest = true          # Documentation examples are tested by default.
+bench = true            # Is benchmarked by default.
+doc = true              # Is documented by default.
+plugin = false          # Used as a compiler plugin (deprecated).
+harness = true          # Use libtest harness.
+edition = "2018"        # The edition of the target.
+crate-type = ["lib"]    # The crate types to generate.
+required-features = []  # Features required to build this target (N/A for lib).
 
 [[bin]]
 name = "mo-rs"
@@ -64,7 +64,7 @@ default = ["parser", "to-motoko"]
 #default = []
 reflection = ["value-reflection", "core-reflection"]
 
-exe = []
+exe = ["rustyline"]
 serde-paths = ["serde_path_to_error"]
 parser = []
 to-motoko = []

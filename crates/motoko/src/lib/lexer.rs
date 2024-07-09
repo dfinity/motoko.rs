@@ -54,6 +54,7 @@ pub const KEYWORDS: &[&str] = &[
     "to_candid",
     "from_candid",
     "with",
+    "finally",
 ];
 
 pub fn is_keyword(ident: &str) -> bool {
